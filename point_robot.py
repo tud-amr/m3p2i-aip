@@ -79,6 +79,7 @@ height = 0.2
 depth = 0.1
 
 box_asset = gym.create_box(sim, width, height, depth, asset_options_objects)
+box_asset = gym.create_box(sim, width, height, depth, asset_options_objects)
 
 for i in range(num_envs):
     # create env
@@ -86,11 +87,11 @@ for i in range(num_envs):
     envs.append(env)
 
     # add point robot
-    point_robot_handle = gym.create_actor(env, point_robot_asset, pose, "pointRobot", i, 1)
+    point_robot_handle = gym.create_actor(env, point_robot_asset, pose, "pointRobot", i, -1)
     point_robot_handles.append(point_robot_handle)
 
     # Add obstacles
-    box_handle = gym.create_actor(env, box_asset, pose_box, "Box", -1, 1)
+    box_handle = gym.create_actor(env, box_asset, pose_box, "Box", i, -1)
 
 
 # Get infor about one of the n environments
@@ -127,6 +128,7 @@ print('This is the current position and velocity, zero at start', [pos, vel])
 # Point camera at environments
 cam_props = gymapi.CameraProperties()
 viewer = gym.create_viewer(sim, cam_props)
+contact = gymapi.RigidContact()
 
 while not gym.query_viewer_has_closed(viewer):
     t = gym.get_sim_time(sim)
@@ -134,7 +136,9 @@ while not gym.query_viewer_has_closed(viewer):
     # Step the physics
     gym.simulate(sim)
     gym.fetch_results(sim, True)
-
+    contact = gym.get_env_rigid_contacts(env)
+    print(contact[1])
+    #print(gym.get_rigid_linear_velocity(env,movable_obstacle_handle))
     # Step rendering
     gym.step_graphics(sim)
     gym.draw_viewer(viewer, sim, False)
