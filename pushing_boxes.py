@@ -9,8 +9,8 @@ gym = gymapi.acquire_gym()
 sim_params = gymapi.SimParams()
 
 # set common parameters
-sim_params.dt = 1 / 60
-sim_params.substeps = 2
+sim_params.dt = 1 / 100
+sim_params.substeps = 1
 sim_params.up_axis = gymapi.UP_AXIS_Z
 sim_params.gravity = gymapi.Vec3(0.0, 0.0, -9.8)
 
@@ -52,7 +52,7 @@ point_robot_asset = gym.load_asset(sim, asset_root, point_robot_asset_file, asse
 
 # Set up the env grid
 num_envs = 100
-spacing = 5.0
+spacing = 10.0
 env_lower = gymapi.Vec3(-spacing, 0.0, -spacing)
 env_upper = gymapi.Vec3(spacing, spacing, spacing)
 # Some common handles for later use
@@ -97,11 +97,15 @@ movable_box_pose = gymapi.Transform()
 movable_box_pose.p = gymapi.Vec3(0.5, 0.5, 0)
 
 obstacle_pose = gymapi.Transform()
-obstacle_pose.p = gymapi.Vec3(1, 1, 0)
+obstacle_pose.p = gymapi.Vec3(3, 3, 0)
+
+goal_pose = gymapi.Transform()
+goal_pose.p = gymapi.Vec3(1, 1, 0)
 
 color_vec_movable = gymapi.Vec3(0.8, 0.2, 0.2)
 color_vec_fixed = gymapi.Vec3(0.3, 0.7, 0.7)
 color_vec_walls= gymapi.Vec3(0.1, 0.1, 0.1)
+color_vec_goal= gymapi.Vec3(0.3, 0.1, 0.2)
 
 for i in range(num_envs):
     # create env
@@ -109,7 +113,7 @@ for i in range(num_envs):
     envs.append(env)
 
     # create arena
-    add_arena(4,0.1, 0, 0, i) # Wall size, wall thickness, origin_x, origin_y, index
+    add_arena(8,0.1, 0, 0, i) # Wall size, wall thickness, origin_x, origin_y, index
 
     # add movable squar box
     movable_obstacle_handle = add_box(0.2, 0.2, 0.2, movable_box_pose, color_vec_movable, False, "movable_box", i)
@@ -117,8 +121,10 @@ for i in range(num_envs):
     # add fixed obstacle
     obstacle_handle = add_box(0.3, 0.4, 0.5, obstacle_pose, color_vec_fixed, True, "obstacle", i)
 
+    goal_region = add_box(0.3, 0.4, 0.01, goal_pose, color_vec_goal, True, "goal_region", -2) # No collisions with goal region
+
     # add point robot
-    point_robot_handle = gym.create_actor(env, point_robot_asset, pose, "pointRobot", i, 1)
+    point_robot_handle = gym.create_actor(env, point_robot_asset, pose, "pointRobot", i, -1)
     point_robot_handles.append(point_robot_handle)
 
 # Controlling
@@ -131,7 +137,7 @@ vel_targets = [0.5, 0.5]
 for i in range(num_envs):
     gym.set_actor_dof_properties(envs[i], point_robot_handles[i], props)
     gym.set_actor_dof_velocity_targets(envs[i], point_robot_handles[i], vel_targets)
-# Inspection states (you can also set them or get the states of the simulation instead of the reduced info contained in the DOFs)
+#Inspection states (you can also set them or get the states of the simulation instead of the reduced info contained in the DOFs)
 dof_states = gym.get_actor_dof_states(env, point_robot_handle, gymapi.STATE_ALL)
 pos = dof_states["pos"]   # all positions
 vel = dof_states["vel"]   # all velocities
