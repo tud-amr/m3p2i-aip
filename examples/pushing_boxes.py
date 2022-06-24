@@ -9,8 +9,8 @@ gym = gymapi.acquire_gym()
 sim_params = gymapi.SimParams()
 
 # set common parameters
-sim_params.dt = 1 / 60
-sim_params.substeps = 2
+sim_params.dt = 1 / 100
+sim_params.substeps = 1
 sim_params.up_axis = gymapi.UP_AXIS_Z
 sim_params.gravity = gymapi.Vec3(0.0, 0.0, -9.8)
 
@@ -42,19 +42,17 @@ plane_params.restitution = 0
 gym.add_ground(sim, plane_params)
 
 # Load asset
-asset_root = "assets"
-point_robot_asset_file = "urdf/albert/albert.urdf"
-
-
+asset_root = "../assets"
+point_robot_asset_file = "urdf/pointRobot.urdf"
 print("Loading asset '%s' from '%s'" % (point_robot_asset_file, asset_root))
 asset_options = gymapi.AssetOptions()
-asset_options.fix_base_link = False
+asset_options.fix_base_link = True
 asset_options.armature = 0.01
 point_robot_asset = gym.load_asset(sim, asset_root, point_robot_asset_file, asset_options)
 
 # Set up the env grid
-num_envs = 1
-spacing = 1.0
+num_envs = 100
+spacing = 10.0
 env_lower = gymapi.Vec3(-spacing, 0.0, -spacing)
 env_upper = gymapi.Vec3(spacing, spacing, spacing)
 # Some common handles for later use
@@ -66,72 +64,87 @@ num_per_row = int(math.sqrt(num_envs))
 
 # To add an actor to an environment, you must specify the desired pose,
 pose = gymapi.Transform()
-pose.p = gymapi.Vec3(0.0, 0.0, 0.01)
+pose.p = gymapi.Vec3(0.0, 0.0, 0.05)
 
-# Obstacles
-pose_box = gymapi.Transform()
-pose_box.p = gymapi.Vec3(0.5, 0.3, 0.0)
+def add_box(width, height, depth, pose, color, isFixed, name, index):
+    # Additional assets from API
+    asset_options_objects = gymapi.AssetOptions()
+    asset_options_objects.fix_base_link = isFixed
 
-# Additional assets from API
-asset_options_objects = gymapi.AssetOptions()
-asset_options_objects.fix_base_link = False
+    object_asset = gym.create_box(sim, width, height, depth, asset_options_objects)
+    # Add obstacles
+    box_handle = gym.create_actor(env, object_asset, pose, name, index, -1)
+    gym.set_rigid_body_color(env, box_handle, 0, gymapi.MESH_VISUAL_AND_COLLISION, color)
+    return box_handle
 
-width = 0.1
-height = 0.2
-depth = 0.1
+def add_arena(square_size, wall_thikhness, origin_x, origin_y, index):
+    wall_pose = gymapi.Transform()
+    # Add 4 walls
+    wall_pose.p = gymapi.Vec3(square_size/2+origin_x, origin_y, 0.0)
+    wall_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1)
+    add_box(wall_thikhness, square_size, 1, wall_pose, color_vec_walls, True, "wall1", index)
+    wall_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1)
+    wall_pose.p = gymapi.Vec3(-square_size/2+origin_x, origin_y, 0.0)
+    add_box(wall_thikhness, square_size, 1, wall_pose, color_vec_walls, True, "wall2", index)
+    wall_pose.p = gymapi.Vec3(origin_x, square_size/2+origin_y, 0.0)
+    wall_pose.r = gymapi.Quat(0.0, 0.0, 0.707107, 0.707107)
+    add_box(wall_thikhness, square_size, 1, wall_pose, color_vec_walls, True, "wall3", index)
+    wall_pose.p = gymapi.Vec3(origin_x, -square_size/2+origin_y, 0.0)
+    wall_pose.r = gymapi.Quat(0.0, 0.0, 0.707107, 0.707107)
+    add_box(wall_thikhness, square_size, 1, wall_pose, color_vec_walls, True, "wall4", index)
 
-box_asset = gym.create_box(sim, width, height, depth, asset_options_objects)
-box_asset = gym.create_box(sim, width, height, depth, asset_options_objects)
+movable_box_pose = gymapi.Transform()
+movable_box_pose.p = gymapi.Vec3(0.5, 0.5, 0)
+
+obstacle_pose = gymapi.Transform()
+obstacle_pose.p = gymapi.Vec3(3, 3, 0)
+
+goal_pose = gymapi.Transform()
+goal_pose.p = gymapi.Vec3(1, 1, 0)
+
+color_vec_movable = gymapi.Vec3(0.8, 0.2, 0.2)
+color_vec_fixed = gymapi.Vec3(0.3, 0.7, 0.7)
+color_vec_walls= gymapi.Vec3(0.1, 0.1, 0.1)
+color_vec_goal= gymapi.Vec3(0.3, 0.1, 0.2)
 
 for i in range(num_envs):
     # create env
     env = gym.create_env(sim, env_lower, env_upper, num_per_row)
     envs.append(env)
 
+    # create arena
+    add_arena(8,0.1, 0, 0, i) # Wall size, wall thickness, origin_x, origin_y, index
+
+    # add movable squar box
+    movable_obstacle_handle = add_box(0.2, 0.2, 0.2, movable_box_pose, color_vec_movable, False, "movable_box", i)
+    
+    # add fixed obstacle
+    obstacle_handle = add_box(0.3, 0.4, 0.5, obstacle_pose, color_vec_fixed, True, "obstacle", i)
+
+    goal_region = add_box(0.3, 0.4, 0.01, goal_pose, color_vec_goal, True, "goal_region", -2) # No collisions with goal region
+
     # add point robot
     point_robot_handle = gym.create_actor(env, point_robot_asset, pose, "pointRobot", i, -1)
     point_robot_handles.append(point_robot_handle)
 
-    # Add obstacles
-    box_handle = gym.create_actor(env, box_asset, pose_box, "Box", i, -1)
-
-
-# Get infor about one of the n environments
-num_bodies = gym.get_actor_rigid_body_count(env, point_robot_handle)
-num_joints = gym.get_actor_joint_count(env, point_robot_handle)
-num_dofs = gym.get_actor_dof_count(env, point_robot_handle)
-
-# Inspecting the pointRobot
-print('\nThe point robot has:\n')
-print('Number of rigid bodies:', num_bodies)
-print('Number of joints:', num_joints)
-print('Number of DOFs:', num_dofs)
-
+# Controlling
 props = gym.get_asset_dof_properties(point_robot_asset)
 print('\nSome properties of the dof', props)
 props["driveMode"].fill(gymapi.DOF_MODE_VEL)
 props["stiffness"].fill(0.0)
 props["damping"].fill(600.0)
-
-print('\nAnd after changing the properties:', props)
-
-# Controlling
-# rotocasters needs to have the sae velovity as the wheel to go straight (last 4 parameters)
-vel_targets = [0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2]
+vel_targets = [0.5, 0.5]
 for i in range(num_envs):
     gym.set_actor_dof_properties(envs[i], point_robot_handles[i], props)
     gym.set_actor_dof_velocity_targets(envs[i], point_robot_handles[i], vel_targets)
-# Inspection states (you can also set them or get the states of the simulation instead of the reduced info contained in the DOFs)
+#Inspection states (you can also set them or get the states of the simulation instead of the reduced info contained in the DOFs)
 dof_states = gym.get_actor_dof_states(env, point_robot_handle, gymapi.STATE_ALL)
 pos = dof_states["pos"]   # all positions
 vel = dof_states["vel"]   # all velocities
 
-print('This is the current position and velocity, zero at start', [pos, vel])
-
 # Point camera at environments
 cam_props = gymapi.CameraProperties()
 viewer = gym.create_viewer(sim, cam_props)
-contact = gymapi.RigidContact()
 
 while not gym.query_viewer_has_closed(viewer):
     t = gym.get_sim_time(sim)
@@ -139,9 +152,7 @@ while not gym.query_viewer_has_closed(viewer):
     # Step the physics
     gym.simulate(sim)
     gym.fetch_results(sim, True)
-    contact = gym.get_env_rigid_contacts(env)
-    print(contact[1])
-    #print(gym.get_rigid_linear_velocity(env,movable_obstacle_handle))
+
     # Step rendering
     gym.step_graphics(sim)
     gym.draw_viewer(viewer, sim, False)

@@ -42,11 +42,13 @@ plane_params.restitution = 0
 gym.add_ground(sim, plane_params)
 
 # Load asset
-asset_root = "assets"
-point_robot_asset_file = "urdf/pointRobot.urdf"
+asset_root = "../assets"
+point_robot_asset_file = "urdf/albert/albert.urdf"
+
+
 print("Loading asset '%s' from '%s'" % (point_robot_asset_file, asset_root))
 asset_options = gymapi.AssetOptions()
-asset_options.fix_base_link = True
+asset_options.fix_base_link = False
 asset_options.armature = 0.01
 point_robot_asset = gym.load_asset(sim, asset_root, point_robot_asset_file, asset_options)
 
@@ -64,7 +66,7 @@ num_per_row = int(math.sqrt(num_envs))
 
 # To add an actor to an environment, you must specify the desired pose,
 pose = gymapi.Transform()
-pose.p = gymapi.Vec3(0.0, 0.0, 0.05)
+pose.p = gymapi.Vec3(0.0, 0.0, 0.01)
 
 # Obstacles
 pose_box = gymapi.Transform()
@@ -114,7 +116,8 @@ props["damping"].fill(600.0)
 print('\nAnd after changing the properties:', props)
 
 # Controlling
-vel_targets = [0.5, 0.5]
+# rotocasters needs to have the sae velovity as the wheel to go straight (last 4 parameters)
+vel_targets = [0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2]
 for i in range(num_envs):
     gym.set_actor_dof_properties(envs[i], point_robot_handles[i], props)
     gym.set_actor_dof_velocity_targets(envs[i], point_robot_handles[i], vel_targets)

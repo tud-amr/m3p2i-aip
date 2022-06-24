@@ -44,7 +44,7 @@ plane_params.restitution = 0
 gym.add_ground(sim, plane_params)
 
 # Load robot asset
-asset_root = "assets"
+asset_root = "../assets"
 asset_file = "urdf/pointRobot.urdf"
 asset_options = gymapi.AssetOptions()
 asset_options.fix_base_link = True
