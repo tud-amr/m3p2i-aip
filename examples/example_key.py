@@ -2,12 +2,13 @@ from isaacgym import gymapi
 from isaacgym import gymutil
 from isaacgym import gymtorch
 import torch
+from utils import env_conf
 
 import math
 import random
 
 # parse arguments
-args = gymutil.parse_arguments(description="Simple Panda Example")
+args = gymutil.parse_arguments(description="Simple Example")
 args.use_gpu = True
 # args.graphics_device_id = -1
 
@@ -31,8 +32,15 @@ gym = gymapi.acquire_gym()
 sim = gym.create_sim(args.compute_device_id, args.graphics_device_id, args.physics_engine, sim_params)
 
 # optionally create viewer
-#viewer = gym.create_viewer(sim, gymapi.CameraProperties())
-viewer = None
+viewer = gym.create_viewer(sim, gymapi.CameraProperties())
+#viewer = None
+
+# subscribe to input events. This allows input to be used to interact
+# with the simulation
+gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_A, "left")
+gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_S, "down")
+gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_D, "right")
+gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_W, "up")
 
 # Add ground plane
 plane_params = gymapi.PlaneParams()
@@ -54,8 +62,8 @@ print("Loading asset '%s' from '%s'" % (asset_file, asset_root))
 robot_asset = gym.load_asset(sim, asset_root, asset_file, asset_options)
 
 # Set up the env grid
-num_envs = 9 
-spacing = 1.0
+num_envs = 1 
+spacing = 10.0
 env_lower = gymapi.Vec3(-spacing, 0.0, -spacing)
 env_upper = gymapi.Vec3(spacing, spacing, spacing)
 
@@ -73,7 +81,18 @@ for i in range(num_envs):
     # create env
     env = gym.create_env(sim, env_lower, env_upper, num_per_row)
     envs.append(env)
+    env_conf.add_arena(sim, gym, env, 8,0.1, 0, 0, i) # Wall size, wall thickness, origin_x, origin_y, index
+    
+    # add movable squar box
+    movable_obstacle_handle = env_conf.add_box(sim, gym, env,0.2, 0.2, 0.2, env_conf.movable_box_pose, env_conf.color_vec_movable, False, "movable_box", i)
+    
+    # add fixed obstacle
+    obstacle_handle = env_conf.add_box(sim, gym, env, 0.3, 0.4, 0.5, env_conf.obstacle_pose, env_conf.color_vec_fixed, True, "obstacle", i)
 
+    goal_region = env_conf.add_box(sim, gym, env, 1, 1, 0.01, env_conf.goal_pose, env_conf.color_vec_goal, True, "goal_region", -2) # No collisions with goal region
+    recharge_region = env_conf.add_box(sim, gym, env,1 , 1, 0.01, env_conf.recharge_pose, env_conf.color_vec_recharge, True, "goal_region", -2) # No collisions with recharge region
+    
+    
     # add point bot
     robot_handle = gym.create_actor(env, robot_asset, pose, "point", i, 1)
     robot_handles.append(robot_handle)
@@ -102,6 +121,12 @@ step = 0
 mppi_step_count = 100
 # sample initial action sequence
 action_sequence = (1 - -1) * torch.rand(mppi_step_count, num_dofs, device="cuda:0") - 1
+zero_vel = torch.zeros(1, num_dofs, dtype=torch.float32, device="cuda:0")
+up_vel = torch.tensor([-2, 0], dtype=torch.float32, device="cuda:0")
+down_vel = torch.tensor([2, 0], dtype=torch.float32, device="cuda:0")
+left_vel = torch.tensor([0, 2], dtype=torch.float32, device="cuda:0")
+right_vel = torch.tensor([0, -2], dtype=torch.float32, device="cuda:0")
+
 
 while viewer is None or not gym.query_viewer_has_closed(viewer):
     gym.simulate(sim)
@@ -109,15 +134,27 @@ while viewer is None or not gym.query_viewer_has_closed(viewer):
     step += 1
 
     # apply sampled action
-    gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(action_sequence[step % mppi_step_count]))
+    #gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(action_sequence[step % mppi_step_count]))
 
-    if step % mppi_step_count == 0:
-        # reset states
-        reset_states = torch.zeros(2, num_dofs, dtype=torch.float32, device="cuda:0")
-        gym.set_dof_state_tensor(sim, gymtorch.unwrap_tensor(reset_states))
+    for evt in gym.query_viewer_action_events(viewer):
+        if evt.action == "left" and evt.value > 0:
+            gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(left_vel))
+        elif evt.action == "down" and evt.value > 0:
+            gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(down_vel))
+        elif evt.action == "up" and evt.value > 0:
+            gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(up_vel))
+        elif evt.action == "right" and evt.value > 0:
+            gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(right_vel))
+        else:
+            gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(zero_vel))
+    
+    # if step % mppi_step_count == 0:
+    #     # reset states
+    #     reset_states = torch.zeros(2, num_dofs, dtype=torch.float32, device="cuda:0")
+    #     gym.set_dof_state_tensor(sim, gymtorch.unwrap_tensor(reset_states))
 
-        # sample action sequence (random between -1, 1)
-        action_sequence = 2 * torch.rand(mppi_step_count, num_dofs, device="cuda:0") - 1
+    #     # sample action sequence (random between -1, 1)
+    #     action_sequence = 2 * torch.rand(mppi_step_count, num_dofs, device="cuda:0") - 1
 
     if viewer is not None:
         # Step rendering

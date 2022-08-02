@@ -126,7 +126,7 @@ dof_states = gym.get_actor_dof_states(env, point_robot_handle, gymapi.STATE_ALL)
 pos = dof_states["pos"]   # all positions
 vel = dof_states["vel"]   # all velocities
 
-print('This is the current position and velocity, zero at start', [pos, vel])
+#print('This is the current position and velocity, zero at start', [pos, vel])
 
 # Point camera at environments
 cam_props = gymapi.CameraProperties()
@@ -140,7 +140,7 @@ while not gym.query_viewer_has_closed(viewer):
     gym.simulate(sim)
     gym.fetch_results(sim, True)
     contact = gym.get_env_rigid_contacts(env)
-    print(contact[1])
+    #print(contact[1])
     #print(gym.get_rigid_linear_velocity(env,movable_obstacle_handle))
     # Step rendering
     gym.step_graphics(sim)

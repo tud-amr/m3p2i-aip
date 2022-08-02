@@ -2,6 +2,7 @@ from isaacgym import gymapi
 from isaacgym import gymutil
 from isaacgym import gymtorch
 import torch
+from pytorch_mppi import mppi
 
 import math
 import random
@@ -31,8 +32,8 @@ gym = gymapi.acquire_gym()
 sim = gym.create_sim(args.compute_device_id, args.graphics_device_id, args.physics_engine, sim_params)
 
 # optionally create viewer
-#viewer = gym.create_viewer(sim, gymapi.CameraProperties())
-viewer = None
+viewer = gym.create_viewer(sim, gymapi.CameraProperties())
+#viewer = None
 
 # Add ground plane
 plane_params = gymapi.PlaneParams()

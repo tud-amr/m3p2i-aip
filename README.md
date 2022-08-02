@@ -24,10 +24,10 @@ conda acivate <env_name>
 Then you are ready to test an example script:
 
 ````bash
-cd <path/to/you_isaac_gym_folder>
+cd <path/to/you_isaac_gym_folder/examples>
 python3 example_battery_isaac.py
 ````
 
 
-
-
+## Troubleshooting
+If you hav an NVIDIA card and after running the simulation you get a black screen, you might need to force the use of the GPU card through ``export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json``. Run this command from the same folder as the script to be launched

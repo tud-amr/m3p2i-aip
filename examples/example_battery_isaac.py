@@ -4,6 +4,7 @@ from isaacgym import gymapi
 import numpy as np
 from decision_making import ai_agent, adaptive_action_selection
 import isaac_int_req_templates, isaac_state_action_templates 
+from utils import env_conf
 
 # Initialize gym
 gym = gymapi.acquire_gym()
@@ -55,7 +56,7 @@ point_robot_asset = gym.load_asset(sim, asset_root, point_robot_asset_file, asse
 
 # Set up the env grid
 num_envs = 1
-spacing = 10.0
+spacing = 6.0
 env_lower = gymapi.Vec3(-spacing, 0.0, -spacing)
 env_upper = gymapi.Vec3(spacing, spacing, spacing)
 # Some common handles for later use
@@ -69,77 +70,27 @@ num_per_row = int(math.sqrt(num_envs))
 pose = gymapi.Transform()
 pose.p = gymapi.Vec3(0.0, 0.0, 0.05)
 
-def add_box(width, height, depth, pose, color, isFixed, name, index):
-    # Additional assets from API
-    asset_options_objects = gymapi.AssetOptions()
-    asset_options_objects.fix_base_link = isFixed
-
-    object_asset = gym.create_box(sim, width, height, depth, asset_options_objects)
-    # Add obstacles
-    box_handle = gym.create_actor(env, object_asset, pose, name, index, -1)
-    gym.set_rigid_body_color(env, box_handle, 0, gymapi.MESH_VISUAL_AND_COLLISION, color)
-    return box_handle
-
-def add_arena(square_size, wall_thikhness, origin_x, origin_y, index):
-    wall_pose = gymapi.Transform()
-    # Add 4 walls
-    wall_pose.p = gymapi.Vec3(square_size/2+origin_x, origin_y, 0.0)
-    wall_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1)
-    add_box(wall_thikhness, square_size, 1, wall_pose, color_vec_walls, True, "wall1", index)
-    wall_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1)
-    wall_pose.p = gymapi.Vec3(-square_size/2+origin_x, origin_y, 0.0)
-    add_box(wall_thikhness, square_size, 1, wall_pose, color_vec_walls, True, "wall2", index)
-    wall_pose.p = gymapi.Vec3(origin_x, square_size/2+origin_y, 0.0)
-    wall_pose.r = gymapi.Quat(0.0, 0.0, 0.707107, 0.707107)
-    add_box(wall_thikhness, square_size, 1, wall_pose, color_vec_walls, True, "wall3", index)
-    wall_pose.p = gymapi.Vec3(origin_x, -square_size/2+origin_y, 0.0)
-    wall_pose.r = gymapi.Quat(0.0, 0.0, 0.707107, 0.707107)
-    add_box(wall_thikhness, square_size, 1, wall_pose, color_vec_walls, True, "wall4", index)
-
-movable_box_pose = gymapi.Transform()
-movable_box_pose.p = gymapi.Vec3(0.5, 0.5, 0)
-
-obstacle_pose = gymapi.Transform()
-obstacle_pose.p = gymapi.Vec3(3, 3, 0)
-
-goal_pose = gymapi.Transform()
-goal_pose.p = gymapi.Vec3(-5, 5, 0)
-
-docking_station_loc = [-5, -5]
-recharge_pose = gymapi.Transform()
-recharge_pose.p = gymapi.Vec3(docking_station_loc[1], docking_station_loc[0], 0)
-
-color_vec_movable = gymapi.Vec3(0.5, 0.1, 0.7)
-color_vec_fixed = gymapi.Vec3(0.8, 0.2, 0.2)
-color_vec_walls= gymapi.Vec3(0.1, 0.1, 0.1)
-color_vec_goal= gymapi.Vec3(0.5, 0.2, 0.7)
-color_vec_recharge= gymapi.Vec3(0.0, 0.9, 0.3)
-
-color_vec_battery_ok = gymapi.Vec3(0.0, 0.7, 0.5)
-color_vec_battery_low = gymapi.Vec3(0.8, 0.5, 0.)
-color_vec_battery_critical = gymapi.Vec3(0.8, 0.2, 0.2)
-
 for i in range(num_envs):
     # create env
     env = gym.create_env(sim, env_lower, env_upper, num_per_row)
     envs.append(env)
     # create arena
-    add_arena(12,0.1, 0, 0, i) # Wall size, wall thickness, origin_x, origin_y, index
+    env_conf.add_arena(sim, gym, env, 8,0.1, 0, 0, i) # Wall size, wall thickness, origin_x, origin_y, index
 
     # add movable squar box
-    movable_obstacle_handle = add_box(0.2, 0.2, 0.2, movable_box_pose, color_vec_movable, False, "movable_box", i)
+    movable_obstacle_handle = env_conf.add_box(sim, gym, env,0.2, 0.2, 0.2, env_conf.movable_box_pose, env_conf.color_vec_movable, False, "movable_box", i)
     
     # add fixed obstacle
-    obstacle_handle = add_box(0.3, 0.4, 0.5, obstacle_pose, color_vec_fixed, True, "obstacle", i)
+    obstacle_handle = env_conf.add_box(sim, gym, env, 0.3, 0.4, 0.5, env_conf.obstacle_pose, env_conf.color_vec_fixed, True, "obstacle", i)
 
-    goal_region = add_box(1, 1, 0.01, goal_pose, color_vec_goal, True, "goal_region", -2) # No collisions with goal region
-    recharge_region = add_box(1, 1, 0.01, recharge_pose, color_vec_recharge, True, "goal_region", -2) # No collisions with recharge region
+    goal_region = env_conf.add_box(sim, gym, env, 1, 1, 0.01, env_conf.goal_pose, env_conf.color_vec_goal, True, "goal_region", -2) # No collisions with goal region
+    recharge_region = env_conf.add_box(sim, gym, env,1 , 1, 0.01, env_conf.recharge_pose, env_conf.color_vec_recharge, True, "goal_region", -2) # No collisions with recharge region
     
     # add point robot
     point_robot_handle = gym.create_actor(env, point_robot_asset, pose, "pointRobot", i, -1)
     point_robot_handles.append(point_robot_handle)
 
-    gym.set_rigid_body_color(env, point_robot_handle, -1, gymapi.MESH_VISUAL_AND_COLLISION, color_vec_movable)
+    gym.set_rigid_body_color(env, point_robot_handle, -1, gymapi.MESH_VISUAL_AND_COLLISION, env_conf.color_vec_movable)
     num_bodies = gym.get_actor_rigid_body_count(env, point_robot_handles[-1])
 
 props = gym.get_asset_dof_properties(point_robot_asset)
@@ -164,7 +115,7 @@ def apply_control(u):
     if u == 'go_recharge': 
         # (TODO) set penalty for high velocities
         # Simple P controller, to be substituted
-        vel_target = Kp*[docking_station_loc[0] - pos[0], docking_station_loc[1] - pos[1]]
+        vel_target = Kp*[env_conf.docking_station_loc[0] - pos[0], env_conf.docking_station_loc[1] - pos[1]]
 
     for i in range(num_envs):
         gym.set_actor_dof_properties(envs[i], point_robot_handles[i], props)
@@ -183,7 +134,7 @@ cam_target = gymapi.Vec3(0.0, 0.0, -1.0)
 gym.viewer_camera_look_at(viewer, None, cam_pos, cam_target)
 
 def battery_sim(battery_level):
-    if np.linalg.norm(pos - docking_station_loc) < 0.5:
+    if np.linalg.norm(pos - env_conf.docking_station_loc) < 0.5:
          new_level = battery_level + 0.1
     else:
         new_level = battery_level - 0.1        # We can make this proportional to the velocity + a low dischrge factor
@@ -197,15 +148,15 @@ def get_battery_obs(battery_level):
     if battery_level > 55: 
         obs_battery = 0  # Battery is ok for active inference
         for n in range(num_bodies):
-            gym.set_rigid_body_color(env, point_robot_handles[-1], n, gymapi.MESH_VISUAL, color_vec_battery_ok)
+            gym.set_rigid_body_color(env, point_robot_handles[-1], n, gymapi.MESH_VISUAL, env_conf.color_vec_battery_ok)
     elif battery_level > 35:
         for n in range(num_bodies):
-            gym.set_rigid_body_color(env, point_robot_handles[-1], n, gymapi.MESH_VISUAL, color_vec_battery_low)
+            gym.set_rigid_body_color(env, point_robot_handles[-1], n, gymapi.MESH_VISUAL, env_conf.color_vec_battery_low)
         obs_battery = 1  # Battery is low
     else:
         obs_battery = 2  # Battery is critical
         for n in range(num_bodies):
-            gym.set_rigid_body_color(env, point_robot_handles[-1], n, gymapi.MESH_VISUAL, color_vec_battery_critical)
+            gym.set_rigid_body_color(env, point_robot_handles[-1], n, gymapi.MESH_VISUAL, env_conf.color_vec_battery_critical)
     return obs_battery
 
 ###############################################################################
@@ -243,9 +194,9 @@ while not gym.query_viewer_has_closed(viewer):
     if t_decision == 0 or t_decision > 100:
         o_battery = get_battery_obs(battery_level)
         
-        print('battery level', battery_level)
-        print('Battey observation', o_battery)
-        o_isAt = 0
+        #print('battery level', battery_level)
+        #print('Battey observation', o_battery)
+        o_isAt = 1
         
         outcome_task, curr_action_task = adaptive_action_selection.adapt_act_sel(ai_agent_task, o_isAt)
         outcome_internal, curr_action_internal = adaptive_action_selection.adapt_act_sel(ai_agent_internal, o_battery)
@@ -253,16 +204,17 @@ while not gym.query_viewer_has_closed(viewer):
         t_decision = 0
 
         # Printouts
-        print('The selected action from the task is', curr_action_task)
+        #print('The selected action from the task is', curr_action_task)
         print('The selected action from the internal requirements is', curr_action_internal)
 
-        print('The battery state is:',  ai_agent_internal._mdp.state_names[np.argmax(ai_agent_internal.get_current_state())])
+        #print('The battery state is:',  ai_agent_internal._mdp.state_names[np.argmax(ai_agent_internal.get_current_state())])
         # print('The action is:', ai_agent_internal._mdp.action_names[u])
         # print('Measured battery level', battery_level)
 
         # print('The isAt state is:',  ai_agent_task._mdp.state_names[np.argmax(ai_agent_task.get_current_state())])
         # print('The action is:', ai_agent_task._mdp.action_names[ut])
-        
+        if curr_action_internal is not 'idle_success':
+            print('Free energy', sum(ai_agent_task.G))
     # TODO: now we have the two actions one for the task and one for the internal needs, with related expected free energies. When do we do what? 
 
     # Compute and apply control action accoridng to action selection outcome (TODO) Substitute with MPPI
