@@ -1,23 +1,38 @@
 from isaacgym import gymapi
 import math 
+import numpy as np
 
-movable_box_pose = gymapi.Transform()
-movable_box_pose.p = gymapi.Vec3(0.5, 0.5, 0)
+box1_pose = gymapi.Transform()
+box1_pose.p = gymapi.Vec3(1, -2, 0)
+
+box2_pose = gymapi.Transform()
+box2_pose.p = gymapi.Vec3(-1, 1, 0)
+
+box3_pose = gymapi.Transform()
+box3_pose.p = gymapi.Vec3(3, 0, 0)
 
 obstacle_pose = gymapi.Transform()
-obstacle_pose.p = gymapi.Vec3(3, 3, 0)
+obstacle_pose.p = gymapi.Vec3(2, 2, 0)
 
-goal_pose = gymapi.Transform()
-goal_pose.p = gymapi.Vec3(-3, 3, 0)
+goal1_pose = gymapi.Transform()
+goal1_pose.p = gymapi.Vec3(-3, 3, 0)
+
+goal2_pose = gymapi.Transform()
+goal2_pose.p = gymapi.Vec3(3, 3, 0)
+
+goal3_pose = gymapi.Transform()
+goal3_pose.p = gymapi.Vec3(3, -3, 0)
 
 docking_station_loc = [-3, -3]
 recharge_pose = gymapi.Transform()
 recharge_pose.p = gymapi.Vec3(docking_station_loc[1], docking_station_loc[0], 0)
 
-color_vec_movable = gymapi.Vec3(0.5, 0.1, 0.7)
+color_vec_box1 = gymapi.Vec3(0.5, 0.1, 0.7)
+color_vec_box2 = gymapi.Vec3(0.2, 0.1, 0.2)
+color_vec_box3 = gymapi.Vec3(0.5, 0.1, 0.3)
+
 color_vec_fixed = gymapi.Vec3(0.8, 0.2, 0.2)
 color_vec_walls= gymapi.Vec3(0.1, 0.1, 0.1)
-color_vec_goal= gymapi.Vec3(0.5, 0.2, 0.7)
 color_vec_recharge= gymapi.Vec3(0.0, 0.9, 0.3)
 
 color_vec_battery_ok = gymapi.Vec3(0.0, 0.7, 0.5)
@@ -105,12 +120,17 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose):
         add_arena(sim, gym, env, 8,0.1, 0, 0, i) # Wall size, wall thickness, origin_x, origin_y, index
         
         # add movable squar box
-        movable_obstacle_handle = add_box(sim, gym, env,0.2, 0.2, 0.2, movable_box_pose, color_vec_movable, False, "movable_box", i)
-        
+        box1_handle = add_box(sim, gym, env,0.2, 0.2, 0.2, box1_pose, color_vec_box1, False, "box1", i)
+        box2_handle = add_box(sim, gym, env,0.2, 0.2, 0.2, box2_pose, color_vec_box2, False, "box2", i)
+        box2_handle = add_box(sim, gym, env,0.2, 0.2, 0.2, box3_pose, color_vec_box3, False, "box3", i)
+
         # add fixed obstacle
         obstacle_handle = add_box(sim, gym, env, 0.3, 0.4, 0.5, obstacle_pose, color_vec_fixed, True, "obstacle", i)
 
-        goal_region = add_box(sim, gym, env, 1, 1, 0.01, goal_pose, color_vec_goal, True, "goal_region", -2) # No collisions with goal region
+        goal_region1 = add_box(sim, gym, env, 1, 1, 0.01, goal1_pose, color_vec_box1, True, "goal_region1", -2) # No collisions with goal region
+        goal_region2 = add_box(sim, gym, env, 1, 1, 0.01, goal2_pose, color_vec_box2, True, "goal_region2", -2) # No collisions with goal region
+        goal_region3 = add_box(sim, gym, env, 1, 1, 0.01, goal3_pose, color_vec_box3, True, "goal_region3", -2) # No collisions with goal region
+
         recharge_region = add_box(sim, gym, env,1 , 1, 0.01, recharge_pose, color_vec_recharge, True, "goal_region", -2) # No collisions with recharge region
         
         
