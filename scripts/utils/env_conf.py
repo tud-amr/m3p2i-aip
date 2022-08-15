@@ -81,6 +81,20 @@ def load_albert(gym, sim):
     pose.p = gymapi.Vec3(0.0, 0.0, 0.01)    
     return robot_asset
 
+def load_boxer(gym, sim):
+    # Load asset
+    asset_root = "../assets"
+    point_robot_asset_file = "urdf/boxer/boxer.urdf"
+
+    print("Loading asset '%s' from '%s'" % (point_robot_asset_file, asset_root))
+    asset_options = gymapi.AssetOptions()
+    asset_options.fix_base_link = False
+    asset_options.armature = 0.01
+    robot_asset = gym.load_asset(sim, asset_root, point_robot_asset_file, asset_options)
+    pose = gymapi.Transform()
+    pose.p = gymapi.Vec3(0.0, 0.0, 0.01)    
+    return robot_asset
+
 def load_point_robot(gym, sim):
     # Load robot asset
     asset_root = "../assets"
@@ -120,9 +134,9 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose):
         add_arena(sim, gym, env, 8,0.1, 0, 0, i) # Wall size, wall thickness, origin_x, origin_y, index
         
         # add movable squar box
-        box1_handle = add_box(sim, gym, env,0.2, 0.2, 0.2, box1_pose, color_vec_box1, False, "box1", i)
-        box2_handle = add_box(sim, gym, env,0.2, 0.2, 0.2, box2_pose, color_vec_box2, False, "box2", i)
-        box2_handle = add_box(sim, gym, env,0.2, 0.2, 0.2, box3_pose, color_vec_box3, False, "box3", i)
+        box1_handle = add_box(sim, gym, env,0.4, 0.4, 0.1, box1_pose, color_vec_box1, False, "box1", i)
+        box2_handle = add_box(sim, gym, env,0.4, 0.4, 0.1, box2_pose, color_vec_box2, False, "box2", i)
+        box2_handle = add_box(sim, gym, env,0.4, 0.4, 0.1, box3_pose, color_vec_box3, False, "box3", i)
 
         # add fixed obstacle
         obstacle_handle = add_box(sim, gym, env, 0.3, 0.4, 0.5, obstacle_pose, color_vec_fixed, True, "obstacle", i)

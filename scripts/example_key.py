@@ -8,7 +8,7 @@ from utils import env_conf, sim_init
 allow_viewer = True
 gym, sim, viewer = sim_init.config_gym(allow_viewer)
 
-## Adding Albert
+## Adding Point robot
 # Desired number of environments and spacing
 # Only working for 1 environment
 num_envs = 1
@@ -21,12 +21,18 @@ robot_asset = env_conf.load_point_robot(gym, sim)
 # Create the arena(s) with robots
 env_conf.create_robot_arena(gym, sim, num_envs, spacing, robot_asset, robot_init_pose)
 
+gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(1.5, 6, 8), gymapi.Vec3(1.5, 0, 0))
+
+
 gym.prepare_sim(sim)
 
 # get dof state tensor
 _dof_states = gym.acquire_dof_state_tensor(sim)
 dof_states = gymtorch.wrap_tensor(_dof_states)
 num_dofs = gym.get_sim_dof_count(sim)
+
+state =  gymtorch.wrap_tensor(gym.acquire_dof_state_tensor(sim))
+print("state", state)
 
 # time logging
 frame_count = 0
@@ -53,11 +59,20 @@ down_vel = torch.tensor([2, 0], dtype=torch.float32, device="cuda:0")
 left_vel = torch.tensor([0, 2], dtype=torch.float32, device="cuda:0")
 right_vel = torch.tensor([0, -2], dtype=torch.float32, device="cuda:0")
 
+# Test for applying exxternal forces
+# forces = torch.zeros((num_envs, 15, 3), device="cuda:0", dtype=torch.float)
+# pos = torch.zeros((num_envs, 15, 3), device="cuda:0", dtype=torch.float)
+#forces[:, 4, 0] = 100
+#forces[:, 4, 1] = 150
 
 while viewer is None or not gym.query_viewer_has_closed(viewer):
     gym.simulate(sim)
     gym.fetch_results(sim, True)
     step += 1
+
+    # Test for applying exxternal forces
+    #gym.apply_rigid_body_force_tensors(sim, gymtorch.unwrap_tensor(forces), None, gymapi.ENV_SPACE)
+    #gym.apply_rigid_body_force_at_pos_tensors(sim, gymtorch.unwrap_tensor(forces), gymtorch.unwrap_tensor(pos), gymapi.ENV_SPACE)
 
     for evt in gym.query_viewer_action_events(viewer):
         if evt.action == "left" and evt.value > 0:
