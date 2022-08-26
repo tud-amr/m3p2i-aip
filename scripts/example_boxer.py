@@ -2,6 +2,7 @@ from isaacgym import gymapi
 from isaacgym import gymtorch
 import torch
 from utils import env_conf, sim_init
+import numpy as np 
 
 # Decide if you want a viewer or headless
 allow_viewer = True
@@ -9,7 +10,7 @@ gym, sim, viewer = sim_init.config_gym(allow_viewer)
 
 ## Adding Boxer
 # Desired number of environments and spacing
-num_envs = 1
+num_envs = 128
 spacing = 10.0
 #Init pose
 robot_init_pose = gymapi.Transform()
@@ -21,6 +22,13 @@ env_conf.create_robot_arena(gym, sim, num_envs, spacing, robot_asset, robot_init
 gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(1.5, 6, 8), gymapi.Vec3(1.5, 0, 0))
 
 gym.prepare_sim(sim)
+
+# subscribe to input events. This allows input to be used to interact
+# with the simulation
+gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_A, "left")
+gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_S, "down")
+gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_D, "right")
+gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_W, "up")
 
 # get dof state tensor
 _dof_states = gym.acquire_dof_state_tensor(sim)
@@ -38,6 +46,17 @@ mppi_step_count = 100
 
 # sample initial action sequence
 action_sequence = (1 - -1) * torch.rand(mppi_step_count, num_dofs, device="cuda:0") -1
+curr_vel = torch.zeros(1, num_dofs, dtype=torch.float32, device="cuda:0")
+curr_vel[0,0] = 2 
+curr_vel[0,2] = 2
+curr_vel[0,1] = -2 
+curr_vel[0,3] = -2
+print('curr vel', curr_vel)
+
+_net_cf = gym.acquire_net_contact_force_tensor(sim)
+net_cf = gymtorch.wrap_tensor(_net_cf)
+
+max_vel = 5
 
 while viewer is None or not gym.query_viewer_has_closed(viewer):
     gym.simulate(sim)
@@ -45,21 +64,60 @@ while viewer is None or not gym.query_viewer_has_closed(viewer):
     step += 1
 
     # apply sampled action
-    gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(action_sequence[step % mppi_step_count]))
+    #gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(action_sequence[step % mppi_step_count]))
+    #curr_vel = torch.zeros(1, num_dofs, dtype=torch.float32, device="cuda:0")
     
-    if step % mppi_step_count == 0:
-        # reset states
-        reset_states = torch.zeros(2, num_dofs, dtype=torch.float32, device="cuda:0")
-        gym.set_dof_state_tensor(sim, gymtorch.unwrap_tensor(reset_states))
+    # up_vel = torch.tensor([-2, 0], dtype=torch.float32, device="cuda:0")
+    # down_vel = torch.tensor([2, 0], dtype=torch.float32, device="cuda:0")
+    # left_vel = torch.tensor([0, 2], dtype=torch.float32, device="cuda:0")
+    # right_vel = torch.tensor([0, -2], dtype=torch.float32, device="cuda:0")
+    _net_cf = gym.refresh_net_contact_force_tensor(sim)
 
-        # sample action sequence (random between -1, 1)
-        action_sequence = 2 * torch.rand(mppi_step_count, num_dofs, device="cuda:0") - 1
+    for evt in gym.query_viewer_action_events(viewer):
+        if evt.action == "left" and evt.value > 0:
+            curr_vel[0,0] = -max_vel 
+            curr_vel[0,1] = max_vel
+            curr_vel[0,2] = -max_vel
+            curr_vel[0,3] = max_vel
+        elif evt.action == "down" and evt.value > 0:
+            curr_vel[0,0] = -max_vel
+            curr_vel[0,1] = -max_vel
+            curr_vel[0,2] = -max_vel
+            curr_vel[0,3] = -max_vel
+        elif evt.action == "up" and evt.value > 0:
+            curr_vel[0,0] = max_vel 
+            curr_vel[0,1] = max_vel
+            curr_vel[0,2] = max_vel
+            curr_vel[0,3] = max_vel
+        elif evt.action == "right" and evt.value > 0:
+            curr_vel[0,0] = max_vel
+            curr_vel[0,1] = -max_vel
+            curr_vel[0,2] = max_vel
+            curr_vel[0,3] = -max_vel
+        else:
+            curr_vel[0,0] = 0
+            curr_vel[0,1] = 0
+            curr_vel[0,2] = 0 
+            curr_vel[0,3] = 0
+    gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(curr_vel))
+
+    # if step % mppi_step_count == 0:
+    #     # reset states
+    #     reset_states = torch.zeros(2, num_dofs, dtype=torch.float32, device="cuda:0")
+    #     gym.set_dof_state_tensor(sim, gymtorch.unwrap_tensor(reset_states))
+
+    #     # sample action sequence (random between -1, 1)
+    #     action_sequence = 2 * torch.rand(mppi_step_count, num_dofs, device="cuda:0") - 1
     if viewer is not None:
         # Step rendering
         gym.step_graphics(sim)
         gym.draw_viewer(viewer, sim, False)
         gym.sync_frame_time(sim)
-
+    # Net contact forces with black walls. Indexes are according to how you add the actors in the env
+    if torch.max(net_cf[0:4])>1 or torch.max(net_cf[0:4])<-1:
+        print("Collision")
+    else:
+        print("Ok")
     # time logging
     t = gym.get_elapsed_time(sim)
     if t >= next_fps_report:
