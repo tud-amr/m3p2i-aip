@@ -23,13 +23,6 @@ gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(1.5, 6, 8), gymapi.Vec3(1.5,
 
 gym.prepare_sim(sim)
 
-# subscribe to input events. This allows input to be used to interact
-# with the simulation
-gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_A, "left")
-gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_S, "down")
-gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_D, "right")
-gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_W, "up")
-
 # get dof state tensor
 _dof_states = gym.acquire_dof_state_tensor(sim)
 dof_states = gymtorch.wrap_tensor(_dof_states)
@@ -46,60 +39,30 @@ mppi_step_count = 100
 
 # sample initial action sequence
 action_sequence = (1 - -1) * torch.rand(mppi_step_count, num_dofs, device="cuda:0") -1
-curr_vel = torch.zeros(1, num_dofs, dtype=torch.float32, device="cuda:0")
-curr_vel[0,0] = 2 
-curr_vel[0,2] = 2
-curr_vel[0,1] = -2 
-curr_vel[0,3] = -2
-print('curr vel', curr_vel)
+zero_vel = torch.zeros(1, num_dofs, dtype=torch.float32, device="cuda:0")
 
 _net_cf = gym.acquire_net_contact_force_tensor(sim)
 net_cf = gymtorch.wrap_tensor(_net_cf)
 
 max_vel = 5
+left_vel = torch.tensor([-max_vel, max_vel, -max_vel, max_vel], dtype=torch.float32, device="cuda:0").repeat(num_envs)
+down_vel = torch.tensor([-max_vel, -max_vel, -max_vel, -max_vel], dtype=torch.float32, device="cuda:0").repeat(num_envs)
+up_vel = torch.tensor([max_vel, max_vel, max_vel, max_vel], dtype=torch.float32, device="cuda:0").repeat(num_envs)
+right_vel = torch.tensor([max_vel, -max_vel, max_vel, -max_vel], dtype=torch.float32, device="cuda:0").repeat(num_envs)
+vel_targets = {"up":up_vel, "down":down_vel, "left":left_vel, "right":right_vel}
 
 while viewer is None or not gym.query_viewer_has_closed(viewer):
     gym.simulate(sim)
     gym.fetch_results(sim, True)
     step += 1
 
-    # apply sampled action
-    #gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(action_sequence[step % mppi_step_count]))
-    #curr_vel = torch.zeros(1, num_dofs, dtype=torch.float32, device="cuda:0")
-    
-    # up_vel = torch.tensor([-2, 0], dtype=torch.float32, device="cuda:0")
-    # down_vel = torch.tensor([2, 0], dtype=torch.float32, device="cuda:0")
-    # left_vel = torch.tensor([0, 2], dtype=torch.float32, device="cuda:0")
-    # right_vel = torch.tensor([0, -2], dtype=torch.float32, device="cuda:0")
     _net_cf = gym.refresh_net_contact_force_tensor(sim)
 
     for evt in gym.query_viewer_action_events(viewer):
-        if evt.action == "left" and evt.value > 0:
-            curr_vel[0,0] = -max_vel 
-            curr_vel[0,1] = max_vel
-            curr_vel[0,2] = -max_vel
-            curr_vel[0,3] = max_vel
-        elif evt.action == "down" and evt.value > 0:
-            curr_vel[0,0] = -max_vel
-            curr_vel[0,1] = -max_vel
-            curr_vel[0,2] = -max_vel
-            curr_vel[0,3] = -max_vel
-        elif evt.action == "up" and evt.value > 0:
-            curr_vel[0,0] = max_vel 
-            curr_vel[0,1] = max_vel
-            curr_vel[0,2] = max_vel
-            curr_vel[0,3] = max_vel
-        elif evt.action == "right" and evt.value > 0:
-            curr_vel[0,0] = max_vel
-            curr_vel[0,1] = -max_vel
-            curr_vel[0,2] = max_vel
-            curr_vel[0,3] = -max_vel
+        if evt.value > 0:
+            gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(vel_targets[evt.action]))
         else:
-            curr_vel[0,0] = 0
-            curr_vel[0,1] = 0
-            curr_vel[0,2] = 0 
-            curr_vel[0,3] = 0
-    gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(curr_vel))
+            gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(zero_vel))
 
     # if step % mppi_step_count == 0:
     #     # reset states
