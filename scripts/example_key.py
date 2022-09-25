@@ -50,6 +50,7 @@ up_vel = torch.tensor([-2, 0], dtype=torch.float32, device="cuda:0").repeat(num_
 down_vel = torch.tensor([2, 0], dtype=torch.float32, device="cuda:0").repeat(num_envs)
 left_vel = torch.tensor([0, 2], dtype=torch.float32, device="cuda:0").repeat(num_envs)
 right_vel = torch.tensor([0, -2], dtype=torch.float32, device="cuda:0").repeat(num_envs)
+vel_targets = {"up":up_vel, "down":down_vel, "left":left_vel, "right":right_vel}
 
 # Test for applying exxternal forces
 # forces = torch.zeros((num_envs, 15, 3), device="cuda:0", dtype=torch.float)
@@ -67,14 +68,8 @@ while viewer is None or not gym.query_viewer_has_closed(viewer):
     #gym.apply_rigid_body_force_at_pos_tensors(sim, gymtorch.unwrap_tensor(forces), gymtorch.unwrap_tensor(pos), gymapi.ENV_SPACE)
 
     for evt in gym.query_viewer_action_events(viewer):
-        if evt.action == "left" and evt.value > 0:
-            gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(left_vel))
-        elif evt.action == "down" and evt.value > 0:
-            gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(down_vel))
-        elif evt.action == "up" and evt.value > 0:
-            gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(up_vel))
-        elif evt.action == "right" and evt.value > 0:
-            gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(right_vel))
+        if evt.value > 0:
+            gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(vel_targets[evt.action]))
         else:
             gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(zero_vel))
     
