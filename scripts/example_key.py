@@ -11,7 +11,7 @@ gym, sim, viewer = sim_init.config_gym(allow_viewer)
 ## Adding Point robot
 # Desired number of environments and spacing
 # Only working for 1 environment
-num_envs = 1
+num_envs = 4
 spacing = 10.0
 #Init pose
 robot_init_pose = gymapi.Transform()
@@ -46,10 +46,10 @@ mppi_step_count = 100
 # sample initial action sequence
 action_sequence = (1 - -1) * torch.rand(mppi_step_count, num_dofs, device="cuda:0") - 1
 zero_vel = torch.zeros(1, num_dofs, dtype=torch.float32, device="cuda:0")
-up_vel = torch.tensor([-2, 0], dtype=torch.float32, device="cuda:0")
-down_vel = torch.tensor([2, 0], dtype=torch.float32, device="cuda:0")
-left_vel = torch.tensor([0, 2], dtype=torch.float32, device="cuda:0")
-right_vel = torch.tensor([0, -2], dtype=torch.float32, device="cuda:0")
+up_vel = torch.tensor([-2, 0], dtype=torch.float32, device="cuda:0").repeat(num_envs)
+down_vel = torch.tensor([2, 0], dtype=torch.float32, device="cuda:0").repeat(num_envs)
+left_vel = torch.tensor([0, 2], dtype=torch.float32, device="cuda:0").repeat(num_envs)
+right_vel = torch.tensor([0, -2], dtype=torch.float32, device="cuda:0").repeat(num_envs)
 
 # Test for applying exxternal forces
 # forces = torch.zeros((num_envs, 15, 3), device="cuda:0", dtype=torch.float)
