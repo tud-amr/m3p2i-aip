@@ -43,14 +43,6 @@ t1 = 0
 step = 0
 mppi_step_count = 100
 
-# subscribe to input events. This allows input to be used to interact
-# with the simulation
-gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_A, "left")
-gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_S, "down")
-gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_D, "right")
-gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_W, "up")
-
-
 # sample initial action sequence
 action_sequence = (1 - -1) * torch.rand(mppi_step_count, num_dofs, device="cuda:0") - 1
 zero_vel = torch.zeros(1, num_dofs, dtype=torch.float32, device="cuda:0")
