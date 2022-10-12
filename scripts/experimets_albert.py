@@ -25,34 +25,46 @@ gym.prepare_sim(sim)
 _dof_states = gym.acquire_dof_state_tensor(sim)
 dof_states = gymtorch.wrap_tensor(_dof_states)
 num_dofs = gym.get_sim_dof_count(sim)
+print('Number of DOFs:', num_dofs) # num_envs * 13
 
 # time logging
 frame_count = 0
 next_fps_report = 2.0
 t1 = 0
-
-# MPPI settings
 step = 0
-mppi_step_count = 100
 
-# sample initial action sequence
-action_sequence = (1 - -1) * torch.rand(mppi_step_count, num_dofs, device="cuda:0") -1
+# set velocity targets
+max_vel = 5
+zero_vel = torch.zeros(num_dofs, dtype=torch.float32, device="cuda:0")
+joint_1 = torch.tensor([1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], dtype=torch.float32, device="cuda:0").repeat(num_envs)
+joint_2 = torch.tensor([0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], dtype=torch.float32, device="cuda:0").repeat(num_envs)
+joint_3 = torch.tensor([0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], dtype=torch.float32, device="cuda:0").repeat(num_envs)
+joint_4 = torch.tensor([0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0], dtype=torch.float32, device="cuda:0").repeat(num_envs)
+joint_5 = torch.tensor([0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0], dtype=torch.float32, device="cuda:0").repeat(num_envs)
+joint_6 = torch.tensor([0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0], dtype=torch.float32, device="cuda:0").repeat(num_envs)
+joint_7 = torch.tensor([0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0], dtype=torch.float32, device="cuda:0").repeat(num_envs)
+joint_8 = torch.tensor([0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0], dtype=torch.float32, device="cuda:0").repeat(num_envs)
+joint_9 = torch.tensor([0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0], dtype=torch.float32, device="cuda:0").repeat(num_envs)
+left_vel = torch.tensor([0, 0, 0, 0, 0, 0, 0, 0, 0, -max_vel, max_vel, -max_vel, max_vel], dtype=torch.float32, device="cuda:0").repeat(num_envs)
+down_vel = torch.tensor([0, 0, 0, 0, 0, 0, 0, 0, 0, -max_vel, -max_vel, -max_vel, -max_vel], dtype=torch.float32, device="cuda:0").repeat(num_envs)
+up_vel = torch.tensor([0, 0, 0, 0, 0, 0, 0, 0, 0, max_vel, max_vel, max_vel, max_vel], dtype=torch.float32, device="cuda:0").repeat(num_envs)
+right_vel = torch.tensor([0, 0, 0, 0, 0, 0, 0, 0, 0, max_vel, -max_vel, max_vel, -max_vel], dtype=torch.float32, device="cuda:0").repeat(num_envs)
+vel_targets = {"up":up_vel, "down":down_vel, "left":left_vel, "right":right_vel, 
+                "1":joint_1, "2":joint_2, "3":joint_3, "4":joint_4, "5":joint_5,
+                "6":joint_6, "7":joint_7, "8":joint_8, "9":joint_9}
 
 while viewer is None or not gym.query_viewer_has_closed(viewer):
     gym.simulate(sim)
     gym.fetch_results(sim, True)
     step += 1
 
-    # apply sampled action
-    gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(action_sequence[step % mppi_step_count]))
-    
-    if step % mppi_step_count == 0:
-        # reset states
-        reset_states = torch.zeros(2, num_dofs, dtype=torch.float32, device="cuda:0")
-        gym.set_dof_state_tensor(sim, gymtorch.unwrap_tensor(reset_states))
+    # apply action
+    for evt in gym.query_viewer_action_events(viewer):
+        if evt.value > 0:
+            gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(vel_targets[evt.action]))
+        else:
+            gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(zero_vel))
 
-        # sample action sequence (random between -1, 1)
-        action_sequence = 2 * torch.rand(mppi_step_count, num_dofs, device="cuda:0") - 1
     if viewer is not None:
         # Step rendering
         gym.step_graphics(sim)
