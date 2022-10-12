@@ -121,7 +121,7 @@ def load_franka(gym, sim):
         sim, asset_root, franka_asset_file, asset_options)
     return franka_asset
 
-def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose):
+def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, control_type = "vel_control"):
     # Some common handles for later use
     envs = []
     robot_handles = []
@@ -154,8 +154,21 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose):
 
         # update point bot dynamics / control mode
         props = gym.get_asset_dof_properties(robot_asset)
-        props["driveMode"].fill(gymapi.DOF_MODE_VEL)
-        props["stiffness"].fill(0.0)
-        props["damping"].fill(600.0)
+        
+        if control_type == "pos_control":
+            # print(control_type)
+            props["driveMode"].fill(gymapi.DOF_MODE_POS)
+            props["stiffness"].fill(1000.0)
+            props["damping"].fill(200.0)
+        elif control_type == "vel_control":
+            # print(control_type)
+            props["driveMode"].fill(gymapi.DOF_MODE_VEL)
+            props["stiffness"].fill(0.0)        # The stiffness parameter should be set to zero.
+            props["damping"].fill(600.0)        # The torques applied by the PD controller will be proportional to the damping parameter
+        elif control_type == "force_control":
+            # print(control_type)
+            props["driveMode"].fill(gymapi.DOF_MODE_EFFORT)
+            props["stiffness"].fill(0.0)
+            props["damping"].fill(0.0)
 
         gym.set_actor_dof_properties(env, robot_handle, props)
