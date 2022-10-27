@@ -3,7 +3,7 @@ import math
 from isaacgym import gymapi
 import numpy as np
 from decision_making import ai_agent, adaptive_action_selection
-import isaac_int_req_templates, isaac_state_action_templates 
+from active_inference import isaac_int_req_templates, isaac_state_action_templates 
 from utils import env_conf
 
 # Initialize gym
@@ -78,19 +78,19 @@ for i in range(num_envs):
     env_conf.add_arena(sim, gym, env, 8,0.1, 0, 0, i) # Wall size, wall thickness, origin_x, origin_y, index
 
     # add movable squar box
-    movable_obstacle_handle = env_conf.add_box(sim, gym, env,0.2, 0.2, 0.2, env_conf.movable_box_pose, env_conf.color_vec_movable, False, "movable_box", i)
+    movable_obstacle_handle = env_conf.add_box(sim, gym, env,0.2, 0.2, 0.2, env_conf.obstacle_pose, env_conf.color_vec_fixed, False, "movable_box", i)
     
     # add fixed obstacle
     obstacle_handle = env_conf.add_box(sim, gym, env, 0.3, 0.4, 0.5, env_conf.obstacle_pose, env_conf.color_vec_fixed, True, "obstacle", i)
 
-    goal_region = env_conf.add_box(sim, gym, env, 1, 1, 0.01, env_conf.goal_pose, env_conf.color_vec_goal, True, "goal_region", -2) # No collisions with goal region
+    goal_region = env_conf.add_box(sim, gym, env, 1, 1, 0.01, env_conf.goal1_pose, env_conf.color_vec_battery_low, True, "goal_region", -2) # No collisions with goal region
     recharge_region = env_conf.add_box(sim, gym, env,1 , 1, 0.01, env_conf.recharge_pose, env_conf.color_vec_recharge, True, "goal_region", -2) # No collisions with recharge region
     
     # add point robot
     point_robot_handle = gym.create_actor(env, point_robot_asset, pose, "pointRobot", i, -1)
     point_robot_handles.append(point_robot_handle)
 
-    gym.set_rigid_body_color(env, point_robot_handle, -1, gymapi.MESH_VISUAL_AND_COLLISION, env_conf.color_vec_movable)
+    gym.set_rigid_body_color(env, point_robot_handle, -1, gymapi.MESH_VISUAL_AND_COLLISION, env_conf.color_vec_fixed)
     num_bodies = gym.get_actor_rigid_body_count(env, point_robot_handles[-1])
 
 props = gym.get_asset_dof_properties(point_robot_asset)
@@ -134,6 +134,7 @@ cam_target = gymapi.Vec3(0.0, 0.0, -1.0)
 gym.viewer_camera_look_at(viewer, None, cam_pos, cam_target)
 
 def battery_sim(battery_level):
+    print(pos)
     if np.linalg.norm(pos - env_conf.docking_station_loc) < 0.5:
          new_level = battery_level + 0.1
     else:
