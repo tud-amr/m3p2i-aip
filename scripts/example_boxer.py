@@ -12,26 +12,19 @@ robot = "boxer"
 control_type = "vel_control"
 gym, sim, viewer = sim_init.make(allow_viewer, num_envs, spacing, robot, control_type)
 
-# get dof state tensor
-_dof_states = gym.acquire_dof_state_tensor(sim)
-dof_states = gymtorch.wrap_tensor(_dof_states)
-num_dofs = gym.get_sim_dof_count(sim)
+# Acquire states
+dof_states, num_dofs, num_actors, root_tensor, saved_root_tensor = sim_init.acquire_states(gym, sim, print_flag=True)
 
-# time logging
+# Time logging
 frame_count = 0
 next_fps_report = 2.0
 t1 = 0
-
-# MPPI settings
-step = 0
-mppi_step_count = 100
 
 _net_cf = gym.acquire_net_contact_force_tensor(sim)
 net_cf = gymtorch.wrap_tensor(_net_cf)
 
 while viewer is None or not gym.query_viewer_has_closed(viewer):
     sim_init.step(gym, sim)
-    step += 1
 
     _net_cf = gym.refresh_net_contact_force_tensor(sim)
 

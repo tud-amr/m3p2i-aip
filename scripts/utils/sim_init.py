@@ -75,6 +75,29 @@ def make(allow_viewer, num_envs, spacing, robot, control_type = "vel_control"):
     gym.prepare_sim(sim)
     return gym, sim, viewer
 
+# Acquire states information
+def acquire_states(gym, sim, print_flag):
+    # get dof state tensor
+    _dof_states = gym.acquire_dof_state_tensor(sim)
+    dof_states = gymtorch.wrap_tensor(_dof_states)
+    num_dofs = gym.get_sim_dof_count(sim)
+    num_actors = gym.get_sim_actor_count(sim)
+
+    # acquire root state tensor descriptor and wrap it in a PyTorch Tensor
+    _root_tensor = gym.acquire_actor_root_state_tensor(sim)
+    root_tensor = gymtorch.wrap_tensor(_root_tensor)
+    saved_root_tensor = root_tensor.clone()
+
+    # get relevant info
+    if print_flag:
+        print("root_tensor", root_tensor.size())
+        print('number of DOFs:', num_dofs) # num_envs * dof_per_actor
+        print("dof_state size:", dof_states.size()) # [num_dofs, 2]
+        print("pos", dof_states[:,0])
+        print("vel", dof_states[:,1])
+        print("actor num", num_actors)
+    return dof_states, num_dofs, num_actors, root_tensor, saved_root_tensor
+
 # Step the simulation
 def step(gym, sim):
     gym.simulate(sim)

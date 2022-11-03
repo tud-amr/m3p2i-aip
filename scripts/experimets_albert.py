@@ -11,21 +11,16 @@ robot = "albert"
 control_type = "vel_control"
 gym, sim, viewer = sim_init.make(allow_viewer, num_envs, spacing, robot, control_type)
 
-# get dof state tensor
-_dof_states = gym.acquire_dof_state_tensor(sim)
-dof_states = gymtorch.wrap_tensor(_dof_states)
-num_dofs = gym.get_sim_dof_count(sim)
-print('Number of DOFs:', num_dofs) # num_envs * 13
+# Acquire states
+dof_states, num_dofs, num_actors, root_tensor, saved_root_tensor = sim_init.acquire_states(gym, sim, print_flag=True)
 
-# time logging
+# Time logging
 frame_count = 0
 next_fps_report = 2.0
 t1 = 0
-step = 0
 
 while viewer is None or not gym.query_viewer_has_closed(viewer):
     sim_init.step(gym, sim)
-    step += 1
 
     sim_init.keyboard_control(gym, sim, viewer, robot, num_dofs, num_envs, dof_states)
 
