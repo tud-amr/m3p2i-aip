@@ -1,5 +1,7 @@
 from isaacgym import gymapi
 from isaacgym import gymutil
+from isaacgym import gymtorch
+import torch
 
 # parse arguments
 args = gymutil.parse_arguments(description="Experiments")
@@ -88,3 +90,57 @@ def destroy_sim(gym, sim, viewer):
     print("Done")
     gym.destroy_viewer(viewer)
     gym.destroy_sim(sim)
+
+# Control using keyboard
+def keyboard_control(gym, sim, viewer, robot, num_dofs, num_envs, dof_states, control_type = "vel_control"):
+    if robot == "point_robot":
+        zero_vel = torch.zeros(num_dofs, dtype=torch.float32, device="cuda:0")
+        up_vel = torch.tensor([-2, 0], dtype=torch.float32, device="cuda:0").repeat(num_envs)
+        down_vel = torch.tensor([2, 0], dtype=torch.float32, device="cuda:0").repeat(num_envs)
+        left_vel = torch.tensor([0, 2], dtype=torch.float32, device="cuda:0").repeat(num_envs)
+        right_vel = torch.tensor([0, -2], dtype=torch.float32, device="cuda:0").repeat(num_envs)
+        vel_targets = {"up":up_vel, "down":down_vel, "left":left_vel, "right":right_vel}
+    elif robot == "boxer":
+        max_vel = 5
+        zero_vel = torch.zeros(1, num_dofs, dtype=torch.float32, device="cuda:0")
+        left_vel = torch.tensor([-max_vel, max_vel, -max_vel, max_vel], dtype=torch.float32, device="cuda:0").repeat(num_envs)
+        down_vel = torch.tensor([-max_vel, -max_vel, -max_vel, -max_vel], dtype=torch.float32, device="cuda:0").repeat(num_envs)
+        up_vel = torch.tensor([max_vel, max_vel, max_vel, max_vel], dtype=torch.float32, device="cuda:0").repeat(num_envs)
+        right_vel = torch.tensor([max_vel, -max_vel, max_vel, -max_vel], dtype=torch.float32, device="cuda:0").repeat(num_envs)
+        vel_targets = {"up":up_vel, "down":down_vel, "left":left_vel, "right":right_vel}
+    elif robot == "albert":
+        max_vel = 5
+        zero_vel = torch.zeros(num_dofs, dtype=torch.float32, device="cuda:0")
+        joint_1 = torch.tensor([1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], dtype=torch.float32, device="cuda:0").repeat(num_envs)
+        joint_2 = torch.tensor([0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], dtype=torch.float32, device="cuda:0").repeat(num_envs)
+        joint_3 = torch.tensor([0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], dtype=torch.float32, device="cuda:0").repeat(num_envs)
+        joint_4 = torch.tensor([0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0], dtype=torch.float32, device="cuda:0").repeat(num_envs)
+        joint_5 = torch.tensor([0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0], dtype=torch.float32, device="cuda:0").repeat(num_envs)
+        joint_6 = torch.tensor([0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0], dtype=torch.float32, device="cuda:0").repeat(num_envs)
+        joint_7 = torch.tensor([0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0], dtype=torch.float32, device="cuda:0").repeat(num_envs)
+        joint_8 = torch.tensor([0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0], dtype=torch.float32, device="cuda:0").repeat(num_envs)
+        joint_9 = torch.tensor([0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0], dtype=torch.float32, device="cuda:0").repeat(num_envs)
+        left_vel = torch.tensor([0, 0, 0, 0, 0, 0, 0, 0, 0, -max_vel, max_vel, -max_vel, max_vel], dtype=torch.float32, device="cuda:0").repeat(num_envs)
+        down_vel = torch.tensor([0, 0, 0, 0, 0, 0, 0, 0, 0, -max_vel, -max_vel, -max_vel, -max_vel], dtype=torch.float32, device="cuda:0").repeat(num_envs)
+        up_vel = torch.tensor([0, 0, 0, 0, 0, 0, 0, 0, 0, max_vel, max_vel, max_vel, max_vel], dtype=torch.float32, device="cuda:0").repeat(num_envs)
+        right_vel = torch.tensor([0, 0, 0, 0, 0, 0, 0, 0, 0, max_vel, -max_vel, max_vel, -max_vel], dtype=torch.float32, device="cuda:0").repeat(num_envs)
+        vel_targets = {"up":up_vel, "down":down_vel, "left":left_vel, "right":right_vel, 
+                        "1":joint_1, "2":joint_2, "3":joint_3, "4":joint_4, "5":joint_5,
+                        "6":joint_6, "7":joint_7, "8":joint_8, "9":joint_9}
+
+    for evt in gym.query_viewer_action_events(viewer):
+        if evt.value > 0:
+            if control_type == "pos_control":
+                current_pos = dof_states[:,0]
+                gym.set_dof_position_target_tensor(sim, gymtorch.unwrap_tensor(current_pos+vel_targets[evt.action]))
+            if control_type == "vel_control":
+                gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(vel_targets[evt.action]))
+            if control_type == "force_control":
+                gym.set_dof_actuation_force_tensor(sim, gymtorch.unwrap_tensor(vel_targets[evt.action]))
+        else:
+            if control_type == "pos_control":
+                pass
+            if control_type == "vel_control":
+                gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(zero_vel))
+            if control_type == "force_control":
+                gym.set_dof_actuation_force_tensor(sim, gymtorch.unwrap_tensor(zero_vel))
