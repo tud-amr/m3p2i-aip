@@ -2,6 +2,7 @@ from isaacgym import gymapi
 from isaacgym import gymutil
 from isaacgym import gymtorch
 import torch
+import utils.env_conf as Env_conf
 
 # parse arguments
 args = gymutil.parse_arguments(description="Experiments")
@@ -57,6 +58,21 @@ def config_gym(viewer):
     plane_params.dynamic_friction = 1
     plane_params.restitution = 0
     gym.add_ground(sim, plane_params)
+    return gym, sim, viewer
+
+# Make the environment and simulation
+def make(allow_viewer, num_envs, spacing, robot, control_type = "vel_control"):
+    # Configure gym
+    gym, sim, viewer = config_gym(allow_viewer)
+    # Set robot initial pose
+    robot_init_pose = gymapi.Transform()
+    robot_init_pose.p = gymapi.Vec3(0.0, 0.0, 0.05)
+    # Load robot
+    robot_asset = Env_conf.load_robot(robot, gym, sim)
+    # Create the arena(s) with robots
+    Env_conf.create_robot_arena(gym, sim, num_envs, spacing, robot_asset, robot_init_pose, viewer, control_type)
+    # Prepare
+    gym.prepare_sim(sim)
     return gym, sim, viewer
 
 # Step the simulation

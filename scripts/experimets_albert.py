@@ -1,26 +1,15 @@
 from isaacgym import gymapi
 from isaacgym import gymtorch
 import torch
-from utils import env_conf, sim_init
+from utils import sim_init
 
-# Decide if you want a viewer or headless
+# Make the environment and simulation
 allow_viewer = True
-gym, sim, viewer = sim_init.config_gym(allow_viewer)
-
-## Adding Albert
-# Desired number of environments and spacing
 num_envs = 12
 spacing = 10.0
-#Init pose
-robot_init_pose = gymapi.Transform()
-robot_init_pose.p = gymapi.Vec3(0.0, 0.0, 0.05) 
-robot_asset = env_conf.load_albert(gym, sim)
 robot = "albert"
-
-# Create the arena(s) with robots
-env_conf.create_robot_arena(gym, sim, num_envs, spacing, robot_asset, robot_init_pose)
-
-gym.prepare_sim(sim)
+control_type = "vel_control"
+gym, sim, viewer = sim_init.make(allow_viewer, num_envs, spacing, robot, control_type)
 
 # get dof state tensor
 _dof_states = gym.acquire_dof_state_tensor(sim)

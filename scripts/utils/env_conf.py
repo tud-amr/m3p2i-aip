@@ -67,6 +67,17 @@ def add_arena(sim, gym, env, square_size, wall_thikhness, origin_x, origin_y, in
     wall_pose.r = gymapi.Quat(0.0, 0.0, 0.707107, 0.707107)
     add_box(sim, gym, env, wall_thikhness, square_size, 1, wall_pose, color_vec_walls, True, "wall4", index)
 
+def load_robot(robot, gym, sim):
+    if robot == "albert":
+        robot_asset = load_albert(gym, sim)
+    elif robot == "boxer":
+        robot_asset = load_boxer(gym, sim)
+    elif robot == "point_robot":
+        robot_asset = load_point_robot(gym, sim)
+    elif robot == "franka":
+        robot_asset = load_franka(gym, sim)
+    return robot_asset
+    
 def load_albert(gym, sim):
     # Load asset
     asset_root = "../assets"
@@ -121,12 +132,13 @@ def load_franka(gym, sim):
         sim, asset_root, franka_asset_file, asset_options)
     return franka_asset
 
-def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, control_type = "vel_control"):
+def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, control_type = "vel_control"):
     # Some common handles for later use
     envs = []
     robot_handles = []
     print("Creating %d environments" % num_envs)
     num_per_row = int(math.sqrt(num_envs))
+    gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(1.5, 6, 8), gymapi.Vec3(1.5, 0, 0))
     for i in range(num_envs):
         # create env
         env = gym.create_env(sim, gymapi.Vec3(-spacing, 0.0, -spacing), gymapi.Vec3(spacing, spacing, spacing), num_per_row)

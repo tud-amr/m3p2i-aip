@@ -2,28 +2,15 @@ from isaacgym import gymapi
 from isaacgym import gymutil
 from isaacgym import gymtorch
 import torch
-from utils import env_conf, sim_init
+from utils import sim_init
 
-# Decide if you want a viewer or headless
+# Make the environment and simulation
 allow_viewer = True
-gym, sim, viewer = sim_init.config_gym(allow_viewer)
-
-## Adding Point robot
-# Desired number of environments and spacing
 num_envs = 4
 spacing = 10.0
-#Init pose
-robot_init_pose = gymapi.Transform()
-robot_init_pose.p = gymapi.Vec3(0.0, 0.0, 0.05) 
-robot_asset = env_conf.load_point_robot(gym, sim)
 robot = "point_robot"
-
-# Create the arena(s) with robots
 control_type = "vel_control"
-env_conf.create_robot_arena(gym, sim, num_envs, spacing, robot_asset, robot_init_pose, control_type)
-gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(1.5, 6, 8), gymapi.Vec3(1.5, 0, 0))
-
-gym.prepare_sim(sim)
+gym, sim, viewer = sim_init.make(allow_viewer, num_envs, spacing, robot, control_type)
 
 # get dof state tensor
 _dof_states = gym.acquire_dof_state_tensor(sim)
@@ -58,9 +45,6 @@ while viewer is None or not gym.query_viewer_has_closed(viewer):
     gym.refresh_dof_state_tensor(sim)
 
     sim_init.keyboard_control(gym, sim, viewer, robot, num_dofs, num_envs, dof_states, control_type)
-
-    # print(gymtorch.wrap_tensor(_root_tensor))
-    # gym.set_actor_root_state_tensor(sim, _root_tensor) ## gymtorch.unwrap_tensor(saved_root_tensor) not working
 
     sim_init.step_rendering(gym, sim, viewer)
     next_fps_report, frame_count, t1 = sim_init.time_logging(gym, sim, next_fps_report, frame_count, t1, num_envs)
