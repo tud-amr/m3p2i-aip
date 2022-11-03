@@ -59,6 +59,7 @@ vel_targets = {"up":up_vel, "down":down_vel, "left":left_vel, "right":right_vel}
 actions = torch.zeros(num_dofs, dtype=torch.float32, device="cuda:0")
 
 while viewer is None or not gym.query_viewer_has_closed(viewer):
+    sim_init.step(gym, sim)
     step += 1
 
     gym.refresh_actor_root_state_tensor(sim)
@@ -98,27 +99,7 @@ while viewer is None or not gym.query_viewer_has_closed(viewer):
     # print(gymtorch.wrap_tensor(_root_tensor))
     # gym.set_actor_root_state_tensor(sim, _root_tensor) ## gymtorch.unwrap_tensor(saved_root_tensor) not working
 
-    gym.simulate(sim)
-    gym.fetch_results(sim, True)
+    sim_init.step_rendering(gym, sim, viewer)
+    next_fps_report, frame_count, t1 = sim_init.time_logging(gym, sim, next_fps_report, frame_count, t1, num_envs)
 
-    if viewer is not None:
-        # Step rendering
-        gym.step_graphics(sim)
-        gym.draw_viewer(viewer, sim, False)
-        gym.sync_frame_time(sim)
-
-    # time logging
-    t = gym.get_elapsed_time(sim)
-    if t >= next_fps_report:
-        t2 = gym.get_elapsed_time(sim)
-        fps = frame_count / (t2 - t1)
-        print("FPS %.1f (%.1f)" % (fps, fps * num_envs))
-        frame_count = 0
-        t1 = gym.get_elapsed_time(sim)
-        next_fps_report = t1 + 2.0
-    frame_count += 1
-
-print("Done")
-
-gym.destroy_viewer(viewer)
-gym.destroy_sim(sim)
+sim_init.destroy_sim(gym, sim, viewer)

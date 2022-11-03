@@ -56,3 +56,35 @@ def config_gym(viewer):
     plane_params.restitution = 0
     gym.add_ground(sim, plane_params)
     return gym, sim, viewer
+
+# Step the simulation
+def step(gym, sim):
+    gym.simulate(sim)
+    gym.fetch_results(sim, True)
+
+# Gym rendering 
+def step_rendering(gym, sim, viewer):
+    if viewer is not None:
+        # Step rendering
+        gym.step_graphics(sim)
+        gym.draw_viewer(viewer, sim, False)
+        gym.sync_frame_time(sim)
+
+# Time logging
+def time_logging(gym, sim, next_fps_report, frame_count, t1, num_envs):
+    t = gym.get_elapsed_time(sim)
+    if t >= next_fps_report:
+        t2 = gym.get_elapsed_time(sim)
+        fps = frame_count / (t2 - t1)
+        print("FPS %.1f (%.1f)" % (fps, fps * num_envs))
+        frame_count = 0
+        t1 = gym.get_elapsed_time(sim)
+        next_fps_report = t1 + 2.0
+    frame_count += 1
+    return next_fps_report, frame_count, t1
+
+# Destroy the simulation
+def destroy_sim(gym, sim, viewer):
+    print("Done")
+    gym.destroy_viewer(viewer)
+    gym.destroy_sim(sim)

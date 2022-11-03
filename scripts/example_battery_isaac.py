@@ -4,7 +4,7 @@ from isaacgym import gymapi
 import numpy as np
 from decision_making import ai_agent, adaptive_action_selection
 from active_inference import isaac_int_req_templates, isaac_state_action_templates 
-from utils import env_conf
+from utils import env_conf, sim_init
 
 # Initialize gym
 gym = gymapi.acquire_gym()
@@ -222,16 +222,7 @@ while not gym.query_viewer_has_closed(viewer):
     
     t_decision = t_decision + 1
     
-    # Step the physics
-    gym.simulate(sim)
-    gym.fetch_results(sim, True)
-
-    # Step rendering
-    gym.step_graphics(sim)
-    gym.draw_viewer(viewer, sim, False)
-    gym.sync_frame_time(sim)
-
-print("Done")
-
-gym.destroy_viewer(viewer)
-gym.destroy_sim(sim)
+    sim_init.step(gym, sim)
+    sim_init.step_rendering(gym, sim, viewer)
+    
+sim_init.destroy_sim(gym, sim, viewer)

@@ -52,8 +52,7 @@ right_vel = torch.tensor([max_vel, -max_vel, max_vel, -max_vel], dtype=torch.flo
 vel_targets = {"up":up_vel, "down":down_vel, "left":left_vel, "right":right_vel}
 
 while viewer is None or not gym.query_viewer_has_closed(viewer):
-    gym.simulate(sim)
-    gym.fetch_results(sim, True)
+    sim_init.step(gym, sim)
     step += 1
 
     _net_cf = gym.refresh_net_contact_force_tensor(sim)
@@ -71,28 +70,14 @@ while viewer is None or not gym.query_viewer_has_closed(viewer):
 
     #     # sample action sequence (random between -1, 1)
     #     action_sequence = 2 * torch.rand(mppi_step_count, num_dofs, device="cuda:0") - 1
-    if viewer is not None:
-        # Step rendering
-        gym.step_graphics(sim)
-        gym.draw_viewer(viewer, sim, False)
-        gym.sync_frame_time(sim)
+    
     # Net contact forces with black walls. Indexes are according to how you add the actors in the env
     if torch.max(net_cf[0:4])>1 or torch.max(net_cf[0:4])<-1:
         print("Collision")
     else:
         print("Ok")
-    # time logging
-    t = gym.get_elapsed_time(sim)
-    if t >= next_fps_report:
-        t2 = gym.get_elapsed_time(sim)
-        fps = frame_count / (t2 - t1)
-        print("FPS %.1f (%.1f)" % (fps, fps * num_envs))
-        frame_count = 0
-        t1 = gym.get_elapsed_time(sim)
-        next_fps_report = t1 + 2.0
-    frame_count += 1
+        
+    sim_init.step_rendering(gym, sim, viewer)
+    next_fps_report, frame_count, t1 = sim_init.time_logging(gym, sim, next_fps_report, frame_count, t1, num_envs)
 
-print("Done")
-
-gym.destroy_viewer(viewer)
-gym.destroy_sim(sim)
+sim_init.destroy_sim(gym, sim, viewer)
