@@ -159,3 +159,5 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose):
         props["damping"].fill(600.0)
 
         gym.set_actor_dof_properties(env, robot_handle, props)
+
+    return envs
