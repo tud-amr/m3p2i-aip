@@ -8,9 +8,9 @@ from utils import sim_init
 allow_viewer = True
 num_envs = 4
 spacing = 10.0
-robot = "point_robot"
-obstacle_type = "normal"
-control_type = "vel_control"
+robot = "point_robot"               # choose from "point_robot", "boxer", "albert"
+obstacle_type = "normal"            # choose from "normal", "battery"
+control_type = "vel_control"        # choose from "vel_control", "pos_control", "force_control"
 gym, sim, viewer, _, _ = sim_init.make(allow_viewer, num_envs, spacing, robot, obstacle_type, control_type)
 
 # Acquire states
@@ -21,6 +21,7 @@ frame_count = 0
 next_fps_report = 2.0
 t1 = 0
 
+# Main loop
 while viewer is None or not gym.query_viewer_has_closed(viewer):
     # Step the simulation
     sim_init.step(gym, sim)
