@@ -2,20 +2,22 @@ from isaacgym import gymapi
 from isaacgym import gymutil
 from isaacgym import gymtorch
 import torch
-import utils.env_conf as Env_conf
+import utils.env_conf as env_conf
 
-# parse arguments
+# Parse arguments
 args = gymutil.parse_arguments(description="Experiments")
 args.use_gpu = True
-# args.graphics_device_id = -1
 
-# configure sim
+# Configure sim
 def configure_sim():
+    # Get default set of parameters
     sim_params = gymapi.SimParams()
+    # Set common parameters
     sim_params.dt = 2.0 / 100.0
     sim_params.substeps = 1
     sim_params.up_axis = gymapi.UP_AXIS_Z
     sim_params.gravity = gymapi.Vec3(0.0, 0.0, -9.8)
+    # Set PhysX-specific parameters
     sim_params.use_gpu_pipeline = args.use_gpu
     sim_params.physx.solver_type = 1
     sim_params.physx.num_position_iterations = 6
@@ -26,28 +28,13 @@ def configure_sim():
     sim_params.physx.rest_offset = 0.0
     return sim_params
 
-# creating gym
+# Creating gym
 def config_gym(viewer):
     params = configure_sim()
     gym = gymapi.acquire_gym()
     sim = gym.create_sim(args.compute_device_id, args.graphics_device_id, args.physics_engine, params)
     if viewer:
         viewer = gym.create_viewer(sim, gymapi.CameraProperties())
-        # subscribe to input events. This allows input to be used to interact
-        # with the simulation
-        gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_A, "left")
-        gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_S, "down")
-        gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_D, "right")
-        gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_W, "up")
-        gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_1, "1")
-        gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_2, "2")
-        gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_3, "3")
-        gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_4, "4")
-        gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_5, "5")
-        gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_6, "6")
-        gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_7, "7")
-        gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_8, "8")
-        gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_9, "9")
     else:
         viewer = None
     # Add ground plane
@@ -61,34 +48,34 @@ def config_gym(viewer):
     return gym, sim, viewer
 
 # Make the environment and simulation
-def make(allow_viewer, num_envs, spacing, robot, control_type = "vel_control"):
+def make(allow_viewer, num_envs, spacing, robot, obstacle_type, control_type = "vel_control"):
     # Configure gym
     gym, sim, viewer = config_gym(allow_viewer)
     # Set robot initial pose
     robot_init_pose = gymapi.Transform()
     robot_init_pose.p = gymapi.Vec3(0.0, 0.0, 0.05)
     # Load robot
-    robot_asset = Env_conf.load_robot(robot, gym, sim)
+    robot_asset = env_conf.load_robot(robot, gym, sim)
     # Create the arena(s) with robots
-    Env_conf.create_robot_arena(gym, sim, num_envs, spacing, robot_asset, robot_init_pose, viewer, control_type)
+    envs, robot_handles = env_conf.create_robot_arena(gym, sim, num_envs, spacing, robot_asset, robot_init_pose, viewer, obstacle_type, control_type)
     # Prepare
     gym.prepare_sim(sim)
-    return gym, sim, viewer
+    return gym, sim, viewer, envs, robot_handles
 
 # Acquire states information
 def acquire_states(gym, sim, print_flag):
-    # get dof state tensor
+    # Get dof state tensor
     _dof_states = gym.acquire_dof_state_tensor(sim)
     dof_states = gymtorch.wrap_tensor(_dof_states)
     num_dofs = gym.get_sim_dof_count(sim)
     num_actors = gym.get_sim_actor_count(sim)
 
-    # acquire root state tensor descriptor and wrap it in a PyTorch Tensor
+    # Acquire root state tensor descriptor and wrap it in a PyTorch Tensor
     _root_tensor = gym.acquire_actor_root_state_tensor(sim)
     root_tensor = gymtorch.wrap_tensor(_root_tensor)
     saved_root_tensor = root_tensor.clone()
 
-    # get relevant info
+    # Print relevant info
     if print_flag:
         print("root_tensor", root_tensor.size())
         print('number of DOFs:', num_dofs) # num_envs * dof_per_actor
@@ -102,6 +89,11 @@ def acquire_states(gym, sim, print_flag):
 def step(gym, sim):
     gym.simulate(sim)
     gym.fetch_results(sim, True)
+
+# Refresh the states
+def refresh_states(gym, sim):
+    gym.refresh_actor_root_state_tensor(sim)
+    gym.refresh_dof_state_tensor(sim)
 
 # Gym rendering 
 def step_rendering(gym, sim, viewer):
@@ -132,6 +124,22 @@ def destroy_sim(gym, sim, viewer):
 
 # Control using keyboard
 def keyboard_control(gym, sim, viewer, robot, num_dofs, num_envs, dof_states, control_type = "vel_control"):
+    # Subscribe to input events.
+    gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_A, "left")
+    gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_S, "down")
+    gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_D, "right")
+    gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_W, "up")
+    gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_1, "1")
+    gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_2, "2")
+    gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_3, "3")
+    gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_4, "4")
+    gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_5, "5")
+    gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_6, "6")
+    gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_7, "7")
+    gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_8, "8")
+    gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_9, "9")
+
+    # Set targets for different robots
     if robot == "point_robot":
         zero_vel = torch.zeros(num_dofs, dtype=torch.float32, device="cuda:0")
         up_vel = torch.tensor([-2, 0], dtype=torch.float32, device="cuda:0").repeat(num_envs)
@@ -166,7 +174,8 @@ def keyboard_control(gym, sim, viewer, robot, num_dofs, num_envs, dof_states, co
         vel_targets = {"up":up_vel, "down":down_vel, "left":left_vel, "right":right_vel, 
                         "1":joint_1, "2":joint_2, "3":joint_3, "4":joint_4, "5":joint_5,
                         "6":joint_6, "7":joint_7, "8":joint_8, "9":joint_9}
-
+                                        
+    # Respond the keyboard
     for evt in gym.query_viewer_action_events(viewer):
         if evt.value > 0:
             if control_type == "pos_control":

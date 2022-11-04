@@ -9,8 +9,9 @@ allow_viewer = True
 num_envs = 4
 spacing = 10.0
 robot = "point_robot"
+obstacle_type = "normal"
 control_type = "vel_control"
-gym, sim, viewer = sim_init.make(allow_viewer, num_envs, spacing, robot, control_type)
+gym, sim, viewer, _, _ = sim_init.make(allow_viewer, num_envs, spacing, robot, obstacle_type, control_type)
 
 # Acquire states
 dof_states, num_dofs, num_actors, root_tensor, saved_root_tensor = sim_init.acquire_states(gym, sim, print_flag=True)
@@ -21,14 +22,16 @@ next_fps_report = 2.0
 t1 = 0
 
 while viewer is None or not gym.query_viewer_has_closed(viewer):
+    # Step the simulation
     sim_init.step(gym, sim)
+    sim_init.refresh_states(gym, sim)
 
-    gym.refresh_actor_root_state_tensor(sim)
-    gym.refresh_dof_state_tensor(sim)
-
+    # Respond to keyboard
     sim_init.keyboard_control(gym, sim, viewer, robot, num_dofs, num_envs, dof_states, control_type)
 
+    # Step rendering
     sim_init.step_rendering(gym, sim, viewer)
     next_fps_report, frame_count, t1 = sim_init.time_logging(gym, sim, next_fps_report, frame_count, t1, num_envs)
 
+# Destroy the simulation
 sim_init.destroy_sim(gym, sim, viewer)
