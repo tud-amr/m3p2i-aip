@@ -35,6 +35,20 @@ def config_gym(viewer):
     sim = gym.create_sim(args.compute_device_id, args.graphics_device_id, args.physics_engine, params)
     if viewer:
         viewer = gym.create_viewer(sim, gymapi.CameraProperties())
+        # Subscribe to input events.
+        gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_A, "left")
+        gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_S, "down")
+        gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_D, "right")
+        gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_W, "up")
+        gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_1, "1")
+        gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_2, "2")
+        gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_3, "3")
+        gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_4, "4")
+        gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_5, "5")
+        gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_6, "6")
+        gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_7, "7")
+        gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_8, "8")
+        gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_9, "9")
     else:
         viewer = None
     # Add ground plane
@@ -124,21 +138,6 @@ def destroy_sim(gym, sim, viewer):
 
 # Control using keyboard
 def keyboard_control(gym, sim, viewer, robot, num_dofs, num_envs, dof_states, control_type = "vel_control"):
-    # Subscribe to input events.
-    gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_A, "left")
-    gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_S, "down")
-    gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_D, "right")
-    gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_W, "up")
-    gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_1, "1")
-    gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_2, "2")
-    gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_3, "3")
-    gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_4, "4")
-    gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_5, "5")
-    gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_6, "6")
-    gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_7, "7")
-    gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_8, "8")
-    gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_9, "9")
-
     # Set targets for different robots
     if robot == "point_robot":
         zero_vel = torch.zeros(num_dofs, dtype=torch.float32, device="cuda:0")
