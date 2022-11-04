@@ -9,11 +9,11 @@ import copy
 torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 
 # Decide if you want a viewer or headless
-allow_viewer = True
+allow_viewer = False
 gym, sim, viewer = sim_init.config_gym(allow_viewer)
 
 ## Adding Point robot
-num_envs = 300
+num_envs = 1000
 spacing = 10.0
 
 #Init pose
@@ -48,23 +48,42 @@ def mppi_dynamics(input_state, action, t):
     return res
 
 def running_cost(state, action):
-    return torch.zeros(num_envs, device="cuda:0")
+    # State: for each environment, the current state containing position and velocity
+    # Action: same but for control input
+    
+    state_pos = torch.cat((state[:, 0].unsqueeze(1), state[:, 2].unsqueeze(1)), 1)
+    task_cost = torch.linalg.norm(state_pos - torch.tensor([3, -3], device="cuda:0"), axis=1)
+    
+    w_u = 0.01 # Weight for control input, more dominant when close to the goal
+    control_cost = torch.sum(torch.square(action),1)
+    
+    # Contact forces
+    _net_cf = gym.acquire_net_contact_force_tensor(sim)
+    net_cf = gymtorch.wrap_tensor(_net_cf)
+    _net_cf = gym.refresh_net_contact_force_tensor(sim)
+    # Take only forces in x,y in modulus for each environment. Avoid all collisions
+    net_cf = torch.sum(torch.abs(torch.cat((net_cf[:, 0].unsqueeze(1), net_cf[:, 1].unsqueeze(1)), 1)),1)
+    coll_cost = torch.sum(net_cf.reshape([num_envs, int(net_cf.size(dim=0)/num_envs)]), 1)
+    w_c = 10000 # Weight for collisions
+    # Binary check for collisions. So far checking all collision of all actors. TODO: check collision of robot body only       
+    coll_cost[coll_cost>0.1] = 1
+    coll_cost[coll_cost<=0.1] = 0
 
-    # return cost
+    return  task_cost + w_u*control_cost + w_c*coll_cost
 
 def terminal_state_cost(states, actions):
-    states = torch.cat((states[0, :, -1, 0].unsqueeze(1), states[0, :, -1, 2].unsqueeze(1)), 1)
-    dist = torch.linalg.norm(states - torch.tensor([3, -3], device="cuda:0"), axis=1)
-    return dist**2
+    # States: for each environment and for the whole time horizon, the state trajectory containing position and velocity
+    # Actions: same but for control input
+    return torch.zeros(num_envs, device="cuda:0")
 
 mppi = mppi.MPPI(
     dynamics=mppi_dynamics, 
     running_cost=running_cost, 
-    nx=4, 
-    noise_sigma = torch.tensor([[10, 0], [0, 10]], device="cuda:0", dtype=torch.float32),
+    nx=2, 
+    noise_sigma = torch.tensor([[0.5, 0], [0, 0.5]], device="cuda:0", dtype=torch.float32),
     num_samples=num_envs, 
     horizon=20,
-    lambda_=1., 
+    lambda_=0.01, 
     device="cuda:0", 
     u_max=torch.tensor([3.0, 3.0]),
     u_min=torch.tensor([-3.0, -3.0]),
