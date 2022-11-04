@@ -1,4 +1,3 @@
-
 from isaacgym import gymapi
 from isaacgym import gymutil
 from isaacgym import gymtorch
@@ -6,14 +5,15 @@ import torch
 from pytorch_mppi import mppi
 from utils import env_conf, sim_init
 import time
+import copy
 torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 
 # Decide if you want a viewer or headless
-allow_viewer = True
+allow_viewer = False
 gym, sim, viewer = sim_init.config_gym(allow_viewer)
 
 ## Adding Point robot
-num_envs = 2000
+num_envs = 1000
 spacing = 10.0
 
 #Init pose
@@ -33,18 +33,16 @@ actor_root_state = gymtorch.wrap_tensor(gym.acquire_actor_root_state_tensor(sim)
 gym.refresh_actor_root_state_tensor(sim)
 gym.refresh_dof_state_tensor(sim)
 
-# Save copies of states, in order to reset the rollout of MPPI
-saved_dof_state = dof_state.clone().view(-1, 4)
-saved_actor_root_state = actor_root_state.clone()
-
-
 def mppi_dynamics(input_state, action, t):
-    if t == 0:    
-        gym.set_dof_state_tensor(sim, gymtorch.unwrap_tensor(input_state))
     gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(action))
     gym.simulate(sim)
     gym.fetch_results(sim, True)
     gym.refresh_dof_state_tensor(sim)
+
+    if allow_viewer:
+        gym.step_graphics(sim)
+        gym.draw_viewer(viewer, sim, False)
+        gym.sync_frame_time(sim)
 
     res = torch.clone(dof_state).view(-1, 4)
     return res
@@ -54,7 +52,7 @@ def running_cost(state, action):
     # Action: same but for control input
     
     state_pos = torch.cat((state[:, 0].unsqueeze(1), state[:, 2].unsqueeze(1)), 1)
-    task_cost = torch.linalg.norm(state_pos - torch.tensor([3, 3], device="cuda:0"), axis=1)
+    task_cost = torch.linalg.norm(state_pos - torch.tensor([3, -3], device="cuda:0"), axis=1)
     
     w_u = 0.01 # Weight for control input, more dominant when close to the goal
     control_cost = torch.sum(torch.square(action),1)
@@ -84,8 +82,8 @@ mppi = mppi.MPPI(
     nx=2, 
     noise_sigma = torch.tensor([[0.5, 0], [0, 0.5]], device="cuda:0", dtype=torch.float32),
     num_samples=num_envs, 
-    horizon=5,
-    lambda_=0.1, 
+    horizon=20,
+    lambda_=0.01, 
     device="cuda:0", 
     u_max=torch.tensor([3.0, 3.0]),
     u_min=torch.tensor([-3.0, -3.0]),
@@ -93,54 +91,65 @@ mppi = mppi.MPPI(
     terminal_state_cost=terminal_state_cost
     )
 
-# time logging
-frame_count = 0
-next_fps_report = 2.0
-t1 = 0
+import socket
+import time
+import os
 
-while viewer is None or not gym.query_viewer_has_closed(viewer):
+HOST = "127.0.0.1"  # Standard loopback interface address (localhost)
+PORT = 65432  # Port to listen on (non-privileged ports are > 1023)
+server_address = './uds_socket'
 
-    # Take saved real_state in correct format for mppi.
-    s = saved_dof_state.view(-1, 4)[0] # [x, v_x, y, v_y]
+# Make sure the socket does not already exist
+try:
+    os.unlink(server_address)
+except OSError:
+    if os.path.exists(server_address):
+        raise
 
-    # Compute mppi action. This will internally use the simulator to rollout the dynamics.
-    action = mppi.command(s)
-    all_actions = torch.zeros(num_envs * 2, device="cuda:0")
-    all_actions[:2] = action
+import io
 
-    # Reset the simulator to saves
-    gym.set_dof_state_tensor(sim, gymtorch.unwrap_tensor(saved_dof_state))
-    gym.set_actor_root_state_tensor(sim, gymtorch.unwrap_tensor(saved_actor_root_state))
+def torch_to_bytes(t: torch.Tensor) -> bytes:
+    buff = io.BytesIO()
+    torch.save(t, buff)
+    buff.seek(0)
+    return buff.read()
 
-    # Apply real action. (same action for all envs).
-    gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(all_actions))
-    gym.simulate(sim)
-    gym.fetch_results(sim, True)
+def bytes_to_torch(b: bytes) -> torch.Tensor:
+    buff = io.BytesIO(b)
+    return torch.load(buff)
 
-    gym.refresh_actor_root_state_tensor(sim)
-    gym.refresh_dof_state_tensor(sim)
-    gym.refresh_rigid_body_state_tensor(sim)
+with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
+    s.bind(server_address)
+    s.listen()
+    conn, addr = s.accept()
+    with conn:
+        print(f"Connected by {addr}")
+        i=0
+        while True:
+            i+=1
+            while True:
+                res = conn.recv(1024)
+                if not res == b'': break
+            r = copy.copy(res)
+            _dof_state = bytes_to_torch(r).repeat(num_envs, 1)
 
-    # Update saves
-    saved_dof_state = torch.clone(dof_state).view(-1, 4)
-    saved_actor_root_state = torch.clone(actor_root_state)
-    
-    if viewer is not None:
-        # Step rendering
-        gym.step_graphics(sim)
-        gym.draw_viewer(viewer, sim, False)
-        gym.sync_frame_time(sim)
+            conn.sendall(b"next please")
 
-    # time logging
-    t = gym.get_elapsed_time(sim)
-    if t >= next_fps_report:
-        t2 = gym.get_elapsed_time(sim)
-        fps = frame_count / (t2 - t1)
-        print("FPS %.1f (%.1f)" % (fps, fps * num_envs))
-        frame_count = 0
-        t1 = gym.get_elapsed_time(sim)
-        next_fps_report = t1 + 2.0
-    frame_count += 1
+            while True:
+                res = conn.recv(2**14)
+                if not res == b'': break
+            r = copy.copy(res)
+            _actor_root_state = bytes_to_torch(r)
+            _actor_root_state = _actor_root_state.repeat(num_envs, 1)
 
-gym.destroy_viewer(viewer)
-gym.destroy_sim(sim)
+            # Reset the simulator to requested state
+            s = _dof_state.view(-1, 4) # [x, v_x, y, v_y]
+            gym.set_dof_state_tensor(sim, gymtorch.unwrap_tensor(s))
+            gym.set_actor_root_state_tensor(sim, gymtorch.unwrap_tensor(_actor_root_state))
+
+            gym.refresh_actor_root_state_tensor(sim)
+            gym.refresh_dof_state_tensor(sim)
+
+            action = mppi.command(s)
+
+            conn.sendall(torch_to_bytes(action))
