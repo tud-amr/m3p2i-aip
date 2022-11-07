@@ -71,15 +71,14 @@ def running_cost(state, action):
     _net_cf = gym.refresh_net_contact_force_tensor(sim)
     # Take only forces in x,y in modulus for each environment. Avoid all collisions
     net_cf = torch.sum(torch.abs(torch.cat((net_cf[:, 0].unsqueeze(1), net_cf[:, 1].unsqueeze(1)), 1)),1)
-    coll_filtered = net_cf.reshape([num_envs, int(net_cf.size(dim=0)/num_envs)])
-    coll_cost = torch.sum(coll_filtered[:,0:-6])
-
+    # The last 6 actors are allowed to collide with eachother (movabable obstacles and robot)
+    coll_cost = torch.sum(net_cf.reshape([num_envs, int(net_cf.size(dim=0)/num_envs)])[:,0:9], 1)
     w_c = 10000 # Weight for collisions
-    # Binary check for collisions. Filtered collisions withmovable obstacles. Movable obstacle on the wall is also considered a collision   
+    # Binary check for collisions. So far checking all collision with unmovable obstacles. Movable obstacles touching unmovable ones are considered collisions       
     coll_cost[coll_cost>0.1] = 1
     coll_cost[coll_cost<=0.1] = 0
     task_cost = get_push_cost(state_pos)
-    return  task_cost # + w_c*coll_cost # + w_u*control_cost 
+    return  task_cost + w_c*coll_cost # + w_u*control_cost 
 
 def terminal_state_cost(states, actions):
     # States: for each environment and for the whole time horizon, the state trajectory containing position and velocity
@@ -90,7 +89,7 @@ mppi = mppi.MPPI(
     dynamics=mppi_dynamics, 
     running_cost=running_cost, 
     nx=2, 
-    noise_sigma = torch.tensor([[10, 0], [0, 10]], device="cuda:0", dtype=torch.float32),
+    noise_sigma = torch.tensor([[20, 0], [0, 20]], device="cuda:0", dtype=torch.float32),
     num_samples=num_envs, 
     horizon=30,
     lambda_=0.1, 
