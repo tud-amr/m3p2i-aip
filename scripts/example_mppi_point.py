@@ -1,4 +1,5 @@
 
+
 from isaacgym import gymapi
 from isaacgym import gymutil
 from isaacgym import gymtorch
@@ -10,19 +11,15 @@ torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 
 # Decide if you want a viewer or headless
 allow_viewer = True
-gym, sim, viewer = sim_init.config_gym(allow_viewer)
 
 ## Adding Point robot
-num_envs = 2000
+num_envs = 1000
 spacing = 10.0
 
-#Init pose
-robot_init_pose = gymapi.Transform()
-robot_init_pose.p = gymapi.Vec3(0.0, 0.0, 0.05) 
-robot_asset = env_conf.load_point_robot(gym, sim)
-
-# Create the arena(s) with robots
-envs = env_conf.create_robot_arena(gym, sim, num_envs, spacing, robot_asset, robot_init_pose)
+robot = "point_robot"               # choose from "point_robot", "boxer", "albert"
+obstacle_type = "normal"            # choose from "normal", "battery"
+control_type = "vel_control"        # choose from "vel_control", "pos_control", "force_control"
+gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, spacing, robot, obstacle_type, control_type)
 
 gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(1.5, 6, 8), gymapi.Vec3(1.5, 0, 0))
 gym.prepare_sim(sim)
@@ -66,7 +63,7 @@ def running_cost(state, action):
     # Take only forces in x,y in modulus for each environment. Avoid all collisions
     net_cf = torch.sum(torch.abs(torch.cat((net_cf[:, 0].unsqueeze(1), net_cf[:, 1].unsqueeze(1)), 1)),1)
     coll_cost = torch.sum(net_cf.reshape([num_envs, int(net_cf.size(dim=0)/num_envs)]), 1)
-    w_c = 10000 # Weight for collisions
+    w_c = 100000 # Weight for collisions
     # Binary check for collisions. So far checking all collision of all actors. TODO: check collision of robot body only       
     coll_cost[coll_cost>0.1] = 1
     coll_cost[coll_cost<=0.1] = 0
@@ -82,9 +79,9 @@ mppi = mppi.MPPI(
     dynamics=mppi_dynamics, 
     running_cost=running_cost, 
     nx=2, 
-    noise_sigma = torch.tensor([[0.5, 0], [0, 0.5]], device="cuda:0", dtype=torch.float32),
+    noise_sigma = torch.tensor([[5, 0], [0, 5]], device="cuda:0", dtype=torch.float32),
     num_samples=num_envs, 
-    horizon=5,
+    horizon=10,
     lambda_=0.1, 
     device="cuda:0", 
     u_max=torch.tensor([3.0, 3.0]),
