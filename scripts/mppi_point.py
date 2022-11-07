@@ -33,7 +33,8 @@ root_positions = actor_root_state[:, 0:3]
 
 # Pushing purple blox
 block_index = 10
-goal = torch.tensor([-3, 3], device="cuda:0")
+block_goal = torch.tensor([-3, 3], device="cuda:0")
+nav_goal = torch.tensor([3, 3], device="cuda:0")
 
 def mppi_dynamics(input_state, action, t):
     gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(action))
@@ -52,10 +53,10 @@ def mppi_dynamics(input_state, action, t):
 
 def get_push_cost(r_pos):
     block_pos = torch.cat((torch.split(torch.clone(root_positions[:,0:2]), int(torch.clone(root_positions[:,0:2]).size(dim=0)/num_envs))),1)[block_index,:].reshape(num_envs,2)
-    return torch.linalg.norm(r_pos - block_pos, axis = 1) + torch.linalg.norm(goal - block_pos,axis = 1)
+    return torch.linalg.norm(r_pos - block_pos, axis = 1) + torch.linalg.norm(block_goal - block_pos,axis = 1)
 
 def get_navigation_cost(r_pos):
-    return torch.linalg.norm(r_pos - goal, axis=1)
+    return torch.linalg.norm(r_pos - nav_goal, axis=1)
 
 def running_cost(state, action):
     # State: for each environment, the current state containing position and velocity
@@ -70,9 +71,11 @@ def running_cost(state, action):
     _net_cf = gym.refresh_net_contact_force_tensor(sim)
     # Take only forces in x,y in modulus for each environment. Avoid all collisions
     net_cf = torch.sum(torch.abs(torch.cat((net_cf[:, 0].unsqueeze(1), net_cf[:, 1].unsqueeze(1)), 1)),1)
-    coll_cost = torch.sum(net_cf.reshape([num_envs, int(net_cf.size(dim=0)/num_envs)]), 1)
+    coll_filtered = net_cf.reshape([num_envs, int(net_cf.size(dim=0)/num_envs)])
+    coll_cost = torch.sum(coll_filtered[:,0:-6])
+
     w_c = 10000 # Weight for collisions
-    # Binary check for collisions. So far checking all collision of all actors. TODO: check collision of robot body only       
+    # Binary check for collisions. Filtered collisions withmovable obstacles. Movable obstacle on the wall is also considered a collision   
     coll_cost[coll_cost>0.1] = 1
     coll_cost[coll_cost<=0.1] = 0
     task_cost = get_push_cost(state_pos)
@@ -87,7 +90,7 @@ mppi = mppi.MPPI(
     dynamics=mppi_dynamics, 
     running_cost=running_cost, 
     nx=2, 
-    noise_sigma = torch.tensor([[20, 0], [0, 20]], device="cuda:0", dtype=torch.float32),
+    noise_sigma = torch.tensor([[10, 0], [0, 10]], device="cuda:0", dtype=torch.float32),
     num_samples=num_envs, 
     horizon=30,
     lambda_=0.1, 
