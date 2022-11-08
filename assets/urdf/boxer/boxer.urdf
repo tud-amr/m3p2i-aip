@@ -83,7 +83,7 @@
       </geometry>
     </collision>
   </link>
-  <joint name="rotacastor_right_joint" type="continuous">
+  <joint name="rotacastor_right_joint" type="fixed">
     <origin rpy="0 0 0" xyz="-0.177 -0.274 0.043"/>
     <parent link="chassis_link"/>
     <child link="rotacastor_right_link"/>
@@ -110,7 +110,7 @@
       </geometry>
     </collision>
   </link>
-  <joint name="rotacastor_left_joint" type="continuous">
+  <joint name="rotacastor_left_joint" type="fixed">
     <origin rpy="0 0 0" xyz="0.177 -0.274 0.043"/>
     <parent link="chassis_link"/>
     <child link="rotacastor_left_link"/>

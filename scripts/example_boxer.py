@@ -3,6 +3,7 @@ from isaacgym import gymtorch
 import torch
 from utils import env_conf, sim_init
 import numpy as np 
+import keyboard
 
 # Decide if you want a viewer or headless
 allow_viewer = True
@@ -48,58 +49,54 @@ mppi_step_count = 100
 action_sequence = (1 - -1) * torch.rand(mppi_step_count, num_dofs, device="cuda:0") -1
 curr_vel = torch.zeros(1, num_dofs, dtype=torch.float32, device="cuda:0")
 curr_vel[0,0] = 2 
-curr_vel[0,2] = 2
-curr_vel[0,1] = -2 
-curr_vel[0,3] = -2
-print('curr vel', curr_vel)
+curr_vel[0,1] = -2
+
+all_actions = torch.zeros(1, num_dofs, dtype=torch.float32, device="cuda:0")
 
 _net_cf = gym.acquire_net_contact_force_tensor(sim)
 net_cf = gymtorch.wrap_tensor(_net_cf)
 
-max_vel = 5
+max_vel = 1
+max_yaw = 3
+
+curr_vel[0,0] = 0
+curr_vel[0,1] = 0
+
+actor_root_state = gymtorch.wrap_tensor(gym.acquire_actor_root_state_tensor(sim))
+gym.refresh_actor_root_state_tensor(sim)
 
 while viewer is None or not gym.query_viewer_has_closed(viewer):
     gym.simulate(sim)
     gym.fetch_results(sim, True)
     step += 1
 
-    # apply sampled action
-    #gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(action_sequence[step % mppi_step_count]))
-    #curr_vel = torch.zeros(1, num_dofs, dtype=torch.float32, device="cuda:0")
-    
-    # up_vel = torch.tensor([-2, 0], dtype=torch.float32, device="cuda:0")
-    # down_vel = torch.tensor([2, 0], dtype=torch.float32, device="cuda:0")
-    # left_vel = torch.tensor([0, 2], dtype=torch.float32, device="cuda:0")
-    # right_vel = torch.tensor([0, -2], dtype=torch.float32, device="cuda:0")
     _net_cf = gym.refresh_net_contact_force_tensor(sim)
 
-    for evt in gym.query_viewer_action_events(viewer):
-        if evt.action == "left" and evt.value > 0:
-            curr_vel[0,0] = -max_vel 
-            curr_vel[0,1] = max_vel
-            curr_vel[0,2] = -max_vel
-            curr_vel[0,3] = max_vel
-        elif evt.action == "down" and evt.value > 0:
-            curr_vel[0,0] = -max_vel
-            curr_vel[0,1] = -max_vel
-            curr_vel[0,2] = -max_vel
-            curr_vel[0,3] = -max_vel
-        elif evt.action == "up" and evt.value > 0:
-            curr_vel[0,0] = max_vel 
-            curr_vel[0,1] = max_vel
-            curr_vel[0,2] = max_vel
-            curr_vel[0,3] = max_vel
-        elif evt.action == "right" and evt.value > 0:
-            curr_vel[0,0] = max_vel
-            curr_vel[0,1] = -max_vel
-            curr_vel[0,2] = max_vel
-            curr_vel[0,3] = -max_vel
-        else:
-            curr_vel[0,0] = 0
-            curr_vel[0,1] = 0
-            curr_vel[0,2] = 0 
-            curr_vel[0,3] = 0
-    gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(curr_vel))
+    evts = [evt.action for evt in gym.query_viewer_action_events(viewer)]
+
+    if "left" in evts:
+        curr_vel[0, 1] += 0.1*max_yaw
+    if "right" in evts:
+        curr_vel[0, 1] -= 0.1*max_yaw
+    if 'up' in evts:
+        print("up")
+        curr_vel[0, 0] += 0.1*max_vel
+    if "down" in evts:
+        curr_vel[0, 0] -= 0.1*max_vel
+
+    curr_vel[0, 0] = torch.clamp(curr_vel[0, 0], min=-max_vel, max=max_vel)
+    curr_vel[0, 1] = torch.clamp(curr_vel[0, 1], min=-max_yaw, max=max_yaw)
+
+    gym.refresh_actor_root_state_tensor(sim)
+    s = torch.cat((actor_root_state[12][:2], actor_root_state[12][7:9]))
+
+    r = 0.08
+    L = 2*0.157
+    # Diff drive fk
+    all_actions[0, 0] = (curr_vel[0, 0] / r) - ((L*curr_vel[0, 1])/(2*r))
+    all_actions[0, 1] = (curr_vel[0, 0] / r) + ((L*curr_vel[0, 1])/(2*r))
+
+    gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(all_actions))
 
     # if step % mppi_step_count == 0:
     #     # reset states
@@ -116,8 +113,6 @@ while viewer is None or not gym.query_viewer_has_closed(viewer):
     # Net contact forces with black walls. Indexes are according to how you add the actors in the env
     if torch.max(net_cf[0:4])>1 or torch.max(net_cf[0:4])<-1:
         print("Collision")
-    else:
-        print("Ok")
     # time logging
     t = gym.get_elapsed_time(sim)
     if t >= next_fps_report:
