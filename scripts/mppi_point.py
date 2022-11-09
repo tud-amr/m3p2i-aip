@@ -3,9 +3,10 @@ from isaacgym import gymutil
 from isaacgym import gymtorch
 import torch
 from pytorch_mppi import mppi
-from utils import env_conf, sim_init
+from utils import env_conf, sim_init, data_transfer
 import time
 import copy
+import socket
 torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 
 # Make the environment and simulation
@@ -77,34 +78,12 @@ mppi = mppi.MPPI(
     terminal_state_cost=terminal_state_cost
     )
 
-import socket
-import time
-import os
-
-HOST = "127.0.0.1"  # Standard loopback interface address (localhost)
-PORT = 65432  # Port to listen on (non-privileged ports are > 1023)
-server_address = './uds_socket'
-
 # Make sure the socket does not already exist
-try:
-    os.unlink(server_address)
-except OSError:
-    if os.path.exists(server_address):
-        raise
-
-import io
-
-def torch_to_bytes(t: torch.Tensor) -> bytes:
-    buff = io.BytesIO()
-    torch.save(t, buff)
-    buff.seek(0)
-    return buff.read()
-
-def bytes_to_torch(b: bytes) -> torch.Tensor:
-    buff = io.BytesIO(b)
-    return torch.load(buff)
+server_address = './uds_socket'
+data_transfer.check_server(server_address)
 
 with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
+    # Build the connection
     s.bind(server_address)
     s.listen()
     conn, addr = s.accept()
@@ -113,28 +92,29 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
         i=0
         while True:
             i+=1
+            # Receive dof states
             while True:
                 res = conn.recv(1024)
                 if not res == b'': break
             r = copy.copy(res)
-            _dof_states = bytes_to_torch(r).repeat(num_envs, 1)
+            _dof_states = data_transfer.bytes_to_torch(r).repeat(num_envs, 1)
 
+            # Send message
             conn.sendall(b"next please")
 
+            # Receive root states
             while True:
                 res = conn.recv(2**14)
                 if not res == b'': break
             r = copy.copy(res)
-            _root_states = bytes_to_torch(r)
-            _root_states = _root_states.repeat(num_envs, 1)
+            _root_states = data_transfer.bytes_to_torch(r).repeat(num_envs, 1)
 
             # Reset the simulator to requested state
             s = _dof_states.view(-1, 4) # [x, v_x, y, v_y]
             gym.set_dof_state_tensor(sim, gymtorch.unwrap_tensor(s))
             gym.set_actor_root_state_tensor(sim, gymtorch.unwrap_tensor(_root_states))
-
             sim_init.refresh_states(gym, sim)
 
+            # Compute optimal action and send to real simulator
             action = mppi.command(s)
-
-            conn.sendall(torch_to_bytes(action))
+            conn.sendall(data_transfer.torch_to_bytes(action))

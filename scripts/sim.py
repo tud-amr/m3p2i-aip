@@ -3,8 +3,9 @@ from isaacgym import gymutil
 from isaacgym import gymtorch
 import torch
 from pytorch_mppi import mppi
-from utils import env_conf, sim_init
+from utils import env_conf, sim_init, data_transfer
 import time
+import socket
 torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 
 # Make the environment and simulation
@@ -19,43 +20,28 @@ gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, sp
 # Acquire states
 dof_states, num_dofs, num_actors, root_states = sim_init.acquire_states(gym, sim, print_flag=False)
 
-# time logging
+# Time logging
 frame_count = 0
 next_fps_report = 2.0
 t1 = 0
 
-import socket
-import time
-import io
+# Set server address
 server_address = './uds_socket'
-
-def torch_to_bytes(t: torch.Tensor) -> bytes:
-    buff = io.BytesIO()
-    torch.save(t, buff)
-    buff.seek(0)
-    return buff.read()
-
-def bytes_to_torch(b: bytes) -> torch.Tensor:
-    buff = io.BytesIO(b)
-    return torch.load(buff)
-    
 
 with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
     s.connect(server_address)
     while viewer is None or not gym.query_viewer_has_closed(viewer):
-        # Take saved real_state in correct format for mppi.
-        # s = saved_dof_state.view(-1, 4)[0] # [x, v_x, y, v_y]
+        # Send states to mppi
+        s.sendall(data_transfer.torch_to_bytes(dof_states))
+        s.sendall(data_transfer.torch_to_bytes(root_states))
 
-        # Compute mppi action. This will internally use the simulator to rollout the dynamics.
-        s.sendall(torch_to_bytes(dof_states))
-        data = s.recv(1024)
-
-        s.sendall(torch_to_bytes(root_states))
+        # Receive message and optimal action from mppi
+        message = s.recv(1024)
         b = s.recv(1024)
-        data = bytes_to_torch(b)
+        action = data_transfer.bytes_to_torch(b)
 
-        # Apply real action. (same action for all envs).
-        gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(data))
+        # Apply optimal action
+        gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(action))
 
         # Step the similation
         sim_init.step(gym, sim)

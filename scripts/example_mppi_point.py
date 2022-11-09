@@ -78,13 +78,12 @@ mppi = mppi.MPPI(
     terminal_state_cost=terminal_state_cost
     )
 
-# time logging
+# Time logging
 frame_count = 0
 next_fps_report = 2.0
 t1 = 0
 
 while viewer is None or not gym.query_viewer_has_closed(viewer):
-
     # Take saved real_state in correct format for mppi.
     s = saved_dof_states.view(-1, 4)[0] # [x, v_x, y, v_y]
 
@@ -97,7 +96,7 @@ while viewer is None or not gym.query_viewer_has_closed(viewer):
     gym.set_dof_state_tensor(sim, gymtorch.unwrap_tensor(saved_dof_states))
     gym.set_actor_root_state_tensor(sim, gymtorch.unwrap_tensor(saved_root_states))
 
-    # Apply real action. (same action for all envs).
+    # Apply real action.
     gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(all_actions))
 
     # Step the simulation
