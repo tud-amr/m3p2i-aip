@@ -14,7 +14,7 @@ control_type = "vel_control"        # choose from "vel_control", "pos_control", 
 gym, sim, viewer, _, _ = sim_init.make(allow_viewer, num_envs, spacing, robot, obstacle_type, control_type)
 
 # Acquire states
-dof_states, num_dofs, num_actors, root_tensor, saved_root_tensor = sim_init.acquire_states(gym, sim, print_flag=True)
+dof_states, num_dofs, num_actors, root_states = sim_init.acquire_states(gym, sim, print_flag=True)
 
 # Time logging
 frame_count = 0

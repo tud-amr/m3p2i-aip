@@ -85,19 +85,22 @@ def acquire_states(gym, sim, print_flag):
     num_actors = gym.get_sim_actor_count(sim)
 
     # Acquire root state tensor descriptor and wrap it in a PyTorch Tensor
-    _root_tensor = gym.acquire_actor_root_state_tensor(sim)
-    root_tensor = gymtorch.wrap_tensor(_root_tensor)
-    saved_root_tensor = root_tensor.clone()
+    _root_states = gym.acquire_actor_root_state_tensor(sim)
+    root_states = gymtorch.wrap_tensor(_root_states)
+
+    # Refresh the states
+    gym.refresh_actor_root_state_tensor(sim)
+    gym.refresh_dof_state_tensor(sim)
 
     # Print relevant info
     if print_flag:
-        print("root_tensor", root_tensor.size())
+        print("root_states", root_states.size())
         print('number of DOFs:', num_dofs) # num_envs * dof_per_actor
-        print("dof_state size:", dof_states.size()) # [num_dofs, 2]
+        print("dof_states size:", dof_states.size()) # [num_dofs, 2]
         print("pos", dof_states[:,0])
         print("vel", dof_states[:,1])
         print("actor num", num_actors)
-    return dof_states, num_dofs, num_actors, root_tensor, saved_root_tensor
+    return dof_states, num_dofs, num_actors, root_states
 
 # Step the simulation
 def step(gym, sim):

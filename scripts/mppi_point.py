@@ -8,26 +8,17 @@ import time
 import copy
 torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 
-# Decide if you want a viewer or headless
+# Make the environment and simulation
 allow_viewer = False
-
-## Adding Point robot
 num_envs = 2000
 spacing = 10.0
-
 robot = "point_robot"               # choose from "point_robot", "boxer", "albert"
 obstacle_type = "normal"            # choose from "normal", "battery"
 control_type = "vel_control"        # choose from "vel_control", "pos_control", "force_control"
 gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, spacing, robot, obstacle_type, control_type)
 
-gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(1.5, 6, 8), gymapi.Vec3(1.5, 0, 0))
-gym.prepare_sim(sim)
-
-# Init simulation tensors and torch wrappers (see /docs/programming/tensors.html)
-dof_state =  gymtorch.wrap_tensor(gym.acquire_dof_state_tensor(sim))
-actor_root_state = gymtorch.wrap_tensor(gym.acquire_actor_root_state_tensor(sim))
-gym.refresh_actor_root_state_tensor(sim)
-gym.refresh_dof_state_tensor(sim)
+# Acquire states
+dof_states, num_dofs, num_actors, root_states = sim_init.acquire_states(gym, sim, print_flag=False)
 
 def mppi_dynamics(input_state, action, t):
     gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(action))
@@ -40,7 +31,7 @@ def mppi_dynamics(input_state, action, t):
         gym.draw_viewer(viewer, sim, False)
         gym.sync_frame_time(sim)
 
-    res = torch.clone(dof_state).view(-1, 4)
+    res = torch.clone(dof_states).view(-1, 4)
     return res
 
 def running_cost(state, action):
@@ -126,7 +117,7 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
                 res = conn.recv(1024)
                 if not res == b'': break
             r = copy.copy(res)
-            _dof_state = bytes_to_torch(r).repeat(num_envs, 1)
+            _dof_states = bytes_to_torch(r).repeat(num_envs, 1)
 
             conn.sendall(b"next please")
 
@@ -134,16 +125,15 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
                 res = conn.recv(2**14)
                 if not res == b'': break
             r = copy.copy(res)
-            _actor_root_state = bytes_to_torch(r)
-            _actor_root_state = _actor_root_state.repeat(num_envs, 1)
+            _root_states = bytes_to_torch(r)
+            _root_states = _root_states.repeat(num_envs, 1)
 
             # Reset the simulator to requested state
-            s = _dof_state.view(-1, 4) # [x, v_x, y, v_y]
+            s = _dof_states.view(-1, 4) # [x, v_x, y, v_y]
             gym.set_dof_state_tensor(sim, gymtorch.unwrap_tensor(s))
-            gym.set_actor_root_state_tensor(sim, gymtorch.unwrap_tensor(_actor_root_state))
+            gym.set_actor_root_state_tensor(sim, gymtorch.unwrap_tensor(_root_states))
 
-            gym.refresh_actor_root_state_tensor(sim)
-            gym.refresh_dof_state_tensor(sim)
+            sim_init.refresh_states(gym, sim)
 
             action = mppi.command(s)
 

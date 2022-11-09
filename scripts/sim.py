@@ -1,4 +1,3 @@
-
 from isaacgym import gymapi
 from isaacgym import gymutil
 from isaacgym import gymtorch
@@ -8,26 +7,17 @@ from utils import env_conf, sim_init
 import time
 torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 
-# Decide if you want a viewer or headless
+# Make the environment and simulation
 allow_viewer = True
-
-## Adding Point robot
 num_envs = 1 
 spacing = 10.0
-
 robot = "point_robot"               # choose from "point_robot", "boxer", "albert"
 obstacle_type = "normal"            # choose from "normal", "battery"
 control_type = "vel_control"        # choose from "vel_control", "pos_control", "force_control"
 gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, spacing, robot, obstacle_type, control_type)
 
-gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(1.5, 6, 8), gymapi.Vec3(1.5, 0, 0))
-gym.prepare_sim(sim)
-
-# Init simulation tensors and torch wrappers (see /docs/programming/tensors.html)
-dof_state =  gymtorch.wrap_tensor(gym.acquire_dof_state_tensor(sim))
-actor_root_state = gymtorch.wrap_tensor(gym.acquire_actor_root_state_tensor(sim))
-gym.refresh_actor_root_state_tensor(sim)
-gym.refresh_dof_state_tensor(sim)
+# Acquire states
+dof_states, num_dofs, num_actors, root_states = sim_init.acquire_states(gym, sim, print_flag=False)
 
 # time logging
 frame_count = 0
@@ -57,44 +47,23 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
         # s = saved_dof_state.view(-1, 4)[0] # [x, v_x, y, v_y]
 
         # Compute mppi action. This will internally use the simulator to rollout the dynamics.
-        s.sendall(torch_to_bytes(dof_state))
+        s.sendall(torch_to_bytes(dof_states))
         data = s.recv(1024)
 
-        s.sendall(torch_to_bytes(actor_root_state))
+        s.sendall(torch_to_bytes(root_states))
         b = s.recv(1024)
         data = bytes_to_torch(b)
 
-
-        # all_actions = torch.zeros(num_envs * 2, device="cuda:0")
-        # all_actions[:2] = action
-
         # Apply real action. (same action for all envs).
         gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(data))
-        gym.simulate(sim)
-        gym.fetch_results(sim, True)
 
-        gym.refresh_actor_root_state_tensor(sim)
-        gym.refresh_dof_state_tensor(sim)
-        gym.refresh_rigid_body_state_tensor(sim)
+        # Step the similation
+        sim_init.step(gym, sim)
+        sim_init.refresh_states(gym, sim)
 
-        if viewer is not None:
-            # Step rendering
-            gym.step_graphics(sim)
-            gym.draw_viewer(viewer, sim, False)
-            gym.sync_frame_time(sim)
+        # Step rendering
+        sim_init.step_rendering(gym, sim, viewer)
+        next_fps_report, frame_count, t1 = sim_init.time_logging(gym, sim, next_fps_report, frame_count, t1, num_envs)
 
-
-        # time logging
-        t = gym.get_elapsed_time(sim)
-        if t >= next_fps_report:
-            t2 = gym.get_elapsed_time(sim)
-            fps = frame_count / (t2 - t1)
-            print("FPS %.1f (%.1f)" % (fps, fps * num_envs))
-            frame_count = 0
-            t1 = gym.get_elapsed_time(sim)
-            next_fps_report = t1 + 2.0
-        frame_count += 1
-
-
-gym.destroy_viewer(viewer)
-gym.destroy_sim(sim)
+# Destroy the simulation
+sim_init.destroy_sim(gym, sim, viewer)
