@@ -13,13 +13,13 @@ torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 allow_viewer = True
 
 ## Adding Point robot
-num_envs = 1000
+num_envs = 2000
 spacing = 10.0
 
 robot = "point_robot"               # choose from "point_robot", "boxer", "albert"
-obstacle_type = "normal"            # choose from "normal", "battery"
+environment_type = "normal"         # choose from "normal", "battery"
 control_type = "vel_control"        # choose from "vel_control", "pos_control", "force_control"
-gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, spacing, robot, obstacle_type, control_type)
+gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, spacing, robot, environment_type, control_type)
 
 gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(1.5, 6, 8), gymapi.Vec3(1.5, 0, 0))
 gym.prepare_sim(sim)
@@ -79,7 +79,7 @@ mppi = mppi.MPPI(
     dynamics=mppi_dynamics, 
     running_cost=running_cost, 
     nx=2, 
-    noise_sigma = torch.tensor([[5, 0], [0, 5]], device="cuda:0", dtype=torch.float32),
+    noise_sigma = torch.tensor([[3, 0], [0, 3]], device="cuda:0", dtype=torch.float32),
     num_samples=num_envs, 
     horizon=10,
     lambda_=0.1, 

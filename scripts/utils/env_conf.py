@@ -7,7 +7,7 @@ box1_pose = gymapi.Transform()
 box1_pose.p = gymapi.Vec3(1, -2, 0)
 
 box2_pose = gymapi.Transform()
-box2_pose.p = gymapi.Vec3(-1, 1, 0)
+box2_pose.p = gymapi.Vec3(-2, 1, 0)
 
 box3_pose = gymapi.Transform()
 box3_pose.p = gymapi.Vec3(3, 0, 0)
@@ -135,13 +135,8 @@ def load_franka(gym, sim):
         sim, asset_root, franka_asset_file, asset_options)
     return franka_asset
 
-def add_obstacles(sim, gym, env, obstacle_type, index):
-    if obstacle_type == "normal":
-        # add movable squar box
-        box1_handle = add_box(sim, gym, env,0.4, 0.4, 0.1, box1_pose, color_vec_box1, False, "box1", index)
-        box2_handle = add_box(sim, gym, env,0.4, 0.4, 0.1, box2_pose, color_vec_box2, False, "box2", index)
-        box2_handle = add_box(sim, gym, env,0.4, 0.4, 0.1, box3_pose, color_vec_box3, False, "box3", index)
-
+def add_obstacles(sim, gym, env, environment_type, index):
+    if environment_type == "normal":
         # add fixed obstacle
         obstacle_handle = add_box(sim, gym, env, 0.3, 0.4, 0.5, obstacle_pose, color_vec_fixed, True, "obstacle", index)
 
@@ -150,19 +145,23 @@ def add_obstacles(sim, gym, env, obstacle_type, index):
         goal_region3 = add_box(sim, gym, env, 1, 1, 0.01, goal3_pose, color_vec_box3, True, "goal_region3", -2) # No collisions with goal region
 
         recharge_region = add_box(sim, gym, env,1 , 1, 0.01, recharge_pose, color_vec_recharge, True, "goal_region", -2) # No collisions with recharge region
-    elif obstacle_type == "battery":
         # add movable squar box
-        movable_obstacle_handle = add_box(sim, gym, env,0.2, 0.2, 0.2, box1_pose, color_vec_box1, False, "movable_box", index)
-        
+        box1_handle = add_box(sim, gym, env,0.4, 0.4, 0.1, box1_pose, color_vec_box1, False, "box1", index)
+        box2_handle = add_box(sim, gym, env,0.4, 0.4, 0.1, box2_pose, color_vec_box2, False, "pushableBox", index)
+        box2_handle = add_box(sim, gym, env,0.4, 0.4, 0.1, box3_pose, color_vec_box3, False, "box3", index)
+
+    elif environment_type == "battery":
         # add fixed obstacle
         obstacle_handle = add_box(sim, gym, env, 0.3, 0.4, 0.5, obstacle_pose, color_vec_fixed, True, "obstacle", index)
 
         goal_region = add_box(sim, gym, env, 1, 1, 0.01, goal1_pose, color_vec_box1, True, "goal_region", -2) # No collisions with goal region
         recharge_region = add_box(sim, gym, env,1 , 1, 0.01, recharge_pose, color_vec_recharge, True, "goal_region", -2) # No collisions with recharge region
+        # add movable squar box
+        movable_obstacle_handle = add_box(sim, gym, env,0.2, 0.2, 0.2, box1_pose, color_vec_box1, False, "movable_box", index)
     else:
         print("Invalid obstacle type")
 
-def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, obstacle_type, control_type = "vel_control"):
+def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, environment_type, control_type = "vel_control"):
     # Some common handles for later use
     envs = []
     robot_handles = []
@@ -176,12 +175,12 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, o
         add_arena(sim, gym, env, 8, 0.1, 0, 0, i) # Wall size, wall thickness, origin_x, origin_y, index
         
         # Add obstacles
-        add_obstacles(sim, gym, env, obstacle_type, index = i)
+        add_obstacles(sim, gym, env, environment_type, index = i)
 
         # Add robot
         robot_handle = gym.create_actor(env, robot_asset, pose, "robot", i, 1)
         robot_handles.append(robot_handle)
-        if obstacle_type == "battery":
+        if environment_type == "battery":
             gym.set_rigid_body_color(env, robot_handle, -1, gymapi.MESH_VISUAL_AND_COLLISION, color_vec_battery_ok)
 
         # Update point bot dynamics / control mode

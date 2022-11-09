@@ -16,9 +16,9 @@ num_envs = 2000
 spacing = 10.0
 
 robot = "point_robot"               # choose from "point_robot", "boxer", "albert"
-obstacle_type = "normal"            # choose from "normal", "battery"
+environment_type = "normal"         # choose from "normal", "battery"
 control_type = "vel_control"        # choose from "vel_control", "pos_control", "force_control"
-gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, spacing, robot, obstacle_type, control_type)
+gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, spacing, robot, environment_type, control_type)
 
 gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(1.5, 6, 8), gymapi.Vec3(1.5, 0, 0))
 gym.prepare_sim(sim)
@@ -28,12 +28,20 @@ dof_state =  gymtorch.wrap_tensor(gym.acquire_dof_state_tensor(sim))
 actor_root_state = gymtorch.wrap_tensor(gym.acquire_actor_root_state_tensor(sim))
 gym.refresh_actor_root_state_tensor(sim)
 gym.refresh_dof_state_tensor(sim)
+root_positions = actor_root_state[:, 0:3]
+
+
+# Pushing purple blox
+block_index = 10
+block_goal = torch.tensor([-3, 3], device="cuda:0")
+nav_goal = torch.tensor([3, 3], device="cuda:0")
 
 def mppi_dynamics(input_state, action, t):
     gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(action))
     gym.simulate(sim)
     gym.fetch_results(sim, True)
     gym.refresh_dof_state_tensor(sim)
+    gym.refresh_actor_root_state_tensor(sim)
 
     if allow_viewer:
         gym.step_graphics(sim)
@@ -43,13 +51,18 @@ def mppi_dynamics(input_state, action, t):
     res = torch.clone(dof_state).view(-1, 4)
     return res
 
+def get_push_cost(r_pos):
+    block_pos = torch.cat((torch.split(torch.clone(root_positions[:,0:2]), int(torch.clone(root_positions[:,0:2]).size(dim=0)/num_envs))),1)[block_index,:].reshape(num_envs,2)
+    return torch.linalg.norm(r_pos - block_pos, axis = 1) + torch.linalg.norm(block_goal - block_pos,axis = 1)
+
+def get_navigation_cost(r_pos):
+    return torch.linalg.norm(r_pos - nav_goal, axis=1)
+
 def running_cost(state, action):
     # State: for each environment, the current state containing position and velocity
     # Action: same but for control input
     
     state_pos = torch.cat((state[:, 0].unsqueeze(1), state[:, 2].unsqueeze(1)), 1)
-    task_cost = torch.linalg.norm(state_pos - torch.tensor([3, -3], device="cuda:0"), axis=1)
-    
     control_cost = torch.sum(torch.square(action),1)
     w_u = 0.01
     # Contact forces
@@ -58,13 +71,14 @@ def running_cost(state, action):
     _net_cf = gym.refresh_net_contact_force_tensor(sim)
     # Take only forces in x,y in modulus for each environment. Avoid all collisions
     net_cf = torch.sum(torch.abs(torch.cat((net_cf[:, 0].unsqueeze(1), net_cf[:, 1].unsqueeze(1)), 1)),1)
-    coll_cost = torch.sum(net_cf.reshape([num_envs, int(net_cf.size(dim=0)/num_envs)]), 1)
+    # The last 6 actors are allowed to collide with eachother (movabable obstacles and robot)
+    coll_cost = torch.sum(net_cf.reshape([num_envs, int(net_cf.size(dim=0)/num_envs)])[:,0:9], 1)
     w_c = 10000 # Weight for collisions
-    # Binary check for collisions. So far checking all collision of all actors. TODO: check collision of robot body only       
+    # Binary check for collisions. So far checking all collision with unmovable obstacles. Movable obstacles touching unmovable ones are considered collisions       
     coll_cost[coll_cost>0.1] = 1
     coll_cost[coll_cost<=0.1] = 0
-    
-    return  task_cost + w_u*control_cost + w_c*coll_cost
+    task_cost = get_push_cost(state_pos)
+    return  task_cost + w_c*coll_cost # + w_u*control_cost 
 
 def terminal_state_cost(states, actions):
     # States: for each environment and for the whole time horizon, the state trajectory containing position and velocity
@@ -75,9 +89,9 @@ mppi = mppi.MPPI(
     dynamics=mppi_dynamics, 
     running_cost=running_cost, 
     nx=2, 
-    noise_sigma = torch.tensor([[2, 0], [0, 2]], device="cuda:0", dtype=torch.float32),
+    noise_sigma = torch.tensor([[20, 0], [0, 20]], device="cuda:0", dtype=torch.float32),
     num_samples=num_envs, 
-    horizon=10,
+    horizon=30,
     lambda_=0.1, 
     device="cuda:0", 
     u_max=torch.tensor([3.0, 3.0]),
