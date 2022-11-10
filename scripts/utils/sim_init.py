@@ -2,6 +2,7 @@ from isaacgym import gymapi
 from isaacgym import gymutil
 from isaacgym import gymtorch
 import torch
+import numpy as np
 import utils.env_conf as env_conf
 
 # Parse arguments
@@ -101,6 +102,20 @@ def acquire_states(gym, sim, print_flag):
         print("vel", dof_states[:,1])
         print("actor num", num_actors)
     return dof_states, num_dofs, num_actors, root_states
+
+# Visulize the trajectories
+def visualize_trajs(gym, viewer, env, action, dof_states, frame_count):
+    if frame_count % 10 == 0:
+        gym.clear_lines(viewer)
+    vel = action.cpu().clone().numpy() 
+    vel2draw = [vel[1], vel[0]]
+
+    dof_states_np = -dof_states.cpu().clone().numpy()
+    curr_pos = dof_states_np[:, 0]
+    curr_pos2draw = [-curr_pos[1], -curr_pos[0]]
+    line_array = np.array([curr_pos2draw[0], curr_pos2draw[1], 0, curr_pos2draw[0] + vel2draw[0], curr_pos2draw[1] + vel2draw[1], 0], dtype=np.float32)
+    color_array = np.array([255, 0, 0], dtype=np.float32)
+    gym.add_lines(viewer, env, 1, line_array, color_array)
 
 # Step the simulation
 def step(gym, sim):

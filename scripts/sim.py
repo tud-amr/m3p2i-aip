@@ -2,7 +2,7 @@ from isaacgym import gymapi
 from isaacgym import gymutil
 from isaacgym import gymtorch
 import torch
-from pytorch_mppi import mppi
+from fusion_mppi import mppi
 from utils import env_conf, sim_init, data_transfer
 import time
 import socket
@@ -39,6 +39,9 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
         message = s.recv(1024)
         b = s.recv(1024)
         action = data_transfer.bytes_to_torch(b)
+
+        # Visulize the trajectories
+        sim_init.visualize_trajs(gym, viewer, envs[0], action, dof_states, frame_count)
 
         # Apply optimal action
         gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(action))
