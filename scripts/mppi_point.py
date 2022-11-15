@@ -6,12 +6,14 @@ from fusion_mppi import mppi, fusion_mppi
 from utils import env_conf, sim_init, data_transfer
 import time
 import copy
-import socket
+import socket, io
+import numpy as np
 torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 
 # Make the environment and simulation
 allow_viewer = False
-num_envs = 2000
+visualize_rollouts = True
+num_envs = 300
 spacing = 10.0
 robot = "point_robot"               # choose from "point_robot", "boxer", "albert"
 obstacle_type = "normal"            # choose from "normal", "battery"
@@ -28,13 +30,14 @@ mppi = fusion_mppi.FUSION_MPPI(
     nx=2, 
     noise_sigma = torch.tensor([[2, 0], [0, 2]], device="cuda:0", dtype=torch.float32),
     num_samples=num_envs, 
-    horizon=10,
+    horizon=18,
     lambda_=0.1, 
     device="cuda:0", 
     u_max=torch.tensor([3.0, 3.0]),
     u_min=torch.tensor([-3.0, -3.0]),
     step_dependent_dynamics=True,
-    terminal_state_cost=None
+    terminal_state_cost=None,
+    u_per_command=18
     )
 
 # Make sure the socket does not already exist
@@ -78,5 +81,23 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
             mppi.update_gym(gym, sim)
 
             # Compute optimal action and send to real simulator
-            action = mppi.command(s)
-            conn.sendall(data_transfer.torch_to_bytes(action))
+            actions = mppi.command(s)
+            conn.sendall(data_transfer.torch_to_bytes(actions))
+
+            # Send rollouts data
+            if visualize_rollouts:
+                # Receive message
+                while True:
+                    res = conn.recv(2**16)
+                    if not res == b'': break
+
+                # Get the rollouts trajectory
+                rollouts = mppi.states[0, :, :, :].cpu().clone().numpy()
+                current_traj = np.zeros((mppi.T, 2))
+                K = mppi.K
+                conn.sendall(data_transfer.numpy_to_bytes(mppi.K))
+                for i in range(K):
+                    res4 = conn.recv(2**18)
+                    current_traj[:, 0] = rollouts[i][:, 0]     # x pos
+                    current_traj[:, 1] = rollouts[i][:, 2]     # y pos
+                    conn.sendall(data_transfer.numpy_to_bytes(current_traj))

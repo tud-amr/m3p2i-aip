@@ -1,4 +1,4 @@
-import pytorch_mppi.mppi as mppi
+import fusion_mppi.mppi as mppi
 import torch
 from isaacgym import gymtorch
 from utils import sim_init
@@ -46,7 +46,6 @@ class FUSION_MPPI(mppi.MPPI):
 
     @mppi.handle_batch_input
     def _dynamics(self, state, u, t):
-        # return self.F(state, u, t) if self.step_dependency else self.F(state, u)
         self.gym.set_dof_velocity_target_tensor(self.sim, gymtorch.unwrap_tensor(u))
         self.gym.simulate(self.sim)
         self.gym.fetch_results(self.sim, True)
@@ -57,7 +56,6 @@ class FUSION_MPPI(mppi.MPPI):
 
     @mppi.handle_batch_input
     def _running_cost(self, state, u):
-        # return self.running_cost(state, u)
         # State: for each environment, the current state containing position and velocity
         # Action: same but for control input
         
