@@ -68,13 +68,13 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
             r = 0.08
             L = 2*0.157
             # Diff drive fk
-            actions_fk = action.clone()
-            actions_fk[0] = (action[0] / r) - ((L*action[1])/(2*r))
-            actions_fk[1] = (action[0] / r) + ((L*action[1])/(2*r))
-            # data = actions_fk
+            action_fk = action.clone()
+            action_fk[0] = (action[0] / r) - ((L*action[1])/(2*r))
+            action_fk[1] = (action[0] / r) + ((L*action[1])/(2*r))
+            action = action_fk
 
         # Apply real action. (same action for all envs).
-        gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(actions_fk))
+        gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(action))
         gym.simulate(sim)
         gym.fetch_results(sim, True)
 

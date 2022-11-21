@@ -14,7 +14,7 @@ def configure_sim():
     sim_params = gymapi.SimParams()
     # Set common parameters
     sim_params.dt = 1.0 / 20.0
-    sim_params.substeps = 1
+    sim_params.substeps = 2
     sim_params.up_axis = gymapi.UP_AXIS_Z
     sim_params.gravity = gymapi.Vec3(0.0, 0.0, -9.8)
     # Set PhysX-specific parameters

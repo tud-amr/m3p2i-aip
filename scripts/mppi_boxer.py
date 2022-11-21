@@ -12,7 +12,7 @@ torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 allow_viewer = False
 
 ## Adding Point robot
-num_envs = 600
+num_envs = 300
 spacing = 10.0
 
 robot = "boxer"               # choose from "point_robot", "boxer", "albert"
@@ -34,7 +34,7 @@ root_positions = actor_root_state[:, 0:3]
 
 # Pushing purple blox
 block_index = 10 
-block_goal = torch.tensor([3, 3], device="cuda:0")
+block_goal = torch.tensor([-3, -3], device="cuda:0")
 # nav_goal = torch.tensor([3, 3], device="cuda:0")
 
 
@@ -76,8 +76,7 @@ def get_push_cost(r_pos):
     align_cost = torch.zeros_like(robot_to_goal)
     align_cost[block_to_goal > robot_to_goal] = 1
 
-    # cost += align_cost
-    cost = robot_to_goal
+    cost += align_cost
     return cost
 
 def get_navigation_cost(r_pos):
