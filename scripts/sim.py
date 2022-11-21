@@ -19,7 +19,8 @@ spacing = 10.0
 #Init pose
 robot_init_pose = gymapi.Transform()
 robot_init_pose.p = gymapi.Vec3(0.0, 0.0, 0.05) 
-robot_asset = env_conf.load_point_robot(gym, sim)
+# robot_asset = env_conf.load_point_robot(gym, sim)
+robot_asset = env_conf.load_boxer(gym, sim)
 
 # Create the arena(s) with robots
 envs = env_conf.create_robot_arena(gym, sim, num_envs, spacing, robot_asset, robot_init_pose)
@@ -66,14 +67,16 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
 
         s.sendall(torch_to_bytes(actor_root_state))
         b = s.recv(1024)
-        data = bytes_to_torch(b)
+        action = bytes_to_torch(b)
 
-
-        # all_actions = torch.zeros(num_envs * 2, device="cuda:0")
-        # all_actions[:2] = action
+        r = 0.08
+        L = 2*0.157
+        action_fk = action.clone()
+        action_fk[0] = (action[0] / r) - ((L*action[1])/(2*r))
+        action_fk[1] = (action[0] / r) + ((L*action[1])/(2*r))
 
         # Apply real action. (same action for all envs).
-        gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(data))
+        gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(action_fk))
         gym.simulate(sim)
         gym.fetch_results(sim, True)
 
