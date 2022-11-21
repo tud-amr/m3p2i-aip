@@ -203,4 +203,18 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, e
         else:
             print("Invalid control type!")
         gym.set_actor_dof_properties(env, robot_handle, props)
+
+                # Set friction of rotacasters to zero for boxer
+        boxer_rigid_body_names = ['base_link_ori', 'base_link', 'chassis_link', 'rotacastor_left_link', 'rotacastor_right_link', 'wheel_left_link', 'wheel_right_link', 'ee_link']
+        if gym.get_asset_rigid_body_names(robot_asset) == boxer_rigid_body_names:
+            print("yes doing this thing")
+            shape_props = gym.get_actor_rigid_shape_properties(env, robot_handle)
+            shape_props[1].friction = 0.
+            shape_props[1].torsion_friction = 0.
+            shape_props[1].rolling_friction = 0.
+            shape_props[2].friction = 0.
+            shape_props[2].torsion_friction = 0.
+            shape_props[2].rolling_friction = 0.
+            gym.set_actor_rigid_shape_properties(env, robot_handle, shape_props)
+
     return envs, robot_handles

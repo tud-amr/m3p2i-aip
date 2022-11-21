@@ -15,7 +15,7 @@ allow_viewer = True
 num_envs = 1 
 spacing = 10.0
 
-robot = "point_robot"               # choose from "point_robot", "boxer", "albert"
+robot = "boxer"               # choose from "point_robot", "boxer", "albert"
 environment_type = "normal"            # choose from "normal", "battery"
 control_type = "vel_control"        # choose from "vel_control", "pos_control", "force_control"
 gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, spacing, robot, environment_type, control_type)
@@ -62,14 +62,19 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
 
         s.sendall(torch_to_bytes(actor_root_state))
         b = s.recv(1024)
-        data = bytes_to_torch(b)
+        action = bytes_to_torch(b)
 
-
-        # all_actions = torch.zeros(num_envs * 2, device="cuda:0")
-        # all_actions[:2] = action
+        if robot == 'boxer':
+            r = 0.08
+            L = 2*0.157
+            # Diff drive fk
+            actions_fk = action.clone()
+            actions_fk[0] = (action[0] / r) - ((L*action[1])/(2*r))
+            actions_fk[1] = (action[0] / r) + ((L*action[1])/(2*r))
+            # data = actions_fk
 
         # Apply real action. (same action for all envs).
-        gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(data))
+        gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(actions_fk))
         gym.simulate(sim)
         gym.fetch_results(sim, True)
 

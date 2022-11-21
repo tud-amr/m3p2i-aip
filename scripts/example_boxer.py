@@ -3,25 +3,20 @@ from isaacgym import gymtorch
 import torch
 from utils import env_conf, sim_init
 import numpy as np 
-import keyboard
 
 # Decide if you want a viewer or headless
 allow_viewer = True
-gym, sim, viewer = sim_init.config_gym(allow_viewer)
 
-## Adding Boxer
-# Desired number of environments and spacing
-num_envs = 128
+## Adding Point robot
+num_envs = 1
 spacing = 10.0
-#Init pose
-robot_init_pose = gymapi.Transform()
-robot_init_pose.p = gymapi.Vec3(0.0, 0.0, 0.05) 
-robot_asset = env_conf.load_boxer(gym, sim)
 
-# Create the arena(s) with robots
-env_conf.create_robot_arena(gym, sim, num_envs, spacing, robot_asset, robot_init_pose)
+robot = "boxer"               # choose from "point_robot", "boxer", "albert"
+environment_type = "normal"         # choose from "normal", "battery"
+control_type = "vel_control"        # choose from "vel_control", "pos_control", "force_control"
+gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, spacing, robot, environment_type, control_type)
+
 gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(1.5, 6, 8), gymapi.Vec3(1.5, 0, 0))
-
 gym.prepare_sim(sim)
 
 # subscribe to input events. This allows input to be used to interact
