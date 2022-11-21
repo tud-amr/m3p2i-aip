@@ -10,20 +10,15 @@ torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 
 # Decide if you want a viewer or headless
 allow_viewer = True
-gym, sim, viewer = sim_init.config_gym(allow_viewer)
 
 ## Adding Point robot
 num_envs = 1 
 spacing = 10.0
 
-#Init pose
-robot_init_pose = gymapi.Transform()
-robot_init_pose.p = gymapi.Vec3(0.0, 0.0, 0.05) 
-# robot_asset = env_conf.load_point_robot(gym, sim)
-robot_asset = env_conf.load_boxer(gym, sim)
-
-# Create the arena(s) with robots
-envs = env_conf.create_robot_arena(gym, sim, num_envs, spacing, robot_asset, robot_init_pose)
+robot = "point_robot"               # choose from "point_robot", "boxer", "albert"
+environment_type = "normal"            # choose from "normal", "battery"
+control_type = "vel_control"        # choose from "vel_control", "pos_control", "force_control"
+gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, spacing, robot, environment_type, control_type)
 
 gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(1.5, 6, 8), gymapi.Vec3(1.5, 0, 0))
 gym.prepare_sim(sim)
@@ -67,16 +62,14 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
 
         s.sendall(torch_to_bytes(actor_root_state))
         b = s.recv(1024)
-        action = bytes_to_torch(b)
+        data = bytes_to_torch(b)
 
-        r = 0.08
-        L = 2*0.157
-        action_fk = action.clone()
-        action_fk[0] = (action[0] / r) - ((L*action[1])/(2*r))
-        action_fk[1] = (action[0] / r) + ((L*action[1])/(2*r))
+
+        # all_actions = torch.zeros(num_envs * 2, device="cuda:0")
+        # all_actions[:2] = action
 
         # Apply real action. (same action for all envs).
-        gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(action_fk))
+        gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(data))
         gym.simulate(sim)
         gym.fetch_results(sim, True)
 
@@ -105,4 +98,3 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
 
 gym.destroy_viewer(viewer)
 gym.destroy_sim(sim)
-

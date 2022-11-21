@@ -9,20 +9,16 @@ import copy
 torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 
 # Decide if you want a viewer or headless
-allow_viewer = True
-gym, sim, viewer = sim_init.config_gym(allow_viewer)
+allow_viewer = False
 
 ## Adding Point robot
-num_envs = 300
+num_envs = 2000
 spacing = 10.0
 
-#Init pose
-robot_init_pose = gymapi.Transform()
-robot_init_pose.p = gymapi.Vec3(0.0, 0.0, 0.05) 
-robot_asset = env_conf.load_point_robot(gym, sim)
-
-# Create the arena(s) with robots
-envs = env_conf.create_robot_arena(gym, sim, num_envs, spacing, robot_asset, robot_init_pose)
+robot = "point_robot"               # choose from "point_robot", "boxer", "albert"
+environment_type = "normal"         # choose from "normal", "battery"
+control_type = "vel_control"        # choose from "vel_control", "pos_control", "force_control"
+gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, spacing, robot, environment_type, control_type)
 
 gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(1.5, 6, 8), gymapi.Vec3(1.5, 0, 0))
 gym.prepare_sim(sim)
@@ -32,12 +28,20 @@ dof_state =  gymtorch.wrap_tensor(gym.acquire_dof_state_tensor(sim))
 actor_root_state = gymtorch.wrap_tensor(gym.acquire_actor_root_state_tensor(sim))
 gym.refresh_actor_root_state_tensor(sim)
 gym.refresh_dof_state_tensor(sim)
+root_positions = actor_root_state[:, 0:3]
+
+
+# Pushing purple blox
+block_index = 10
+block_goal = torch.tensor([-3, 3], device="cuda:0")
+nav_goal = torch.tensor([3, 3], device="cuda:0")
 
 def mppi_dynamics(input_state, action, t):
     gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(action))
     gym.simulate(sim)
     gym.fetch_results(sim, True)
     gym.refresh_dof_state_tensor(sim)
+    gym.refresh_actor_root_state_tensor(sim)
 
     if allow_viewer:
         gym.step_graphics(sim)
@@ -47,24 +51,48 @@ def mppi_dynamics(input_state, action, t):
     res = torch.clone(dof_state).view(-1, 4)
     return res
 
-def running_cost(state, action):
-    return torch.zeros(num_envs, device="cuda:0")
+def get_push_cost(r_pos):
+    block_pos = torch.cat((torch.split(torch.clone(root_positions[:,0:2]), int(torch.clone(root_positions[:,0:2]).size(dim=0)/num_envs))),1)[block_index,:].reshape(num_envs,2)
+    return torch.linalg.norm(r_pos - block_pos, axis = 1) + torch.linalg.norm(block_goal - block_pos,axis = 1)
 
-    # return cost
+def get_navigation_cost(r_pos):
+    return torch.linalg.norm(r_pos - nav_goal, axis=1)
+
+def running_cost(state, action):
+    # State: for each environment, the current state containing position and velocity
+    # Action: same but for control input
+    
+    state_pos = torch.cat((state[:, 0].unsqueeze(1), state[:, 2].unsqueeze(1)), 1)
+    control_cost = torch.sum(torch.square(action),1)
+    w_u = 0.01
+    # Contact forces
+    _net_cf = gym.acquire_net_contact_force_tensor(sim)
+    net_cf = gymtorch.wrap_tensor(_net_cf)
+    _net_cf = gym.refresh_net_contact_force_tensor(sim)
+    # Take only forces in x,y in modulus for each environment. Avoid all collisions
+    net_cf = torch.sum(torch.abs(torch.cat((net_cf[:, 0].unsqueeze(1), net_cf[:, 1].unsqueeze(1)), 1)),1)
+    # The last 6 actors are allowed to collide with eachother (movabable obstacles and robot)
+    coll_cost = torch.sum(net_cf.reshape([num_envs, int(net_cf.size(dim=0)/num_envs)])[:,0:9], 1)
+    w_c = 10000 # Weight for collisions
+    # Binary check for collisions. So far checking all collision with unmovable obstacles. Movable obstacles touching unmovable ones are considered collisions       
+    coll_cost[coll_cost>0.1] = 1
+    coll_cost[coll_cost<=0.1] = 0
+    task_cost = get_push_cost(state_pos)
+    return  task_cost + w_c*coll_cost # + w_u*control_cost 
 
 def terminal_state_cost(states, actions):
-    states = torch.cat((states[0, :, -1, 0].unsqueeze(1), states[0, :, -1, 2].unsqueeze(1)), 1)
-    dist = torch.linalg.norm(states - torch.tensor([3, -3], device="cuda:0"), axis=1)
-    return dist**2
+    # States: for each environment and for the whole time horizon, the state trajectory containing position and velocity
+    # Actions: same but for control input
+    return torch.zeros(num_envs, device="cuda:0")
 
 mppi = mppi.MPPI(
     dynamics=mppi_dynamics, 
     running_cost=running_cost, 
-    nx=4, 
-    noise_sigma = torch.tensor([[10, 0], [0, 10]], device="cuda:0", dtype=torch.float32),
+    nx=2, 
+    noise_sigma = torch.tensor([[20, 0], [0, 20]], device="cuda:0", dtype=torch.float32),
     num_samples=num_envs, 
-    horizon=20,
-    lambda_=1., 
+    horizon=30,
+    lambda_=0.1, 
     device="cuda:0", 
     u_max=torch.tensor([3.0, 3.0]),
     u_min=torch.tensor([-3.0, -3.0]),

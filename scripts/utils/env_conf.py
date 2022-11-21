@@ -1,12 +1,13 @@
 from isaacgym import gymapi
 import math 
+import torch
 import numpy as np
 
 box1_pose = gymapi.Transform()
 box1_pose.p = gymapi.Vec3(1, -2, 0)
 
 box2_pose = gymapi.Transform()
-box2_pose.p = gymapi.Vec3(-1, 1, 0)
+box2_pose.p = gymapi.Vec3(-2, 1, 0)
 
 box3_pose = gymapi.Transform()
 box3_pose.p = gymapi.Vec3(3, 0, 0)
@@ -23,7 +24,7 @@ goal2_pose.p = gymapi.Vec3(3, 3, 0)
 goal3_pose = gymapi.Transform()
 goal3_pose.p = gymapi.Vec3(3, -3, 0)
 
-docking_station_loc = [-3, -3]
+docking_station_loc = torch.tensor([-3, -3], dtype=torch.float32, device="cuda:0")
 recharge_pose = gymapi.Transform()
 recharge_pose.p = gymapi.Vec3(docking_station_loc[1], docking_station_loc[0], 0)
 
@@ -66,6 +67,19 @@ def add_arena(sim, gym, env, square_size, wall_thikhness, origin_x, origin_y, in
     wall_pose.p = gymapi.Vec3(origin_x, -square_size/2+origin_y, 0.0)
     wall_pose.r = gymapi.Quat(0.0, 0.0, 0.707107, 0.707107)
     add_box(sim, gym, env, wall_thikhness, square_size, 1, wall_pose, color_vec_walls, True, "wall4", index)
+
+def load_robot(robot, gym, sim):
+    if robot == "albert":
+        robot_asset = load_albert(gym, sim)
+    elif robot == "boxer":
+        robot_asset = load_boxer(gym, sim)
+    elif robot == "point_robot":
+        robot_asset = load_point_robot(gym, sim)
+    elif robot == "franka":
+        robot_asset = load_franka(gym, sim)
+    else:
+        print("Invalid robot type")
+    return robot_asset
 
 def load_albert(gym, sim):
     # Load asset
@@ -121,55 +135,72 @@ def load_franka(gym, sim):
         sim, asset_root, franka_asset_file, asset_options)
     return franka_asset
 
-def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose):
-    # Some common handles for later use
-    envs = []
-    robot_handles = []
-    print("Creating %d environments" % num_envs)
-    num_per_row = int(math.sqrt(num_envs))
-    for i in range(num_envs):
-        # create env
-        env = gym.create_env(sim, gymapi.Vec3(-spacing, 0.0, -spacing), gymapi.Vec3(spacing, spacing, spacing), num_per_row)
-        envs.append(env)
-        add_arena(sim, gym, env, 8,0.1, 0, 0, i) # Wall size, wall thickness, origin_x, origin_y, index
-        
-        # add movable squar box
-        box1_handle = add_box(sim, gym, env,0.4, 0.4, 0.1, box1_pose, color_vec_box1, False, "box1", i)
-        box2_handle = add_box(sim, gym, env,0.4, 0.4, 0.1, box2_pose, color_vec_box2, False, "box2", i)
-        box2_handle = add_box(sim, gym, env,0.4, 0.4, 0.1, box3_pose, color_vec_box3, False, "box3", i)
-
+def add_obstacles(sim, gym, env, environment_type, index):
+    if environment_type == "normal":
         # add fixed obstacle
-        obstacle_handle = add_box(sim, gym, env, 0.3, 0.4, 0.5, obstacle_pose, color_vec_fixed, True, "obstacle", i)
+        obstacle_handle = add_box(sim, gym, env, 0.3, 0.4, 0.5, obstacle_pose, color_vec_fixed, True, "obstacle", index)
 
         goal_region1 = add_box(sim, gym, env, 1, 1, 0.01, goal1_pose, color_vec_box1, True, "goal_region1", -2) # No collisions with goal region
         goal_region2 = add_box(sim, gym, env, 1, 1, 0.01, goal2_pose, color_vec_box2, True, "goal_region2", -2) # No collisions with goal region
         goal_region3 = add_box(sim, gym, env, 1, 1, 0.01, goal3_pose, color_vec_box3, True, "goal_region3", -2) # No collisions with goal region
 
         recharge_region = add_box(sim, gym, env,1 , 1, 0.01, recharge_pose, color_vec_recharge, True, "goal_region", -2) # No collisions with recharge region
+        # add movable squar box
+        box1_handle = add_box(sim, gym, env,0.4, 0.4, 0.1, box1_pose, color_vec_box1, False, "box1", index)
+        box2_handle = add_box(sim, gym, env,0.4, 0.4, 0.1, box2_pose, color_vec_box2, False, "pushableBox", index)
+        box2_handle = add_box(sim, gym, env,0.4, 0.4, 0.1, box3_pose, color_vec_box3, False, "box3", index)
+
+    elif environment_type == "battery":
+        # add fixed obstacle
+        obstacle_handle = add_box(sim, gym, env, 0.3, 0.4, 0.5, obstacle_pose, color_vec_fixed, True, "obstacle", index)
+
+        goal_region = add_box(sim, gym, env, 1, 1, 0.01, goal1_pose, color_vec_box1, True, "goal_region", -2) # No collisions with goal region
+        recharge_region = add_box(sim, gym, env,1 , 1, 0.01, recharge_pose, color_vec_recharge, True, "goal_region", -2) # No collisions with recharge region
+        # add movable squar box
+        movable_obstacle_handle = add_box(sim, gym, env,0.2, 0.2, 0.2, box1_pose, color_vec_box1, False, "movable_box", index)
+    else:
+        print("Invalid obstacle type")
+
+def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, environment_type, control_type = "vel_control"):
+    # Some common handles for later use
+    envs = []
+    robot_handles = []
+    print("Creating %d environments" % num_envs)
+    num_per_row = int(math.sqrt(num_envs))
+    gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(1.5, 6, 8), gymapi.Vec3(1.5, 0, 0))
+    for i in range(num_envs):
+        # Create env
+        env = gym.create_env(sim, gymapi.Vec3(-spacing, 0.0, -spacing), gymapi.Vec3(spacing, spacing, spacing), num_per_row)
+        envs.append(env)
+        add_arena(sim, gym, env, 8, 0.1, 0, 0, i) # Wall size, wall thickness, origin_x, origin_y, index
         
-        
-        # add point bot
+        # Add obstacles
+        add_obstacles(sim, gym, env, environment_type, index = i)
+
+        # Add robot
         robot_handle = gym.create_actor(env, robot_asset, pose, "robot", i, 1)
         robot_handles.append(robot_handle)
+        if environment_type == "battery":
+            gym.set_rigid_body_color(env, robot_handle, -1, gymapi.MESH_VISUAL_AND_COLLISION, color_vec_battery_ok)
 
-        # update point bot dynamics / control mode
+        # Update point bot dynamics / control mode
         props = gym.get_asset_dof_properties(robot_asset)
-        props["driveMode"].fill(gymapi.DOF_MODE_VEL)
-        props["stiffness"].fill(0.0)
-        props["damping"].fill(600.0)
-
+        if control_type == "pos_control":
+            # print(control_type)
+            props["driveMode"].fill(gymapi.DOF_MODE_POS)
+            props["stiffness"].fill(1000.0)
+            props["damping"].fill(200.0)
+        elif control_type == "vel_control":
+            # print(control_type)
+            props["driveMode"].fill(gymapi.DOF_MODE_VEL)
+            props["stiffness"].fill(0.0)        # The stiffness parameter should be set to zero.
+            props["damping"].fill(600.0)        # The torques applied by the PD controller will be proportional to the damping parameter
+        elif control_type == "force_control":
+            # print(control_type)
+            props["driveMode"].fill(gymapi.DOF_MODE_EFFORT)
+            props["stiffness"].fill(0.0)
+            props["damping"].fill(0.0)
+        else:
+            print("Invalid control type!")
         gym.set_actor_dof_properties(env, robot_handle, props)
-
-        # Set friction of rotacasters to zero for boxer
-        boxer_rigid_body_names = ['base_link_ori', 'base_link', 'chassis_link', 'rotacastor_left_link', 'rotacastor_right_link', 'wheel_left_link', 'wheel_right_link', 'ee_link']
-        if gym.get_asset_rigid_body_names(robot_asset) == boxer_rigid_body_names:
-            shape_props = gym.get_actor_rigid_shape_properties(env, robot_handle)
-            shape_props[1].friction = 0.
-            shape_props[1].torsion_friction = 0.
-            shape_props[1].rolling_friction = 0.
-            shape_props[2].friction = 0.
-            shape_props[2].torsion_friction = 0.
-            shape_props[2].rolling_friction = 0.
-            gym.set_actor_rigid_shape_properties(env, robot_handle, shape_props)
-
     return envs, robot_handles
