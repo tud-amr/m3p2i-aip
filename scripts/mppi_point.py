@@ -30,14 +30,15 @@ mppi = fusion_mppi.FUSION_MPPI(
     nx=2, 
     noise_sigma = torch.tensor([[2, 0], [0, 2]], device="cuda:0", dtype=torch.float32),
     num_samples=num_envs, 
-    horizon=18,
+    horizon=15,
     lambda_=0.1, 
     device="cuda:0", 
     u_max=torch.tensor([3.0, 3.0]),
     u_min=torch.tensor([-3.0, -3.0]),
     step_dependent_dynamics=True,
     terminal_state_cost=None,
-    u_per_command=18
+    sample_null_action=True,
+    u_per_command=15
     )
 
 # Make sure the socket does not already exist

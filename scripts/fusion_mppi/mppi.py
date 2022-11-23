@@ -233,6 +233,13 @@ class MPPI():
         actions = []
         for t in range(T):
             u = self.u_scale * perturbed_actions[:, t].repeat(self.M, 1, 1)
+            
+            # Last rollout is a breaking manover
+            if self.sample_null_action:
+                u[:, self.K -1, :] = torch.tensor([0., 0.])
+                # Update perturbed action sequence for later use in cost computation
+                self.perturbed_action[self.K - 1][t] = u[:, self.K -1, :]
+            
             state = self._dynamics(state, u, t)
             c = self._running_cost(state, u)
             cost_samples += c
@@ -262,12 +269,16 @@ class MPPI():
         self.noise = self.noise_dist.sample((self.K, self.T))
         # broadcast own control to noise over samples; now it's K x T x nu
         self.perturbed_action = self.U + self.noise
-        if self.sample_null_action:
-            self.perturbed_action[self.K - 1] = 0
+        
         # naively bound control
         self.perturbed_action = self._bound_action(self.perturbed_action)
+
+        self.cost_total, self.states, self.actions = self._compute_rollout_costs(self.perturbed_action)
+        self.actions /= self.u_scale
+
         # bounded noise after bounding (some got cut off, so we don't penalize that in action cost)
         self.noise = self.perturbed_action - self.U
+
         if self.noise_abs_cost:
             action_cost = self.lambda_ * torch.abs(self.noise) @ self.noise_sigma_inv
             # NOTE: The original paper does self.lambda_ * torch.abs(self.noise) @ self.noise_sigma_inv, but this biases
@@ -275,9 +286,6 @@ class MPPI():
             # nomial trajectory.
         else:
             action_cost = self.lambda_ * self.noise @ self.noise_sigma_inv # Like original paper
-
-        self.cost_total, self.states, self.actions = self._compute_rollout_costs(self.perturbed_action)
-        self.actions /= self.u_scale
 
         # action perturbation cost
         perturbation_cost = torch.sum(self.U * action_cost, dim=(1, 2))
