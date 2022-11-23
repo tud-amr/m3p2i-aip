@@ -75,6 +75,7 @@ class MPPI():
                  rollout_var_cost=0,
                  rollout_var_discount=0.95,
                  sample_null_action=False,
+                 use_priors=False,
                  noise_abs_cost=False):
         """
         :param dynamics: function(state, action) -> next_state (K x nx) taking in batch state (K x nx) and action (K x nu)
@@ -97,6 +98,7 @@ class MPPI():
         :param rollout_var_cost: Cost attached to the variance of costs across trajectory rollouts
         :param rollout_var_discount: Discount of variance cost over control horizon
         :param sample_null_action: Whether to explicitly sample a null action (bad for starting in a local minima)
+        :param use_priors: Wheher or not to use other prior controllers
         :param noise_abs_cost: Whether to use the absolute value of the action noise to avoid bias when all states have the same cost
         """
         self.d = device
@@ -154,6 +156,7 @@ class MPPI():
         self.running_cost = running_cost
         self.terminal_state_cost = terminal_state_cost
         self.sample_null_action = sample_null_action
+        self.use_priors = use_priors
         self.noise_abs_cost = noise_abs_cost
         self.state = None
 
@@ -168,6 +171,9 @@ class MPPI():
         self.omega = None
         self.states = None
         self.actions = None
+
+        # Priors parameters
+        self.kp = 0.5
 
     @handle_batch_input
     def _dynamics(self, state, u, t):
@@ -239,7 +245,13 @@ class MPPI():
                 u[:, self.K -1, :] = torch.tensor([0., 0.])
                 # Update perturbed action sequence for later use in cost computation
                 self.perturbed_action[self.K - 1][t] = u[:, self.K -1, :]
-            
+            # Sample a proportional velocity to the goal
+            if self.use_priors:
+                u[:, self.K - 2, :] = -self.kp*torch.tensor([[state[0, -2][0] + 3., state[0, -2][2] + 3.]])    # Proportional controller to the goal
+                # Clamp control input
+                u[:, self.K - 2, :][0] = torch.clamp(u[:, self.K - 2, :][0], min=self.u_min, max=self.u_max)
+                self.perturbed_action[self.K - 2][t] = u[:, self.K -2, :]
+
             state = self._dynamics(state, u, t)
             c = self._running_cost(state, u)
             cost_samples += c

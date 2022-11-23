@@ -19,6 +19,7 @@ class FUSION_MPPI(mppi.MPPI):
                     rollout_var_cost=0, 
                     rollout_var_discount=0.95, 
                     sample_null_action=False, 
+                    use_priors=False,
                     noise_abs_cost=False):
         super().__init__(dynamics, running_cost, nx, noise_sigma, num_samples, horizon, device, 
                     terminal_state_cost, 
@@ -35,6 +36,7 @@ class FUSION_MPPI(mppi.MPPI):
                     rollout_var_cost, 
                     rollout_var_discount, 
                     sample_null_action, 
+                    use_priors,
                     noise_abs_cost)
         self.gym = None
         self.sim = None
@@ -60,7 +62,7 @@ class FUSION_MPPI(mppi.MPPI):
         # Action: same but for control input
         
         state_pos = torch.cat((state[:, 0].unsqueeze(1), state[:, 2].unsqueeze(1)), 1)
-        task_cost = torch.linalg.norm(state_pos - torch.tensor([3, -3], device="cuda:0"), axis=1)
+        task_cost = torch.linalg.norm(state_pos - torch.tensor([-3, -3], device="cuda:0"), axis=1)
         
         control_cost = torch.sum(torch.square(u),1)
         w_u = 0.01
