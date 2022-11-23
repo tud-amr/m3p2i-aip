@@ -3,17 +3,18 @@ from isaacgym import gymutil
 from isaacgym import gymtorch
 import torch
 import utils.env_conf as env_conf
+import numpy as np
 
 # Parse arguments
 args = gymutil.parse_arguments(description="Experiments")
 args.use_gpu = True
 
 # Configure sim
-def configure_sim():
+def configure_sim(dt=0.05):
     # Get default set of parameters
     sim_params = gymapi.SimParams()
     # Set common parameters
-    sim_params.dt = 1.0 / 20.0
+    sim_params.dt = dt
     sim_params.substeps = 2
     sim_params.up_axis = gymapi.UP_AXIS_Z
     sim_params.gravity = gymapi.Vec3(0.0, 0.0, -9.8)
@@ -29,8 +30,8 @@ def configure_sim():
     return sim_params
 
 # Creating gym
-def config_gym(viewer):
-    params = configure_sim()
+def config_gym(viewer, dt):
+    params = configure_sim(dt)
     gym = gymapi.acquire_gym()
     sim = gym.create_sim(args.compute_device_id, args.graphics_device_id, args.physics_engine, params)
     if viewer:
@@ -62,9 +63,9 @@ def config_gym(viewer):
     return gym, sim, viewer
 
 # Make the environment and simulation
-def make(allow_viewer, num_envs, spacing, robot, obstacle_type, control_type = "vel_control"):
+def make(allow_viewer, num_envs, spacing, robot, obstacle_type, control_type = "vel_control", dt=0.05):
     # Configure gym
-    gym, sim, viewer = config_gym(allow_viewer)
+    gym, sim, viewer = config_gym(allow_viewer, dt)
     # Set robot initial pose
     robot_init_pose = gymapi.Transform()
     robot_init_pose.p = gymapi.Vec3(0.0, 0.0, 0.05)

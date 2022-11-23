@@ -10,15 +10,17 @@ torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 
 # Decide if you want a viewer or headless
 allow_viewer = False
+visualize_rollouts = True
 
 ## Adding Point robot
 num_envs = 2000
 spacing = 10.0
+dt = 0.02
 
 robot = "point_robot"               # choose from "point_robot", "boxer", "albert"
 environment_type = "normal"         # choose from "normal", "battery"
 control_type = "vel_control"        # choose from "vel_control", "pos_control", "force_control"
-gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, spacing, robot, environment_type, control_type)
+gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, spacing, robot, environment_type, control_type, dt=dt)
 
 gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(1.5, 6, 8), gymapi.Vec3(1.5, 0, 0))
 gym.prepare_sim(sim)
@@ -77,7 +79,8 @@ def running_cost(state, action):
     # Binary check for collisions. So far checking all collision with unmovable obstacles. Movable obstacles touching unmovable ones are considered collisions       
     coll_cost[coll_cost>0.1] = 1
     coll_cost[coll_cost<=0.1] = 0
-    task_cost = get_push_cost(state_pos)
+    # task_cost = get_push_cost(state_pos)
+    task_cost = get_navigation_cost(state_pos)
     return  task_cost + w_c*coll_cost # + w_u*control_cost 
 
 def terminal_state_cost(states, actions):
@@ -91,13 +94,14 @@ mppi = mppi.MPPI(
     nx=2, 
     noise_sigma = torch.tensor([[20, 0], [0, 20]], device="cuda:0", dtype=torch.float32),
     num_samples=num_envs, 
-    horizon=30,
+    horizon=15,
     lambda_=0.1, 
     device="cuda:0", 
     u_max=torch.tensor([3.0, 3.0]),
     u_min=torch.tensor([-3.0, -3.0]),
     step_dependent_dynamics=True,
-    terminal_state_cost=terminal_state_cost
+    terminal_state_cost=terminal_state_cost,
+    u_per_command=15
     )
 
 import socket
@@ -162,3 +166,12 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
             action = mppi.command(s)
 
             conn.sendall(torch_to_bytes(action))
+            # Send rollouts data
+            if visualize_rollouts:
+                # Receive message
+                while True:
+                    res = conn.recv(2**16)
+                    if not res == b'': break
+
+                # Get the rollouts trajectory
+                conn.sendall(torch_to_bytes(mppi.states[0, ::num_envs//10, : ,:3:2].clone()))

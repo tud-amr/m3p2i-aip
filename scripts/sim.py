@@ -15,12 +15,12 @@ visualize_rollouts = True
 ## Adding Point robot
 num_envs = 1 
 spacing = 10.0
-dt = 0.1
+dt = 0.02
 
-robot = "boxer"               # choose from "point_robot", "boxer", "albert"
+robot = "point_robot"               # choose from "point_robot", "boxer", "albert"
 environment_type = "normal"            # choose from "normal", "battery"
 control_type = "vel_control"        # choose from "vel_control", "pos_control", "force_control"
-gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, spacing, robot, environment_type, control_type)
+gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, spacing, robot, environment_type, control_type, dt=dt)
 
 gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(1.5, 6, 8), gymapi.Vec3(1.5, 0, 0))
 gym.prepare_sim(sim)

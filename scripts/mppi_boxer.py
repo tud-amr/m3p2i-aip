@@ -6,19 +6,21 @@ from pytorch_mppi import mppi
 from utils import env_conf, sim_init
 import time
 import copy
+import numpy as np
 torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 
 # Decide if you want a viewer or headless
 allow_viewer = False
+visualize_rollouts = True
 
 ## Adding Point robot
-num_envs = 300
+num_envs = 500
 spacing = 10.0
 
 robot = "boxer"               # choose from "point_robot", "boxer", "albert"
 environment_type = "normal"         # choose from "normal", "battery"
 control_type = "vel_control"        # choose from "vel_control", "pos_control", "force_control"
-gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, spacing, robot, environment_type, control_type)
+gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, spacing, robot, environment_type, control_type, dt=0.1)
 
 gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(1.5, 6, 8), gymapi.Vec3(1.5, 0, 0))
 gym.prepare_sim(sim)
@@ -34,12 +36,11 @@ root_positions = actor_root_state[:, 0:3]
 
 # Pushing purple blox
 block_index = 10 
-block_goal = torch.tensor([-3, -3], device="cuda:0")
+block_goal = torch.tensor([3, -3], device="cuda:0")
 # nav_goal = torch.tensor([3, 3], device="cuda:0")
 
 
 def mppi_dynamics(input_state, action, t):
-
     r = 0.08
     L = 2*0.157
     # Diff drive fk
@@ -48,6 +49,7 @@ def mppi_dynamics(input_state, action, t):
     actions_fk[:, 1] = (action[:, 0] / r) + ((L*action[:, 1])/(2*r))
 
     gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(actions_fk))
+
     gym.simulate(sim)
     gym.fetch_results(sim, True)
     gym.refresh_dof_state_tensor(sim)
@@ -125,13 +127,14 @@ mppi = mppi.MPPI(
     nx=4, 
     noise_sigma = torch.tensor([[10, 0], [0, 10]], device="cuda:0", dtype=torch.float32),
     num_samples=num_envs, 
-    horizon=30,
+    horizon=15,
     lambda_=1., 
     device="cuda:0", 
     u_max=torch.tensor([1.5, 5.5]),
     u_min=torch.tensor([-1.5, -5.5]),
     step_dependent_dynamics=True,
-    terminal_state_cost=terminal_state_cost
+    terminal_state_cost=terminal_state_cost,
+    u_per_command=15
     )
 
 import socket
@@ -159,6 +162,7 @@ def torch_to_bytes(t: torch.Tensor) -> bytes:
 
 def bytes_to_torch(b: bytes) -> torch.Tensor:
     buff = io.BytesIO(b)
+    buff.seek(0)
     return torch.load(buff)
 
 with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
@@ -179,7 +183,7 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
             conn.sendall(b"next please")
 
             while True:
-                res = conn.recv(2**14)
+                res = conn.recv(2**16)
                 if not res == b'': break
             r = copy.copy(res)
             _actor_root_state = bytes_to_torch(r)
@@ -193,6 +197,15 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
             gym.refresh_actor_root_state_tensor(sim)
             gym.refresh_dof_state_tensor(sim)
 
-            action = mppi.command(actor_root_state)
+            actions = mppi.command(s)
+            conn.sendall(torch_to_bytes(actions))
 
-            conn.sendall(torch_to_bytes(action))
+            # Send rollouts data
+            if visualize_rollouts:
+                # Receive message
+                while True:
+                    res = conn.recv(2**16)
+                    if not res == b'': break
+
+                # Get the rollouts trajectory
+                conn.sendall(torch_to_bytes(mppi.states[0, ::num_envs//10, : ,:2].clone()))
