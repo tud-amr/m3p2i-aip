@@ -60,8 +60,6 @@ def mppi_dynamics(input_state, action, t):
 
     res = actor_root_state[12::13]
     res2 = torch.cat([res[:, :2], res[:, 7:9]], axis=1)
-    if t==0:
-        print(res2[0])
     return res2
 
 def get_push_cost(r_pos):
