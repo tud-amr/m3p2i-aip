@@ -10,7 +10,6 @@ torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 
 # Make the environment and simulation
 allow_viewer = True
-visualize_rollouts = True
 num_envs = 1 
 spacing = 10.0
 robot = "point_robot"               # choose from "point_robot", "boxer", "albert"
@@ -38,13 +37,16 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
 
         # Send root states and receive optimal actions
         s.sendall(data_transfer.torch_to_bytes(root_states))
-        b = s.recv(1024)
+        b = s.recv(2**14)
         actions = data_transfer.bytes_to_torch(b)
 
         # Clear lines at the beginning
         gym.clear_lines(viewer)
         
         # Send message and receive rollout states
+        s.sendall(b"Visualize flag")
+        visualize_rollouts = s.recv(1024)
+        visualize_rollouts = int(data_transfer.bytes_to_torch(visualize_rollouts))
         if visualize_rollouts:
             s.sendall(b"Visualize rollouts")
             K = s.recv(1024)
@@ -52,7 +54,7 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
             rollout_states = np.zeros((1, 2), dtype=np.float32)
             for i in range(K):
                 s.sendall(b"next")
-                _rollout_state = s.recv(1024)
+                _rollout_state = s.recv(2**18)
                 rollout_state = data_transfer.bytes_to_numpy(_rollout_state)
                 sim_init.visualize_rollouts(gym, viewer, envs[0], rollout_state)
 
