@@ -24,6 +24,7 @@ dof_states, num_dofs, num_actors, root_states = sim_init.acquire_states(gym, sim
 frame_count = 0
 next_fps_report = 2.0
 t1 = 0
+count = 0
 
 # Set server address
 server_address = './uds_socket'
@@ -63,6 +64,10 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
 
         # Apply optimal action
         gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(actions[0]))
+
+        # Update movement of dynamic obstacle
+        sim_init.update_dyn_obs(gym, sim, num_actors, num_envs, count)
+        count += 1
 
         # Step the similation
         sim_init.step(gym, sim)

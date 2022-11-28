@@ -20,6 +20,7 @@ dof_states, num_dofs, num_actors, root_states = sim_init.acquire_states(gym, sim
 frame_count = 0
 next_fps_report = 2.0
 t1 = 0
+count = 0
 
 # Main loop
 while viewer is None or not gym.query_viewer_has_closed(viewer):
@@ -29,6 +30,10 @@ while viewer is None or not gym.query_viewer_has_closed(viewer):
 
     # Respond to keyboard
     sim_init.keyboard_control(gym, sim, viewer, robot, num_dofs, num_envs, dof_states, control_type)
+
+    # Update dynamic obstacle
+    sim_init.update_dyn_obs(gym, sim, num_actors, num_envs, count)
+    count += 1
 
     # Step rendering
     sim_init.step_rendering(gym, sim, viewer)

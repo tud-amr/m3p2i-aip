@@ -15,6 +15,9 @@ box3_pose.p = gymapi.Vec3(3, 0, 0)
 obstacle_pose = gymapi.Transform()
 obstacle_pose.p = gymapi.Vec3(2, 2, 0)
 
+dyn_obs_pose = gymapi.Transform()
+dyn_obs_pose.p = gymapi.Vec3(-2, 2, 0)
+
 goal1_pose = gymapi.Transform()
 goal1_pose.p = gymapi.Vec3(-3, 3, 0)
 
@@ -35,6 +38,7 @@ color_vec_box3 = gymapi.Vec3(0.5, 0.1, 0.3)
 color_vec_fixed = gymapi.Vec3(0.8, 0.2, 0.2)
 color_vec_walls= gymapi.Vec3(0.1, 0.1, 0.1)
 color_vec_recharge= gymapi.Vec3(0.0, 0.9, 0.3)
+color_vec_dyn_obs = gymapi.Vec3(0.8, 0.2, 0.2)
 
 color_vec_battery_ok = gymapi.Vec3(0.0, 0.7, 0.5)
 color_vec_battery_low = gymapi.Vec3(0.8, 0.5, 0.)
@@ -162,6 +166,9 @@ def add_obstacles(sim, gym, env, obstacle_type, index):
     else:
         print("Invalid obstacle type")
 
+def add_dynamic_obs(sim, gym, env, index):
+    add_box(sim, gym, env,0.4, 0.4, 0.1, dyn_obs_pose, color_vec_dyn_obs, False, "dyn_obs", index)
+
 def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, obstacle_type, control_type = "vel_control"):
     # Some common handles for later use
     envs = []
@@ -177,6 +184,7 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, o
         
         # Add obstacles
         add_obstacles(sim, gym, env, obstacle_type, index = i)
+        add_dynamic_obs(sim, gym, env, index = i)
 
         # Add robot
         robot_handle = gym.create_actor(env, robot_asset, pose, "robot", i, 1)
@@ -187,17 +195,14 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, o
         # Update point bot dynamics / control mode
         props = gym.get_asset_dof_properties(robot_asset)
         if control_type == "pos_control":
-            # print(control_type)
             props["driveMode"].fill(gymapi.DOF_MODE_POS)
             props["stiffness"].fill(1000.0)
             props["damping"].fill(200.0)
         elif control_type == "vel_control":
-            # print(control_type)
             props["driveMode"].fill(gymapi.DOF_MODE_VEL)
             props["stiffness"].fill(0.0)        # The stiffness parameter should be set to zero.
             props["damping"].fill(600.0)        # The torques applied by the PD controller will be proportional to the damping parameter
         elif control_type == "force_control":
-            # print(control_type)
             props["driveMode"].fill(gymapi.DOF_MODE_EFFORT)
             props["stiffness"].fill(0.0)
             props["damping"].fill(0.0)

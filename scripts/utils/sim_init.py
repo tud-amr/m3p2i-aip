@@ -239,3 +239,24 @@ def keyboard_control(gym, sim, viewer, robot, num_dofs, num_envs, dof_states, co
                 gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(zero_vel))
             if control_type == "force_control":
                 gym.set_dof_actuation_force_tensor(sim, gymtorch.unwrap_tensor(zero_vel))
+
+# Update movement of dynamic obstacle
+def update_dyn_obs(gym, sim, num_actors, num_envs, count):
+    gym.refresh_actor_root_state_tensor(sim)
+    _root_tensor = gym.acquire_actor_root_state_tensor(sim)
+    root_tensor = gymtorch.wrap_tensor(_root_tensor)
+    root_positions = root_tensor[:, 0:3] # [56, 3]
+    root_linvels = root_tensor[:, 7:10]
+
+    offsets = torch.tensor([0.01, 0.01, 0], dtype=torch.float32, device="cuda:0").repeat(num_actors, 1)
+    size = 200
+    if count % size > size/4 and count % size < size/4*3:
+        root_positions += offsets
+    else:
+        root_positions -= offsets
+
+    indice_list = []
+    for i in range(num_envs):
+        indice_list.append((i+1)*num_actors/num_envs-2)
+    actor_indices = torch.tensor(indice_list, dtype=torch.int32, device="cuda:0")
+    gym.set_actor_root_state_tensor_indexed(sim, _root_tensor, gymtorch.unwrap_tensor(actor_indices), num_envs)
