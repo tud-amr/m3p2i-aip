@@ -86,10 +86,7 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
                     torch.cat((traj[1:], torch.ones(line_length, 1, device=torch.device('cuda:0'))*height), axis=1)),
                     axis=1
                 )
-                if i == 0:
-                    gym.add_lines(viewer, envs[0], line_length, line_array.cpu().numpy(), blue)
-                else:
-                    gym.add_lines(viewer, envs[0], line_length, line_array.cpu().numpy(), green)
+                gym.add_lines(viewer, envs[0], line_length, line_array.cpu().numpy(), green)
 
         action = actions[0]
         if robot == 'boxer':
