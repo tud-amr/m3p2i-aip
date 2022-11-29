@@ -37,7 +37,7 @@ root_positions = actor_root_state[:, 0:3]
 # Pushing purple blox
 block_index = 10 
 block_goal = torch.tensor([3, -3], device="cuda:0")
-# nav_goal = torch.tensor([3, 3], device="cuda:0")
+nav_goal = torch.tensor([3, 3], device="cuda:0")
 
 
 def mppi_dynamics(input_state, action, t):
@@ -104,16 +104,6 @@ def running_cost(state, action):
     coll_cost[coll_cost<=0.1] = 0
     task_cost = get_push_cost(state[:, :2])
     return  task_cost #+ w_c*coll_cost # + w_u*control_cost 
-
-# def running_cost(state, action):
-#     a = torch.linalg.norm(state[:, :2] - torch.tensor([3, 3], device="cuda:0"), axis=1)
-#     # print(state[0])
-#     # return torch.zeros(num_envs, device="cuda:0")
-#     # b = torch.linalg.norm(action, axis=1)
-#     return a  
-#     # cost = b
-#     # return cost
-#     # return torch.zeros(num_envs, device="cuda:0")
 
 def terminal_state_cost(states, actions):
     # dist = torch.linalg.norm(states[0, :, -1, :2] - torch.tensor([3, 3], device="cuda:0"), axis=1)

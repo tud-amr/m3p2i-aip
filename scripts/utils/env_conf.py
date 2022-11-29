@@ -77,6 +77,8 @@ def load_robot(robot, gym, sim):
         robot_asset = load_point_robot(gym, sim)
     elif robot == "franka":
         robot_asset = load_franka(gym, sim)
+    elif robot == "husky":
+        robot_asset = load_husky(gym, sim)
     else:
         print("Invalid robot type")
     return robot_asset
@@ -134,6 +136,38 @@ def load_franka(gym, sim):
     franka_asset = gym.load_asset(
         sim, asset_root, franka_asset_file, asset_options)
     return franka_asset
+
+def load_husky(gym, sim):
+    # Load asset
+    asset_root = "../assets"
+    husky_asset_file = "urdf/husky_description/husky_rectangular_bumper.urdf"
+
+    print("Loading asset '%s' from '%s'" % (husky_asset_file, asset_root))
+    asset_options = gymapi.AssetOptions()
+    asset_options.fix_base_link = False
+    asset_options.armature = 0.01
+
+    # set asset options for the husky
+    asset_options = gymapi.AssetOptions()
+    asset_options.fix_base_link = False
+    asset_options.use_mesh_materials = True
+    asset_options.flip_visual_attachments = False
+    asset_options.angular_damping = 0.0
+    asset_options.linear_damping = 0.0
+    asset_options.disable_gravity = False
+    # for overriding bad values in urdf
+    asset_options.override_com = True
+    asset_options.override_inertia = True
+    asset_options.vhacd_enabled = True
+    # more accurate shape collisions
+    asset_options.vhacd_params.resolution = 300000
+    asset_options.vhacd_params.max_convex_hulls = 10
+    asset_options.vhacd_params.max_num_vertices_per_ch = 64
+
+    robot_asset = gym.load_asset(sim, asset_root, husky_asset_file, asset_options)
+    pose = gymapi.Transform()
+    pose.p = gymapi.Vec3(0.0, 0.0, 0.01)    
+    return robot_asset
 
 def add_obstacles(sim, gym, env, environment_type, index):
     if environment_type == "normal":
