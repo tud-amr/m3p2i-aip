@@ -23,7 +23,7 @@ num_bodies = gym.get_actor_rigid_body_count(envs[-1], robot_handles[-1])
 Kp = 1
 def apply_control(u):
     # Get robot position at current time
-    dof_states, num_dofs, _, _, _ = sim_init.acquire_states(gym, sim, print_flag=False)
+    dof_states, num_dofs, _, _ = sim_init.acquire_states(gym, sim, print_flag=False)
     pos = dof_states[:,0]
     vel_target = torch.zeros(num_dofs, dtype=torch.float32, device="cuda:0")
 
@@ -37,7 +37,7 @@ def apply_control(u):
 # Battery simulation
 battery_factor = 0.5
 def battery_sim(battery_level):
-    dof_states, _, _, _, _ = sim_init.acquire_states(gym, sim, print_flag=False)
+    dof_states, _, _, _ = sim_init.acquire_states(gym, sim, print_flag=False)
     pos = dof_states[:,0]
     if torch.norm(pos - env_conf.docking_station_loc.repeat(num_envs)) < 0.5:
          new_level = battery_level + battery_factor
