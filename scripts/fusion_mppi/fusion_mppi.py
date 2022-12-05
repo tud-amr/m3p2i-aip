@@ -46,9 +46,9 @@ class FUSION_MPPI(mppi.MPPI):
         self.robot = robot_type
 
         # Additional variables for the environment
-        # Pushing purple blox
-        self.block_index = 11
+        self.block_index = 11   # Pushing purple blox, index according to simulation
         self.block_goal = torch.tensor([3, -3], device="cuda:0")
+        self.block_not_goal = torch.tensor([-2, 1], device="cuda:0")
         self.nav_goal = torch.tensor([-3, 3], device="cuda:0")
 
     def update_gym(self, gym, sim, viewer=None):
@@ -77,6 +77,12 @@ class FUSION_MPPI(mppi.MPPI):
     def get_push_cost(self, r_pos):
         block_pos = torch.cat((torch.split(torch.clone(self.root_positions[:,0:2]), int(torch.clone(self.root_positions[:,0:2]).size(dim=0)/self.num_envs))),1)[self.block_index,:].reshape(self.num_envs,2)
         return torch.linalg.norm(r_pos - block_pos, axis = 1) + torch.linalg.norm(self.block_goal - block_pos,axis = 1)
+
+    def get_push_not_goal_cost(self, r_pos):
+        block_pos = torch.cat((torch.split(torch.clone(self.root_positions[:,0:2]), int(torch.clone(self.root_positions[:,0:2]).size(dim=0)/self.num_envs))),1)[self.block_index,:].reshape(self.num_envs,2)
+        non_goal_cost = torch.clamp((1/torch.linalg.norm(self.block_not_goal - block_pos,axis = 1)), min=0, max=10)
+        return torch.linalg.norm(r_pos - block_pos, axis = 1) + non_goal_cost
+
 
     @mppi.handle_batch_input
     def _dynamics(self, state, u, t):
@@ -137,5 +143,6 @@ class FUSION_MPPI(mppi.MPPI):
             task_cost = self.get_boxer_push_cost(state[:, :2])
         elif self.robot == 'point_robot':
             task_cost = self.get_push_cost(state_pos)
+            #task_cost = self.get_push_not_goal_cost(state_pos)
             #task_cost = self.get_navigation_cost(state_pos)
         return  task_cost + w_c*coll_cost # + w_u*control_cost 

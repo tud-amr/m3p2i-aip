@@ -12,7 +12,7 @@ torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 allow_viewer = True
 num_envs = 1 
 spacing = 10.0
-robot = "boxer"               # choose from "point_robot", "boxer", "albert"
+robot = "point_robot"               # choose from "point_robot", "boxer", "albert"
 environment_type = "normal"            # choose from "normal", "battery"
 control_type = "vel_control"        # choose from "vel_control", "pos_control", "force_control"
 

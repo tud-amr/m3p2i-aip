@@ -5,12 +5,13 @@ import numpy as np
 
 class MDPIsAt:
     def __init__(self): 
-        self.state_name = 'isAt'                            # This is the general name the class refers to
-        self.state_names = ['at_goal', 'not_at_goal']                 # These are the names a certain battery state can have
-        self.action_names = ['idle', 'move_to']    # These are the names of the actions for internal needs
+        self.state_name = 'isAt'                                # This is the general name the class refers to
+        self.state_names = ['at_goal', 'not_at_goal']           # These are the names a certain battery state can have
+        self.action_names = ['idle', 'move_to']                 # These are the names of the actions for internal needs
 
-        self.V = np.array([0, 1])  # Allowable policies, it indicates policies of depth 1
-        self.B = np.zeros((2, 2, 2))  # Allowable actions initiation
+        self.V = np.array([0, 1])                               # Allowable policies, it indicates policies of depth 1
+        self.B = np.zeros((2, 2, 2))                            # Allowable actions initiation
+
         # Transition matrices
         # ----------------------------------------------------------
         self.B[:, :, 0] = np.eye(2)  # Idle action
@@ -38,59 +39,24 @@ class MDPIsAt:
         # -----------------------------------------------------------
         self.kappa_d = 1
 
-class MDPIsHolding:
-    def __init__(self):
-        self.state_name = 'isHolding'                            # This is the general name the class refers to
-        self.state_names = ['holding_obj', 'not_holding_obj']                 # These are the names a certain battery state can have
-        self.action_names = ['idle', 'pick', 'place_somewhere']    # These are the names of the actions for internal needs
+class MDPIsCloseTo:
+    def __init__(self): 
+        self.state_name = 'isCloseTo'                               
+        self.state_names = ['close_to', 'not_close_to']          
+        self.action_names = ['idle', 'approach_obj']                 
 
-        self.V = np.array([0, 1, 2])  # Allowable policies, it indicates policies of depth 1
-        self.B = np.zeros((2, 2, 3))  # Allowable actions initiation
+        self.V = np.array([0, 1])                              
+        self.B = np.zeros((2, 2, 2))                           
+
         # Transition matrices
         # ----------------------------------------------------------
         self.B[:, :, 0] = np.eye(2)  # Idle action
-        self.B[:, :, 1] = np.array([[1, 1],  # Pick action
-                                    [0, 0]])
-        self.B[:, :, 2] = np.array([[0, 0],  # Place_somewhere action
-                                    [1, 1]])
-        # Preconditions of the actions above
-        self.preconditions = [['none'], ['not_holding_obj', 'reachable', 'visible'], ['none']] # [Idle precondition], [pick preconditions], [place precondition]  
-
-        # Likelihood matrix matrices
-        # ----------------------------------------------------------
-        self.A = np.eye(2)  # Identity mapping
-        # Prior preferences, initially set to zero, so no preference
-        # -----------------------------------------------------------
-        self.C = np.array([[0.], [0.]])
-        # Belief about initial state, D
-        # -----------------------------------------------------------
-        self.D = np.array([[0.5], [0.5]])
-        
-        # Preference about actions, idle is slightly preferred
-        # -----------------------------------------------------------
-        self.E = np.array([[1.01], [1], [1]])
-        # Learning rate for initial state update
-        # -----------------------------------------------------------
-        self.kappa_d = 1
-
-class MDPIsReachable:
-    def __init__(self): 
-        self.state_name = 'isReachable'                            # This is the general name the class refers to
-        self.state_names = ['reachable', 'not_reachable']                 # These are the names a certain battery state can have
-        self.action_names = ['idle', 'move_to_reach']    # These are the names of the actions for internal needs
-
-        self.V = np.array([0, 1])  # Allowable policies, it indicates policies of depth 1
-        self.B = np.zeros((2, 2, 2))  # Allowable actions initiation
-        # Transition matrices
-        # ----------------------------------------------------------
-        self.B[:, :, 0] = np.eye(2)             # Idle action
-        self.B[:, :, 1] = np.array([[1, 1],     # move_to_reach
+        self.B[:, :, 1] = np.array([[1, 1],  # apprach 
                                     [0, 0]])
 
         # Preconditions of the actions above
         # ----------------------------------------------------------
-        self.preconditions = [['none'], ['none']]    # No preconditions needed for Idle and move_to_reach                       
-           
+        self.preconditions = [['none'], ['none']]    # No preconditions needed                 
 
         # Likelihood matrix matrices
         # ----------------------------------------------------------
@@ -109,59 +75,25 @@ class MDPIsReachable:
         # -----------------------------------------------------------
         self.kappa_d = 1
 
-class MDPIsVisible:
-    def __init__(self): 
-        self.state_name = 'isVisible'                            # This is the general name the class refers to
-        self.state_names = ['visible', 'not_visible']                 # These are the names a certain battery state can have
-        self.action_names = ['idle', 'look_around']    # These are the names of the actions for internal needs
-
-        self.V = np.array([0, 1])  # Allowable policies, it indicates policies of depth 1
-        self.B = np.zeros((2, 2, 2))  # Allowable actions initiation
-        # Transition matrices
-        # ----------------------------------------------------------
-        self.B[:, :, 0] = np.eye(2)             # Idle action
-        self.B[:, :, 1] = np.array([[1, 1],     # look_around
-                                    [0, 0]])
-
-        # Preconditions of the actions above
-        # ----------------------------------------------------------
-        self.preconditions = [['none'], ['none']]    # No preconditions needed for Idle and look_around                       
-           
-
-        # Likelihood matrix matrices
-        # ----------------------------------------------------------
-        self.A = np.eye(2)  # Identity mapping
-        # Prior preferences, initially set to zero, so no preference
-        # -----------------------------------------------------------
-        self.C = np.array([[0.], [0.]])
-        # Belief about initial state, D
-        # -----------------------------------------------------------
-        self.D = np.array([[0.5], [0.5]])
-
-        # Preference about actions, idle is slightly preferred
-        # -----------------------------------------------------------
-        self.E = np.array([[1.01], [1]])
-        # Learning rate for initial state update
-        # -----------------------------------------------------------
-        self.kappa_d = 1
-
-class MDPIsPlacedAt:
+class MDPIsLocFree:
     def __init__(self):
-        self.state_name = 'isInBasket'                                                  # This is the general name the class refers to
-        self.state_names = ['placed_in_basket', 'not_placed_in_basket']                 # These are the names a certain battery state can have
-        self.action_names = ['idle', 'place_in_basket']    # These are the names of the actions for internal needs
+        self.state_name = 'isLocFree'                                              
+        self.state_names = ['loc_free', 'not_loc_free']                     
+        self.action_names = ['idle', 'push_to_non_goal', 'pull_to_non_goal']        
 
-        self.V = np.array([0, 1])       # Allowable policies, it indicates policies of depth 1
-        self.B = np.zeros((2, 2, 2))    # Allowable actions initiation (idle and place_in_basket)
+        self.V = np.array([0, 1, 2]) 
+        self.B = np.zeros((2, 2, 3)) 
         # Transition matrices
         # ----------------------------------------------------------
         self.B[:, :, 0] = np.eye(2)             # Idle action
-        self.B[:, :, 1] = np.array([[1, 1],     # Action Place_in_basket
+        self.B[:, :, 1] = np.array([[1, 1],     # push_to_non__goal
                                     [0, 0]])
+        self.B[:, :, 2] = np.array([[1, 1],     # pull_to_non_goal
+                                    [0, 0]])
+
         # Preconditions of the actions above
         # ----------------------------------------------------------
-        self.preconditions = [['none'], ['holding_obj']]    # [idle precondition], [place_in_backet_obj]                  
-
+        self.preconditions = [['none'], ['close_to'], ['close_to']]                 
 
         # Likelihood matrix matrices
         # ----------------------------------------------------------
@@ -177,7 +109,46 @@ class MDPIsPlacedAt:
         self.d = np.array([[0.5], [0.5]])
         # Preference about actions, idle is slightly preferred
         # -----------------------------------------------------------
-        self.E = np.array([[1.01], [1]])
+        self.E = np.array([[1.01], [1], [1]])
+        # Learning rate for initial state update
+        # -----------------------------------------------------------
+        self.kappa_d = 1
+
+class MDPIsBlockAt:
+    def __init__(self):
+        self.state_name = 'isBlockAt'                                              
+        self.state_names = ['block_at_loc', 'not_block_at_loc']                     
+        self.action_names = ['idle', 'push_to_goal', 'pull_to_goal']        
+
+        self.V = np.array([0, 1, 2])      
+        self.B = np.zeros((2, 2, 3))    
+        # Transition matrices
+        # ----------------------------------------------------------
+        self.B[:, :, 0] = np.eye(2)             # Idle action
+        self.B[:, :, 1] = np.array([[1, 1],     # push_to_goal
+                                    [0, 0]])
+        self.B[:, :, 2] = np.array([[1, 1],     # push_to_goal
+                                    [0, 0]])
+
+        # Preconditions of the actions above
+        # ----------------------------------------------------------
+        self.preconditions = [['none'], ['loc_free', 'close_to'], ['loc_free', 'close_to']]                 
+
+        # Likelihood matrix matrices
+        # ----------------------------------------------------------
+        self.A = np.eye(2)  # Identity mapping
+        # Prior preferences, initially set to zero, so no preference
+        # -----------------------------------------------------------
+        self.C = np.array([[0.], [0.]])
+        # Belief about initial state, D
+        # -----------------------------------------------------------
+        self.D = np.array([[0.5], [0.5]])
+        # Initial guess about the states d, all equally possible, this is updated over time
+        # -----------------------------------------------------------
+        self.d = np.array([[0.5], [0.5]])
+        # Preference about actions, idle is slightly preferred
+        # -----------------------------------------------------------
+        self.E = np.array([[1.01], [1], [1]])
         # Learning rate for initial state update
         # -----------------------------------------------------------
         self.kappa_d = 1
