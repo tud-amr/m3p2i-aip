@@ -18,7 +18,7 @@ spacing = 10.0
 robot = "boxer"               # choose from "point_robot", "boxer", "albert"
 environment_type = "normal"         # choose from "normal", "battery"
 control_type = "vel_control"        # choose from "vel_control", "pos_control", "force_control"
-gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, spacing, robot, environment_type, control_type)
+gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, spacing, robot, environment_type, control_type, dt=0.05)
 
 # Acquire states
 dof_states, num_dofs, num_actors, root_states = sim_init.acquire_states(gym, sim, print_flag=False)
@@ -75,7 +75,7 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
             sim_init.refresh_states(gym, sim)
 
             # Update gym in mppi
-            mppi.update_gym(gym, sim)
+            mppi.update_gym(gym, sim, viewer)
 
             # Compute optimal action and send to real simulator
             actions = mppi.command(s)

@@ -51,9 +51,10 @@ class FUSION_MPPI(mppi.MPPI):
         self.block_goal = torch.tensor([3, -3], device="cuda:0")
         self.nav_goal = torch.tensor([-3, 3], device="cuda:0")
 
-    def update_gym(self, gym, sim):
+    def update_gym(self, gym, sim, viewer=None):
         self.gym = gym
         self.sim = sim
+        self.viewer = viewer
 
     def get_navigation_cost(self, r_pos):
         return torch.linalg.norm(r_pos - self.nav_goal, axis=1)
@@ -104,6 +105,12 @@ class FUSION_MPPI(mppi.MPPI):
             res = torch.cat([res_[:, 0:2], res_[:, 7:9]], axis=1)
         elif self.robot == 'point_robot':
             res = torch.clone(dof_states).view(-1, 4)   
+
+        if self.viewer is not None:
+            self.gym.step_graphics(self.sim)
+            self.gym.draw_viewer(self.viewer, self.sim, False)
+            self.gym.sync_frame_time(self.sim)
+
         return res
 
     @mppi.handle_batch_input

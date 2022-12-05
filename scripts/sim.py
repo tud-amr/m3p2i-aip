@@ -12,11 +12,11 @@ torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 allow_viewer = True
 num_envs = 1 
 spacing = 10.0
-robot = "point_robot"               # choose from "point_robot", "boxer", "albert"
+robot = "boxer"               # choose from "point_robot", "boxer", "albert"
 environment_type = "normal"            # choose from "normal", "battery"
 control_type = "vel_control"        # choose from "vel_control", "pos_control", "force_control"
 
-gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, spacing, robot, environment_type, control_type)
+gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, spacing, robot, environment_type, control_type, dt=0.05)
 
 # Acquire states
 dof_states, num_dofs, num_actors, root_states = sim_init.acquire_states(gym, sim, print_flag=False)
@@ -63,8 +63,19 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
         # Visualize optimal trajectory
         #sim_init.visualize_traj(gym, viewer, envs[0], actions, dof_states)
 
+        action = actions[0]
+        if robot == 'boxer':
+            r = 0.08
+            L = 2*0.157
+            # Diff drive fk
+            action_fk = action.clone()
+            action_fk[0] = (action[0] / r) - ((L*action[1])/(2*r))
+            action_fk[1] = (action[0] / r) + ((L*action[1])/(2*r))
+            action = action_fk
+
+
         # Apply optimal action
-        gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(actions[0]))
+        gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(action))
 
         # Update movement of dynamic obstacle
         sim_init.update_dyn_obs(gym, sim, num_actors, num_envs, count)
