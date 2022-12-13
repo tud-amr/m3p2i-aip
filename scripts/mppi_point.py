@@ -13,7 +13,7 @@ torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 # Make the environment and simulation
 allow_viewer = False
 visualize_rollouts = False
-num_envs = 40
+num_envs = 100
 spacing = 10.0
 robot = "point_robot"               # choose from "point_robot", "boxer", "albert"
 environment_type = "normal"         # choose from "normal", "battery"
@@ -28,19 +28,19 @@ mppi = fusion_mppi.FUSION_MPPI(
     dynamics=None, 
     running_cost=None, 
     nx=4, 
-    noise_sigma = torch.tensor([[2, 0], [0, 2]], device="cuda:0", dtype=torch.float32),
+    noise_sigma = torch.tensor([[5, 0], [0, 5]], device="cuda:0", dtype=torch.float32),
     num_samples=num_envs, 
-    horizon=15,
+    horizon=20,
     lambda_=0.1, 
     device="cuda:0", 
     u_max=torch.tensor([1.5, 1.5]),
     u_min=torch.tensor([-1.5, -1.5]),
     step_dependent_dynamics=True,
     terminal_state_cost=None,
-    sample_null_action=True,
+    sample_null_action=False,
     use_priors=True,
     robot_type=robot,
-    u_per_command=15
+    u_per_command=20
     )
 
 # Make sure the socket does not already exist

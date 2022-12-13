@@ -17,6 +17,8 @@ This package has been tested in Ubuntu 2020.
 ### Dependencies
 Some examples in the folder */scripts* use the classes and methods of the package [decision_making](https://gitlab.tudelft.nl/airlab-delft/ng-staging/controller_fusion/decision_making). Please refer to [decision_making](https://gitlab.tudelft.nl/airlab-delft/ng-staging/controller_fusion/decision_making) for installation instruction if you wish to use those.
 
+Some other examples use [Optimization Fabrics](https://github.com/maxspahn/fabrics), currently working version is "0.4.1". Please follow installation intructions in the linked repository. 
+
 ## How to use this repo
 Just clone the repo in a location in you computer. 
 
@@ -43,6 +45,8 @@ python3 mppi_$(robot_type).py
 ````
 python3 sim.py
 ````
+
+You can experiments with the arguments passed to the MPPI, such as sampling around prior controllers or null actions, as well as time horizon and number of samples. 
 
 ## Troubleshooting
 If you have an Nvidia card and after running the simulation you get a black screen, you might need to force the use of the GPU card through ``export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json``. Run this command from the same folder as the script to be launched
