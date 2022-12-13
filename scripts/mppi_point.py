@@ -13,7 +13,7 @@ torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 # Make the environment and simulation
 allow_viewer = False
 visualize_rollouts = False
-num_envs = 400
+num_envs = 40
 spacing = 10.0
 robot = "point_robot"               # choose from "point_robot", "boxer", "albert"
 environment_type = "normal"         # choose from "normal", "battery"
@@ -27,18 +27,18 @@ dof_states, num_dofs, num_actors, root_states = sim_init.acquire_states(gym, sim
 mppi = fusion_mppi.FUSION_MPPI(
     dynamics=None, 
     running_cost=None, 
-    nx=2, 
+    nx=4, 
     noise_sigma = torch.tensor([[2, 0], [0, 2]], device="cuda:0", dtype=torch.float32),
     num_samples=num_envs, 
     horizon=15,
     lambda_=0.1, 
     device="cuda:0", 
-    u_max=torch.tensor([3.0, 3.0]),
-    u_min=torch.tensor([-3.0, -3.0]),
+    u_max=torch.tensor([1.5, 1.5]),
+    u_min=torch.tensor([-1.5, -1.5]),
     step_dependent_dynamics=True,
     terminal_state_cost=None,
-    sample_null_action=False,
-    use_priors=False,
+    sample_null_action=True,
+    use_priors=True,
     robot_type=robot,
     u_per_command=15
     )
@@ -75,10 +75,10 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
             sim_init.refresh_states(gym, sim)
 
             # Update gym in mppi
-            mppi.update_gym(gym, sim)
+            mppi.update_gym(gym, sim, viewer)
 
             # Compute optimal action and send to real simulator
-            actions = mppi.command(s)
+            actions = mppi.command(s[0])
             conn.sendall(data_transfer.torch_to_bytes(actions))
 
             # Send rollouts data

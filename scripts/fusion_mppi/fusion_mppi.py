@@ -49,7 +49,7 @@ class FUSION_MPPI(mppi.MPPI):
         self.block_index = 11   # Pushing purple blox, index according to simulation
         self.block_goal = torch.tensor([3, -3], device="cuda:0")
         self.block_not_goal = torch.tensor([-2, 1], device="cuda:0")
-        self.nav_goal = torch.tensor([-3, 3], device="cuda:0")
+        self.nav_goal = torch.tensor([3, -3], device="cuda:0")
 
     def update_gym(self, gym, sim, viewer=None):
         self.gym = gym
@@ -76,28 +76,43 @@ class FUSION_MPPI(mppi.MPPI):
 
     def get_push_cost(self, r_pos):
         block_pos = torch.cat((torch.split(torch.clone(self.root_positions[:,0:2]), int(torch.clone(self.root_positions[:,0:2]).size(dim=0)/self.num_envs))),1)[self.block_index,:].reshape(self.num_envs,2)
-        return torch.linalg.norm(r_pos - block_pos, axis = 1) + torch.linalg.norm(self.block_goal - block_pos,axis = 1)
+
+        robot_to_block = torch.linalg.norm(r_pos - block_pos, axis = 1)
+        block_to_goal = torch.linalg.norm(self.block_goal - block_pos, axis = 1)
+
+        cost = robot_to_block + block_to_goal 
+
+        robot_to_goal = torch.linalg.norm(r_pos - self.block_goal, axis = 1)
+        align_cost = torch.zeros_like(robot_to_goal)
+        align_cost[block_to_goal > robot_to_goal] = 1
+
+        cost += align_cost
+        return cost
 
     def get_push_not_goal_cost(self, r_pos):
         block_pos = torch.cat((torch.split(torch.clone(self.root_positions[:,0:2]), int(torch.clone(self.root_positions[:,0:2]).size(dim=0)/self.num_envs))),1)[self.block_index,:].reshape(self.num_envs,2)
         non_goal_cost = torch.clamp((1/torch.linalg.norm(self.block_not_goal - block_pos,axis = 1)), min=0, max=10)
         return torch.linalg.norm(r_pos - block_pos, axis = 1) + non_goal_cost
 
-
     @mppi.handle_batch_input
-    def _dynamics(self, state, u, t):
-
+    def _ik(self, u):
         if self.robot == 'boxer':
             r = 0.08
             L = 2*0.157
             # Diff drive fk
-            actions_fk = u.clone()
-            actions_fk[:, 0] = (u[:, 0] / r) - ((L*u[:, 1])/(2*r))
-            actions_fk[:, 1] = (u[:, 0] / r) + ((L*u[:, 1])/(2*r))
-            self.gym.set_dof_velocity_target_tensor(self.sim, gymtorch.unwrap_tensor(actions_fk))
-        elif self.robot == 'point_robot':
-            self.gym.set_dof_velocity_target_tensor(self.sim, gymtorch.unwrap_tensor(u))
-        
+            u_ik = u.clone()
+            u_ik[:, 0] = (u[:, 0] / r) - ((L*u[:, 1])/(2*r))
+            u_ik[:, 1] = (u[:, 0] / r) + ((L*u[:, 1])/(2*r))
+            return u_ik
+        else: return u
+
+    @mppi.handle_batch_input
+    def _dynamics(self, state, u, t):
+
+        # Use inverse kinematics if the MPPI action space is different than dof velocity space
+        u = self._ik(u)
+
+        self.gym.set_dof_velocity_target_tensor(self.sim, gymtorch.unwrap_tensor(u))
         self.gym.simulate(self.sim)
         self.gym.fetch_results(self.sim, True)
         actor_root_state = gymtorch.wrap_tensor(self.gym.acquire_actor_root_state_tensor(self.sim))
