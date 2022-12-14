@@ -15,8 +15,9 @@ spacing = 10.0
 robot = "point_robot"               # choose from "point_robot", "boxer", "albert"
 environment_type = "normal"            # choose from "normal", "battery"
 control_type = "vel_control"        # choose from "vel_control", "pos_control", "force_control"
+dt = 0.05
 
-gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, spacing, robot, environment_type, control_type, dt=0.05)
+gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, spacing, robot, environment_type, control_type, dt=dt)
 
 # Acquire states
 dof_states, num_dofs, num_actors, root_states = sim_init.acquire_states(gym, sim, print_flag=False)
@@ -32,6 +33,7 @@ server_address = './uds_socket'
 
 with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
     s.connect(server_address)
+    t_prev = time.monotonic()
     while viewer is None or not gym.query_viewer_has_closed(viewer):
         # Send dof states to mppi and receive message
         s.sendall(data_transfer.torch_to_bytes(dof_states))
@@ -86,7 +88,13 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
         sim_init.refresh_states(gym, sim)
 
         # Step rendering
-        sim_init.step_rendering(gym, sim, viewer)
+        t_now = time.monotonic()
+        if (t_now - t_prev) < dt:
+            sim_init.step_rendering(gym, sim, viewer, sync_frame_time=True)
+        else:
+            sim_init.step_rendering(gym, sim, viewer, sync_frame_time=False)
+        t_prev = t_now
+
         next_fps_report, frame_count, t1 = sim_init.time_logging(gym, sim, next_fps_report, frame_count, t1, num_envs)
 
 # Destroy the simulation
