@@ -347,6 +347,7 @@ class MPPI():
                 raise NotImplementedError()
 
             u[:, i, :] = self._fabrics_prior_command(pos, vel, np.array(goal_pos), np.array(obst_pos))
+            u[:, i, :] = torch.clamp(u[:, i, :], min=self.u_min, max=self.u_max)
             self.perturbed_action[i][t] = u[:, i, :]
 
         return u
