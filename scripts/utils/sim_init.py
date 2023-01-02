@@ -264,9 +264,10 @@ def update_dyn_obs(gym, sim, num_actors, num_envs, count):
         root_positions += offsets
     else:
         root_positions -= offsets
-
+    dyn_obs_index = 5
+    index_offset = num_actors - dyn_obs_index
     indice_list = []
     for i in range(num_envs):
-        indice_list.append((i+1)*num_actors/num_envs-4)
+        indice_list.append((i+1)*num_actors/num_envs-index_offset)
     actor_indices = torch.tensor(indice_list, dtype=torch.int32, device="cuda:0")
     gym.set_actor_root_state_tensor_indexed(sim, _root_tensor, gymtorch.unwrap_tensor(actor_indices), num_envs)

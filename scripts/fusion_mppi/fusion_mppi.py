@@ -46,10 +46,10 @@ class FUSION_MPPI(mppi.MPPI):
         self.robot = robot_type
 
         # Additional variables for the environment
-        self.block_index = 11   # Pushing purple blox, index according to simulation
+        self.block_index = 7   # Pushing purple blox, index according to simulation
         self.block_goal = torch.tensor([3, -3], device="cuda:0")
         self.block_not_goal = torch.tensor([-2, 1], device="cuda:0")
-        self.nav_goal = torch.tensor([3, -3], device="cuda:0")
+        self.nav_goal = torch.tensor([3, 3], device="cuda:0")
 
     def update_gym(self, gym, sim, viewer=None):
         self.gym = gym
@@ -148,8 +148,8 @@ class FUSION_MPPI(mppi.MPPI):
         _net_cf = self.gym.refresh_net_contact_force_tensor(self.sim)
         # Take only forces in x,y in modulus for each environment. Avoid all collisions
         net_cf = torch.sum(torch.abs(torch.cat((net_cf[:, 0].unsqueeze(1), net_cf[:, 1].unsqueeze(1)), 1)),1)
-        # The last 6 actors are allowed to collide with eachother (movabable obstacles and robot)
-        coll_cost = torch.sum(net_cf.reshape([self.num_envs, int(net_cf.size(dim=0)/self.num_envs)])[:,0:11], 1)
+        # The last actors are allowed to collide with eachother (movabable obstacles and robot)
+        coll_cost = torch.sum(net_cf.reshape([self.num_envs, int(net_cf.size(dim=0)/self.num_envs)])[:,0:6], 1)
         w_c = 100000 # Weight for collisions
         # Binary check for collisions. So far checking all collision with unmovable obstacles. Movable obstacles touching unmovable ones are considered collisions       
         coll_cost[coll_cost>0.1] = 1
