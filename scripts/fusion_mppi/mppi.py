@@ -298,6 +298,8 @@ class MPPI():
             radius_obst_0=np.array([0.4]),
             radius_body_1=np.array([0.2])
         )
+        if any(np.isnan(acc_action)):
+            acc_action = np.zeros_like(acc_action)
         vel_action = torch.tensor(np.array(vel) + acc_action*0.05, dtype=torch.float32, device="cuda:0")
         return vel_action
 
@@ -347,6 +349,7 @@ class MPPI():
                 raise NotImplementedError()
 
             u[:, i, :] = self._fabrics_prior_command(pos, vel, np.array(goal_pos), np.array(obst_pos))
+            u[:, i, :] = torch.clamp(u[:, i, :], min=self.u_min, max=self.u_max)
             self.perturbed_action[i][t] = u[:, i, :]
 
         return u
