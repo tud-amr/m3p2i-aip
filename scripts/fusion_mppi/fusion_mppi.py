@@ -157,7 +157,7 @@ class FUSION_MPPI(mppi.MPPI):
         if self.robot == 'boxer':
             task_cost = self.get_boxer_push_cost(state[:, :2])
         elif self.robot == 'point_robot':
-            task_cost = self.get_push_cost(state_pos)
+            #task_cost = self.get_push_cost(state_pos)
             #task_cost = self.get_push_not_goal_cost(state_pos)
-            #task_cost = self.get_navigation_cost(state_pos)
+            task_cost = self.get_navigation_cost(state_pos)
         return  task_cost + w_c*coll_cost # + w_u*control_cost 

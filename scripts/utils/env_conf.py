@@ -187,7 +187,7 @@ def add_obstacles(sim, gym, env, environment_type, index):
 
         box1_handle = add_box(sim, gym, env,0.4, 0.4, 0.1, box1_pose, color_vec_box1, False, "box1", index)
         box2_handle = add_box(sim, gym, env,0.4, 0.4, 0.1, box2_pose, color_vec_box2, False, "box2", index)
-        box2_handle = add_box(sim, gym, env,0.4, 0.4, 0.1, box3_pose, color_vec_box3, False, "box3", index)
+        box3_handle = add_box(sim, gym, env,0.4, 0.4, 0.1, box3_pose, color_vec_box3, False, "box3", index)
 
         goal_region1 = add_box(sim, gym, env, 1, 1, 0.01, goal1_pose, color_vec_box1, True, "goal_region1", -2) # No collisions with goal region
         goal_region2 = add_box(sim, gym, env, 1, 1, 0.01, goal2_pose, color_vec_box2, True, "goal_region2", -2) # No collisions with goal region
@@ -197,6 +197,11 @@ def add_obstacles(sim, gym, env, environment_type, index):
         # add movable squar box
         y_axis = add_box(sim, gym, env, 0.05, 0.5, 0.01, yaxis_pose, gymapi.Vec3(0.0, 1, 0.2), True, "y", -2)
         x_axis = add_box(sim, gym, env, 0.5, 0.05, 0.01, xaxis_pose, gymapi.Vec3(1, 0.0, 0.2), True, "x", -2)        
+        
+        # Set zero friction for box, example:
+        # shape_props = gym.get_actor_rigid_shape_properties(env, box2_handle)
+        # shape_props[0].friction = 0.0
+        # gym.set_actor_rigid_shape_properties(env, box2_handle, shape_props)
 
     elif environment_type == "battery":
         # add fixed obstacle

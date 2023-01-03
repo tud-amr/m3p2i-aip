@@ -159,7 +159,7 @@ def refresh_states(gym, sim):
     gym.refresh_dof_state_tensor(sim)
 
 # Gym rendering 
-def step_rendering(gym, sim, viewer, sync_frame_time=False):
+def step_rendering(gym, sim, viewer, sync_frame_time=True):
     if viewer is not None:
         # Step rendering
         gym.step_graphics(sim)
