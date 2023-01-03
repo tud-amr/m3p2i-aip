@@ -197,12 +197,6 @@ def add_obstacles(sim, gym, env, environment_type, index):
         # add movable squar box
         y_axis = add_box(sim, gym, env, 0.05, 0.5, 0.01, yaxis_pose, gymapi.Vec3(0.0, 1, 0.2), True, "y", -2)
         x_axis = add_box(sim, gym, env, 0.5, 0.05, 0.01, xaxis_pose, gymapi.Vec3(1, 0.0, 0.2), True, "x", -2)        
-        
-        # Set zero friction for box, example:
-        # shape_props = gym.get_actor_rigid_shape_properties(env, box2_handle)
-        # shape_props[0].friction = 0.0
-        # gym.set_actor_rigid_shape_properties(env, box2_handle, shape_props)
-
     elif environment_type == "battery":
         # add fixed obstacle
         obstacle_handle = add_box(sim, gym, env, 0.3, 0.4, 0.5, obstacle_pose, color_vec_fixed, True, "obstacle", index)
