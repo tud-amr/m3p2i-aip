@@ -39,6 +39,7 @@ mppi = fusion_mppi.FUSION_MPPI(
     terminal_state_cost=None,
     sample_null_action=False,
     use_priors=True,
+    use_vacuum = True,
     robot_type=robot,
     u_per_command=20
     )

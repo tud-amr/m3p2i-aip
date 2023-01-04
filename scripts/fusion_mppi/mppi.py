@@ -78,6 +78,7 @@ class MPPI():
                  rollout_var_discount=0.95,
                  sample_null_action=False,
                  use_priors=False,
+                 use_vacuum=False,
                  robot='point_robot',
                  noise_abs_cost=False):
         """
