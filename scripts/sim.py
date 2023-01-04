@@ -22,6 +22,13 @@ gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, sp
 # Acquire states
 dof_states, num_dofs, num_actors, root_states = sim_init.acquire_states(gym, sim, print_flag=False)
 
+# Helper variables, same as in fusion_mppi
+suction_active = True       # Activate suction or not when close to purple box
+bodies_per_env = 18
+block_index = 7
+kp_suction = 400
+dof_s = torch.reshape(dof_states, (num_envs, 4))
+
 # Time logging
 frame_count = 0
 next_fps_report = 2.0
@@ -30,6 +37,26 @@ count = 0
 
 # Set server address
 server_address = './uds_socket'
+
+def calculate_suction(v1, v2):
+    dir_vector = v1 - v2
+    magnitude = 1/torch.linalg.norm(dir_vector, dim=1)
+    direction = dir_vector/magnitude
+    force = (magnitude**2)*direction
+    forces = torch.zeros((num_envs, bodies_per_env, 3), dtype=torch.float32, device='cuda:0', requires_grad=False)
+ 
+    # Start suction only when close
+    mask = magnitude[:] > 2  
+    mask = torch.reshape(mask, [1,num_envs])
+    forces[mask[0],block_index, 0] = -kp_suction*force[mask[0],0]
+    forces[mask[0],block_index, 1] = -kp_suction*force[mask[0],1]
+    # Opposite force on the robot body
+    forces[mask[0],-1, 0] = kp_suction*force[mask[0],0]
+    forces[mask[0],-1, 1] = kp_suction*force[mask[0],1]
+
+    forces = torch.clamp(forces, min=-500, max=500)
+
+    return forces
 
 with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
     s.connect(server_address)
@@ -75,9 +102,19 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
             action_fk[1] = (action[0] / r) + ((L*action[1])/(2*r))
             action = action_fk
 
-
         # Apply optimal action
         gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(action))
+
+        actor_root_state = gymtorch.wrap_tensor(gym.acquire_actor_root_state_tensor(sim))
+        root_positions = torch.reshape(actor_root_state[:, 0:2], (num_envs, bodies_per_env-2, 2))
+        dof_pos = dof_s[:,[0,2]]
+        
+        if suction_active:  
+            # simulation of a magnetic/suction effect to attach to the box
+            suction_force = calculate_suction(root_positions[:, block_index, :], dof_pos)
+            
+            # Apply suction/magnetic force
+            gym.apply_rigid_body_force_tensors(sim, gymtorch.unwrap_tensor(torch.reshape(suction_force, (num_envs*bodies_per_env, 3))), None, gymapi.ENV_SPACE)
 
         # Update movement of dynamic obstacle
         sim_init.update_dyn_obs(gym, sim, num_actors, num_envs, count)
