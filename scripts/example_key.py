@@ -34,24 +34,27 @@ _dof_states = gym.acquire_dof_state_tensor(sim)
 dof_states = torch.reshape(gymtorch.wrap_tensor(_dof_states), (num_envs, 4))
 num_dofs = gym.get_sim_dof_count(sim)
 
-def calculate_suction(v1, v2):
-    dir_vector = v1 - v2
-    magnitude = 1/torch.linalg.norm(dir_vector, dim=1)
-    magnitude = torch.reshape(magnitude,[1,num_envs,1])
-    direction = dir_vector/magnitude
+# Calculate the suction force
+def calculate_suction(block_pos, robot_pos):
+    # Calculate the direction and magnitude between the block and robot 
+    dir_vector = block_pos - robot_pos # [num_envs, 2]
+    magnitude = 1/torch.linalg.norm(dir_vector, dim=1) # [num_envs]
+    magnitude = magnitude.reshape([num_envs, 1])
 
-    force = (magnitude**2)*direction
+    # Form the suction force
+    force = dir_vector*magnitude # [num_envs, 2]
     forces = torch.zeros((num_envs, bodies_per_env, 3), dtype=torch.float32, device='cuda:0', requires_grad=False)
- 
+    
     # Start suction only when close
-    mask = magnitude[:, :] > 2  
-    mask = torch.reshape(mask, [1,num_envs])
-    forces[mask[0],block_index, 0] = -kp_suction*force[0][mask[0],0]
-    forces[mask[0],block_index, 1] = -kp_suction*force[0][mask[0],1]
+    mask = magnitude[:, :] > 2
+    mask = mask.reshape(num_envs)
+    # Force on the block
+    forces[mask, block_index, 0] = -kp_suction*force[mask, 0]
+    forces[mask, block_index, 1] = -kp_suction*force[mask, 1]
     # Opposite force on the robot body
-    forces[mask[0],-1, 0] = kp_suction*force[0][mask[0],0]
-    forces[mask[0],-1, 1] = kp_suction*force[0][mask[0],1]
-
+    forces[mask, -1, 0] = kp_suction*force[mask, 0]
+    forces[mask, -1, 1] = kp_suction*force[mask, 1]
+    # Add clamping to control input
     forces = torch.clamp(forces, min=-500, max=500)
 
     return forces
@@ -62,12 +65,12 @@ while viewer is None or not gym.query_viewer_has_closed(viewer):
     sim_init.step(gym, sim)
     sim_init.refresh_states(gym, sim)
 
-    actor_root_state = gymtorch.wrap_tensor(gym.acquire_actor_root_state_tensor(sim))
-    root_positions = torch.reshape(actor_root_state[:, 0:2], (num_envs, bodies_per_env-2, 2))
-    dof_pos = dof_states[:,[0,2]]
+    actor_root_state = gymtorch.wrap_tensor(gym.acquire_actor_root_state_tensor(sim)) # [num_envs*16, 13]
+    root_positions = torch.reshape(actor_root_state[:, 0:2], (num_envs, bodies_per_env-2, 2)) # [num_envs, 16, 2]
+    dof_pos = dof_states[:,[0,2]] # [num_envs, 2]
     
     if suction_active:
-        # simulation of a magnetic/suction effect to attach to the box
+        # Simulation of a magnetic/suction effect to attach to the box
         suction_force = calculate_suction(root_positions[:, block_index, :], dof_pos)
         # Apply suction/magnetic force
         gym.apply_rigid_body_force_tensors(sim, gymtorch.unwrap_tensor(torch.reshape(suction_force, (num_envs*bodies_per_env, 3))), None, gymapi.ENV_SPACE)

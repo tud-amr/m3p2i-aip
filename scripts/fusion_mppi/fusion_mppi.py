@@ -109,24 +109,26 @@ class FUSION_MPPI(mppi.MPPI):
         non_goal_cost = torch.clamp((1/torch.linalg.norm(self.block_not_goal - block_pos,axis = 1)), min=0, max=10)
         return torch.linalg.norm(r_pos - block_pos, axis = 1) + non_goal_cost
 
-    def calculate_suction(self, v1, v2):
-        dir_vector = v1 - v2
-        magnitude = 1/torch.linalg.norm(dir_vector, dim=1)
-        magnitude = torch.reshape(magnitude,[1,self.num_envs,1])
-        direction = dir_vector/magnitude
+    def calculate_suction(self, block_pos, robot_pos):
+        # Calculate the direction and magnitude between the block and robot 
+        dir_vector = block_pos - robot_pos # [num_envs, 2]
+        magnitude = 1/torch.linalg.norm(dir_vector, dim=1) # [num_envs]
+        magnitude = magnitude.reshape([self.num_envs, 1])
 
-        force = (magnitude**2)*direction
+        # Form the suction force
+        force = dir_vector*magnitude # [num_envs, 2]
         forces = torch.zeros((self.num_envs, self.bodies_per_env, 3), dtype=torch.float32, device='cuda:0', requires_grad=False)
-          
+        
         # Start suction only when close
-        mask = magnitude[:, :] > 2  
-        mask = torch.reshape(mask, [1,self.num_envs])
-        forces[mask[0],self.block_index, 0] = -self.kp_suction*force[0][mask[0],0]
-        forces[mask[0],self.block_index, 1] = -self.kp_suction*force[0][mask[0],1]
+        mask = magnitude[:, :] > 2
+        mask = mask.reshape(self.num_envs)
+        # Force on the block
+        forces[mask, self.block_index, 0] = -self.kp_suction*force[mask, 0]
+        forces[mask, self.block_index, 1] = -self.kp_suction*force[mask, 1]
         # Opposite force on the robot body
-        forces[mask[0],-1, 0] = self.kp_suction*force[0][mask[0],0]
-        forces[mask[0],-1, 1] = self.kp_suction*force[0][mask[0],1]
-
+        forces[mask, -1, 0] = self.kp_suction*force[mask, 0]
+        forces[mask, -1, 1] = self.kp_suction*force[mask, 1]
+        # Add clamping to control input
         forces = torch.clamp(forces, min=-500, max=500)
 
         return forces
