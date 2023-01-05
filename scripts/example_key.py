@@ -2,7 +2,7 @@ from isaacgym import gymapi
 from isaacgym import gymutil
 from isaacgym import gymtorch
 import torch
-from utils import sim_init
+from utils import sim_init, skill_utils
 
 # Make the environment and simulation
 allow_viewer = True
@@ -30,31 +30,6 @@ dof_states, num_dofs, num_actors, _ = sim_init.acquire_states(gym, sim, print_fl
 actors_per_env = int(num_actors/num_envs)
 bodies_per_env = gym.get_env_rigid_body_count(envs[0])
 
-# Calculate the suction force
-def calculate_suction(block_pos, robot_pos):
-    # Calculate the direction and magnitude between the block and robot 
-    dir_vector = block_pos - robot_pos # [num_envs, 2]
-    magnitude = 1/torch.linalg.norm(dir_vector, dim=1) # [num_envs]
-    magnitude = magnitude.reshape([num_envs, 1])
-
-    # Form the suction force
-    force = dir_vector*magnitude # [num_envs, 2]
-    forces = torch.zeros((num_envs, bodies_per_env, 3), dtype=torch.float32, device='cuda:0', requires_grad=False)
-    
-    # Start suction only when close
-    mask = magnitude[:, :] > 2
-    mask = mask.reshape(num_envs)
-    # Force on the block
-    forces[mask, block_index, 0] = -kp_suction*force[mask, 0]
-    forces[mask, block_index, 1] = -kp_suction*force[mask, 1]
-    # Opposite force on the robot body
-    forces[mask, -1, 0] = kp_suction*force[mask, 0]
-    forces[mask, -1, 1] = kp_suction*force[mask, 1]
-    # Add clamping to control input
-    forces = torch.clamp(forces, min=-500, max=500)
-
-    return forces
-
 # Main loop
 while viewer is None or not gym.query_viewer_has_closed(viewer):
     # Step the simulation
@@ -67,7 +42,7 @@ while viewer is None or not gym.query_viewer_has_closed(viewer):
     
     if suction_active:
         # Simulation of a magnetic/suction effect to attach to the box
-        suction_force = calculate_suction(root_positions[:, block_index, :], dof_pos)
+        suction_force = skill_utils.calculate_suction(root_positions[:, block_index, :], dof_pos, num_envs, kp_suction, block_index, bodies_per_env)
         # Apply suction/magnetic force
         gym.apply_rigid_body_force_tensors(sim, gymtorch.unwrap_tensor(torch.reshape(suction_force, (num_envs*bodies_per_env, 3))), None, gymapi.ENV_SPACE)
 

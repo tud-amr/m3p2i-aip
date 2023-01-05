@@ -80,7 +80,9 @@ class MPPI():
                  use_priors=False,
                  use_vacuum=False,
                  robot='point_robot',
-                 noise_abs_cost=False):
+                 noise_abs_cost=False,
+                 actors_per_env=None, 
+                 bodies_per_env=None):
         """
         :param dynamics: function(state, action) -> next_state (K x nx) taking in batch state (K x nx) and action (K x nu)
         :param running_cost: function(state, action) -> cost (K) taking in batch state and action (same as dynamics)

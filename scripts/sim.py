@@ -3,7 +3,7 @@ from isaacgym import gymutil
 from isaacgym import gymtorch
 import torch
 from fusion_mppi import mppi
-from utils import env_conf, sim_init, data_transfer
+from utils import env_conf, sim_init, data_transfer, skill_utils
 import time, numpy as np
 import socket
 torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
@@ -37,26 +37,6 @@ count = 0
 
 # Set server address
 server_address = './uds_socket'
-
-def calculate_suction(v1, v2):
-    dir_vector = v1 - v2
-    magnitude = 1/torch.linalg.norm(dir_vector, dim=1)
-    direction = dir_vector/magnitude
-    force = (magnitude**2)*direction
-    forces = torch.zeros((num_envs, bodies_per_env, 3), dtype=torch.float32, device='cuda:0', requires_grad=False)
- 
-    # Start suction only when close
-    mask = magnitude[:] > 2  
-    mask = torch.reshape(mask, [1,num_envs])
-    forces[mask[0],block_index, 0] = -kp_suction*force[mask[0],0]
-    forces[mask[0],block_index, 1] = -kp_suction*force[mask[0],1]
-    # Opposite force on the robot body
-    forces[mask[0],-1, 0] = kp_suction*force[mask[0],0]
-    forces[mask[0],-1, 1] = kp_suction*force[mask[0],1]
-
-    forces = torch.clamp(forces, min=-500, max=500)
-
-    return forces
 
 with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
     s.connect(server_address)
@@ -111,8 +91,7 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
         
         if suction_active:  
             # simulation of a magnetic/suction effect to attach to the box
-            suction_force = calculate_suction(root_positions[:, block_index, :], dof_pos)
-            
+            suction_force = skill_utils.calculate_suction(root_positions[:, block_index, :], dof_pos, num_envs, kp_suction, block_index, bodies_per_env)
             # Apply suction/magnetic force
             gym.apply_rigid_body_force_tensors(sim, gymtorch.unwrap_tensor(torch.reshape(suction_force, (num_envs*bodies_per_env, 3))), None, gymapi.ENV_SPACE)
 

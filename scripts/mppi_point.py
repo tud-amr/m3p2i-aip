@@ -22,6 +22,8 @@ gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, sp
 
 # Acquire states
 dof_states, num_dofs, num_actors, root_states = sim_init.acquire_states(gym, sim, print_flag=False)
+actors_per_env = int(num_actors/num_envs)
+bodies_per_env = gym.get_env_rigid_body_count(envs[0])
 
 # Creater mppi object
 mppi = fusion_mppi.FUSION_MPPI(
@@ -38,10 +40,12 @@ mppi = fusion_mppi.FUSION_MPPI(
     step_dependent_dynamics=True,
     terminal_state_cost=None,
     sample_null_action=False,
-    use_priors=True,
+    use_priors=False,
     use_vacuum = True,
     robot_type=robot,
-    u_per_command=20
+    u_per_command=20,
+    actors_per_env=actors_per_env,
+    bodies_per_env=bodies_per_env
     )
 
 # Make sure the socket does not already exist

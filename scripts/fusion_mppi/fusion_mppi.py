@@ -1,7 +1,7 @@
 import fusion_mppi.mppi as mppi
 import torch
 from isaacgym import gymtorch, gymapi
-from utils import sim_init
+from utils import sim_init, skill_utils
 
 class FUSION_MPPI(mppi.MPPI):
     def __init__(self, dynamics, running_cost, nx, noise_sigma, num_samples=100, horizon=15, device="cpu", 
@@ -22,7 +22,9 @@ class FUSION_MPPI(mppi.MPPI):
                     use_priors=False,
                     use_vacuum = False,
                     robot_type='point_robot',
-                    noise_abs_cost=False):
+                    noise_abs_cost=False,
+                    actors_per_env=None, 
+                    bodies_per_env=None):
         super().__init__(dynamics, running_cost, nx, noise_sigma, num_samples, horizon, device, 
                     terminal_state_cost, 
                     lambda_, 
@@ -41,14 +43,17 @@ class FUSION_MPPI(mppi.MPPI):
                     use_priors,
                     use_vacuum,
                     robot_type,
-                    noise_abs_cost)
+                    noise_abs_cost,
+                    actors_per_env, 
+                    bodies_per_env)
         self.gym = None
         self.sim = None
         self.num_envs = num_samples
         self.robot = robot_type
         self.kp_suction = 400
         self.suction_active = use_vacuum
-        self.bodies_per_env = 18
+        self.bodies_per_env = bodies_per_env
+        self.actors_per_env = actors_per_env
 
         # Additional variables for the environment
         self.block_index = 7   # Pushing purple blox, index according to simulation
@@ -109,30 +114,6 @@ class FUSION_MPPI(mppi.MPPI):
         non_goal_cost = torch.clamp((1/torch.linalg.norm(self.block_not_goal - block_pos,axis = 1)), min=0, max=10)
         return torch.linalg.norm(r_pos - block_pos, axis = 1) + non_goal_cost
 
-    def calculate_suction(self, block_pos, robot_pos):
-        # Calculate the direction and magnitude between the block and robot 
-        dir_vector = block_pos - robot_pos # [num_envs, 2]
-        magnitude = 1/torch.linalg.norm(dir_vector, dim=1) # [num_envs]
-        magnitude = magnitude.reshape([self.num_envs, 1])
-
-        # Form the suction force
-        force = dir_vector*magnitude # [num_envs, 2]
-        forces = torch.zeros((self.num_envs, self.bodies_per_env, 3), dtype=torch.float32, device='cuda:0', requires_grad=False)
-        
-        # Start suction only when close
-        mask = magnitude[:, :] > 2
-        mask = mask.reshape(self.num_envs)
-        # Force on the block
-        forces[mask, self.block_index, 0] = -self.kp_suction*force[mask, 0]
-        forces[mask, self.block_index, 1] = -self.kp_suction*force[mask, 1]
-        # Opposite force on the robot body
-        forces[mask, -1, 0] = self.kp_suction*force[mask, 0]
-        forces[mask, -1, 1] = self.kp_suction*force[mask, 1]
-        # Add clamping to control input
-        forces = torch.clamp(forces, min=-500, max=500)
-
-        return forces
-
     @mppi.handle_batch_input
     def _ik(self, u):
         if self.robot == 'boxer':
@@ -164,9 +145,9 @@ class FUSION_MPPI(mppi.MPPI):
         dof_pos = torch.clone(dof_states).view(-1, 4)[:,[0,2]]
 
         if self.suction_active:
-            root_pos = torch.reshape(self.root_positions[:, 0:2], (self.num_envs, self.bodies_per_env-2, 2))
+            root_pos = torch.reshape(self.root_positions[:, 0:2], (self.num_envs, self.actors_per_env, 2))
             # simulation of a magnetic/suction effect to attach to the box
-            suction_force = self.calculate_suction(root_pos[:, self.block_index, :], dof_pos)
+            suction_force = skill_utils.calculate_suction(root_pos[:, self.block_index, :], dof_pos, self.num_envs, self.kp_suction, self.block_index, self.bodies_per_env)
             # Apply suction/magnetic force
             self.gym.apply_rigid_body_force_tensors(self.sim, gymtorch.unwrap_tensor(torch.reshape(suction_force, (self.num_envs*self.bodies_per_env, 3))), None, gymapi.ENV_SPACE)
 
