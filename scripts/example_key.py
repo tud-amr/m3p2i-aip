@@ -14,7 +14,6 @@ control_type = "vel_control"        # choose from "vel_control", "pos_control", 
 
 # Helper variables
 suction_active = True       # Activate suction or not when close to purple box
-bodies_per_env = 18
 block_index = 7
 kp_suction = 400
 
@@ -26,13 +25,10 @@ count = 0
 
 gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, spacing, robot, environment_type, control_type)
 
-gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(1.5, 6, 8), gymapi.Vec3(1.5, 0, 0))
-gym.prepare_sim(sim)
-
-# get dof state tensor
-_dof_states = gym.acquire_dof_state_tensor(sim)
-dof_states = torch.reshape(gymtorch.wrap_tensor(_dof_states), (num_envs, 4))
-num_dofs = gym.get_sim_dof_count(sim)
+# Acquire states
+dof_states, num_dofs, num_actors, _ = sim_init.acquire_states(gym, sim, print_flag=False)
+actors_per_env = int(num_actors/num_envs)
+bodies_per_env = gym.get_env_rigid_body_count(envs[0])
 
 # Calculate the suction force
 def calculate_suction(block_pos, robot_pos):
@@ -66,8 +62,8 @@ while viewer is None or not gym.query_viewer_has_closed(viewer):
     sim_init.refresh_states(gym, sim)
 
     actor_root_state = gymtorch.wrap_tensor(gym.acquire_actor_root_state_tensor(sim)) # [num_envs*16, 13]
-    root_positions = torch.reshape(actor_root_state[:, 0:2], (num_envs, bodies_per_env-2, 2)) # [num_envs, 16, 2]
-    dof_pos = dof_states[:,[0,2]] # [num_envs, 2]
+    root_positions = torch.reshape(actor_root_state[:, 0:2], (num_envs, actors_per_env, 2)) # [num_envs, 16, 2]
+    dof_pos = dof_states[:,0].reshape([num_envs, 2]) # [num_envs, 2]
     
     if suction_active:
         # Simulation of a magnetic/suction effect to attach to the box

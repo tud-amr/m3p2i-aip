@@ -24,10 +24,10 @@ dof_states, num_dofs, num_actors, root_states = sim_init.acquire_states(gym, sim
 
 # Helper variables, same as in fusion_mppi
 suction_active = True       # Activate suction or not when close to purple box
-bodies_per_env = 18
+actors_per_env = int(num_actors/num_envs)
+bodies_per_env = gym.get_env_rigid_body_count(envs[0])
 block_index = 7
 kp_suction = 400
-dof_s = torch.reshape(dof_states, (num_envs, 4))
 
 # Time logging
 frame_count = 0
@@ -106,8 +106,8 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
         gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(action))
 
         actor_root_state = gymtorch.wrap_tensor(gym.acquire_actor_root_state_tensor(sim))
-        root_positions = torch.reshape(actor_root_state[:, 0:2], (num_envs, bodies_per_env-2, 2))
-        dof_pos = dof_s[:,[0,2]]
+        root_positions = torch.reshape(actor_root_state[:, 0:2], (num_envs, actors_per_env, 2))
+        dof_pos = dof_states[:,0].reshape([num_envs, 2])
         
         if suction_active:  
             # simulation of a magnetic/suction effect to attach to the box
