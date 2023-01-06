@@ -80,7 +80,9 @@ class MPPI():
                  use_priors=False,
                  use_vacuum=False,
                  robot='point_robot',
-                 noise_abs_cost=False):
+                 noise_abs_cost=False,
+                 actors_per_env=None, 
+                 bodies_per_env=None):
         """
         :param dynamics: function(state, action) -> next_state (K x nx) taking in batch state (K x nx) and action (K x nu)
         :param running_cost: function(state, action) -> cost (K) taking in batch state and action (same as dynamics)
@@ -221,6 +223,9 @@ class MPPI():
         if self.u_per_command == 1:
             action = action[0]
 
+        if self.sample_null_action and cost_total[-1] <= 0.01:
+            action = torch.zeros_like(action)
+
         return action
 
     def reset(self):
@@ -258,15 +263,18 @@ class MPPI():
             
             # Last rollout is a breaking manover
             if self.sample_null_action:
-                u[:, self.K -1, :] = torch.tensor([0., 0.])
+                u[:, self.K -1, :] = torch.zeros_like(u[:, self.K -1, :])
                 # Update perturbed action sequence for later use in cost computation
                 self.perturbed_action[self.K - 1][t] = u[:, self.K -1, :]
 
             if self.use_priors:
                 u = self._priors_command(state, u, t, root_positions)
 
-            state = self._dynamics(state, u, t)
+            state, u = self._dynamics(state, u, t)
             c = self._running_cost(state, u)
+            # Update action if there were changes in fusion mppi due for instance to suction constraints
+            self.perturbed_action[:,t] = u
+
             cost_samples += c
             if self.M > 1:
                 cost_var += c.var(dim=0) * (self.rollout_var_discount ** t)

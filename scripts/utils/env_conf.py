@@ -89,6 +89,8 @@ def load_robot(robot, gym, sim):
         robot_asset = load_franka(gym, sim)
     elif robot == "husky":
         robot_asset = load_husky(gym, sim)
+    elif robot == "heijn":
+        robot_asset = load_heijn(gym, sim)
     else:
         print("Invalid robot type")
     return robot_asset
@@ -125,6 +127,17 @@ def load_point_robot(gym, sim):
     # Load robot asset
     asset_root = "../assets"
     asset_file = "urdf/pointRobot.urdf"
+    asset_options = gymapi.AssetOptions()
+    asset_options.fix_base_link = True
+    asset_options.armature = 0.01
+    print("Loading asset '%s' from '%s'" % (asset_file, asset_root))
+    robot_asset = gym.load_asset(sim, asset_root, asset_file, asset_options)
+    return robot_asset
+
+def load_heijn(gym, sim):
+    # Load robot asset
+    asset_root = "../assets"
+    asset_file = "urdf/heijn.urdf"
     asset_options = gymapi.AssetOptions()
     asset_options.fix_base_link = True
     asset_options.armature = 0.01
