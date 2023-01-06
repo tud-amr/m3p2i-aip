@@ -223,6 +223,9 @@ class MPPI():
         if self.u_per_command == 1:
             action = action[0]
 
+        if self.sample_null_action and cost_total[-1] <= 0.01:
+            action = torch.zeros_like(action)
+
         return action
 
     def reset(self):
