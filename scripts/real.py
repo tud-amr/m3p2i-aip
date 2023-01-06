@@ -7,10 +7,19 @@ from utils import env_conf, sim_init, data_transfer
 import time
 import copy
 import rospy
+from tf.transformations import euler_from_quaternion
 import numpy as np
-from geometry_msgs.msg import PoseStamped, Twist
+from geometry_msgs.msg import PoseStamped, Twist, Quaternion
 from nav_msgs.msg import Odometry
 torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
+
+# Helpers
+def _it(self):
+    yield self.x
+    yield self.y
+    yield self.z
+    yield self.w
+Quaternion.__iter__ = _it
 
 
 class IsaacgymMppiRos:
@@ -21,12 +30,12 @@ class IsaacgymMppiRos:
         self.init_isaacgym_mppi()
 
 
-        rospy.Subscriber('/optitrack_state_estimator/state', Odometry, self.state_cb, queue_size=1)
+        rospy.Subscriber('/optitrack_state_estimator/Heijn/state', Odometry, self.state_cb, queue_size=1)
+        rospy.Subscriber('/optitrack_state_estimator/Crate/state', Odometry, self.block_cb, queue_size=1)
+
         self.pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
         time.sleep(1)
         
-
-
     def state_cb(self, msg):
         self.state = torch.tensor([
             msg.pose.pose.position.x,
@@ -34,11 +43,23 @@ class IsaacgymMppiRos:
             msg.pose.pose.position.y,
             msg.twist.twist.linear.y,
             ], device='cuda:0')
+        _, _, yaw = euler_from_quaternion(list(msg.pose.pose.orientation))
+        self.R = np.array([[np.cos(yaw), -np.sin(yaw)], [np.sin(yaw), np.cos(yaw)]])
+
+    def block_cb(self, msg):
+        self.block_state = torch.tensor([
+            msg.pose.pose.position.x,
+            msg.twist.twist.linear.x,
+            msg.pose.pose.position.y,
+            msg.twist.twist.linear.y,
+            ], device='cuda:0')
+        _, _, yaw = euler_from_quaternion(list(msg.pose.pose.orientation))
+        self.block_R = np.array([[np.cos(yaw), -np.sin(yaw)], [np.sin(yaw), np.cos(yaw)]])
 
     def init_isaacgym_mppi(self):
         # Make the environment and simulation
         allow_viewer = False
-        self.num_envs = 12
+        self.num_envs = 20
         spacing = 10.0
         robot = "point_robot"               # choose from "point_robot", "boxer", "albert"
         environment_type = "normal"         # choose from "normal", "battery"
@@ -58,13 +79,13 @@ class IsaacgymMppiRos:
             noise_sigma = torch.tensor([[5, 0], [0, 5]], device="cuda:0", dtype=torch.float32),
             num_samples=self.num_envs, 
             horizon=20,
-            lambda_=0.1, 
+            lambda_=0.3, 
             device="cuda:0", 
-            u_max=torch.tensor([0.02, 0.02]),
-            u_min=torch.tensor([-0.02, -0.02]),
+            u_max=torch.tensor([0.1, 0.1]),
+            u_min=torch.tensor([-0.1, -0.1]),
             step_dependent_dynamics=True,
             terminal_state_cost=None,
-            sample_null_action=False,
+            sample_null_action=True,
             use_priors=True,
             use_vacuum=False,
             robot_type=robot,
@@ -83,9 +104,12 @@ class IsaacgymMppiRos:
             self.mppi.update_gym(self.gym, self.sim, self.viewer)
 
             # Compute optimal action and send to real simulator
-            action = self.mppi.command(s)[0]
+            action = np.array(self.mppi.command(s)[0].cpu())
 
-            # Publish action command
+            # Tranform world->robot frame
+            action = self.R.T.dot(action.T)
+
+            # Publish action command 
             command = Twist()
             command.linear.x = action[0]
             command.linear.y = action[1]
