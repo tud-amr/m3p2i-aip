@@ -260,7 +260,7 @@ class MPPI():
             
             # Last rollout is a breaking manover
             if self.sample_null_action:
-                u[:, self.K -1, :] = torch.tensor([0., 0.])
+                u[:, self.K -1, :] = torch.zeros_like(u[:, self.K -1, :])
                 # Update perturbed action sequence for later use in cost computation
                 self.perturbed_action[self.K - 1][t] = u[:, self.K -1, :]
 
