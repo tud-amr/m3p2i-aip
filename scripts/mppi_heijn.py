@@ -12,8 +12,8 @@ torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 
 # Make the environment and simulation
 allow_viewer = False
-visualize_rollouts = True
-num_envs = 50
+visualize_rollouts = False
+num_envs = 100
 spacing = 10.0
 robot = "heijn"               # choose from "point_robot", "boxer", "albert"
 environment_type = "normal"         # choose from "normal", "battery"
@@ -30,13 +30,13 @@ mppi = fusion_mppi.FUSION_MPPI(
     dynamics=None, 
     running_cost=None, 
     nx=6, 
-    noise_sigma = torch.tensor([[5, 0, 0], [0, 5, 0], [0, 0, 5]], device="cuda:0", dtype=torch.float32),
+    noise_sigma = torch.tensor([[15, 0, 0], [0, 15, 0], [0, 0, 15]], device="cuda:0", dtype=torch.float32),
     num_samples=num_envs, 
     horizon=20,
-    lambda_=0.5, 
+    lambda_=0.3, 
     device="cuda:0", 
-    u_max=torch.tensor([0.5, 0.5, 0.5]),
-    u_min=torch.tensor([-0.5, -0.5, -0.5]),
+    u_max=torch.tensor([1.5, 1.5, 1.5]),
+    u_min=torch.tensor([-1.5, -1.5, -1.5]),
     step_dependent_dynamics=True,
     terminal_state_cost=None,
     sample_null_action=True,
