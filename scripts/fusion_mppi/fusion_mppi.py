@@ -57,7 +57,7 @@ class FUSION_MPPI(mppi.MPPI):
 
         # Additional variables for the environment
         self.block_index = 7   # Pushing purple blox, index according to simulation
-        self.block_goal = torch.tensor([-3, 3], device="cuda:0")
+        self.block_goal = torch.tensor([3, 3], device="cuda:0")
         self.block_not_goal = torch.tensor([-2, 1], device="cuda:0")
         self.nav_goal = torch.tensor([3, 3], device="cuda:0")
 
