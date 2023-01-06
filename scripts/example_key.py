@@ -42,7 +42,7 @@ while viewer is None or not gym.query_viewer_has_closed(viewer):
     
     if suction_active:
         # Simulation of a magnetic/suction effect to attach to the box
-        suction_force = skill_utils.calculate_suction(root_positions[:, block_index, :], dof_pos, num_envs, kp_suction, block_index, bodies_per_env)
+        suction_force, _, _ = skill_utils.calculate_suction(root_positions[:, block_index, :], dof_pos, num_envs, kp_suction, block_index, bodies_per_env)
         # Apply suction/magnetic force
         gym.apply_rigid_body_force_tensors(sim, gymtorch.unwrap_tensor(torch.reshape(suction_force, (num_envs*bodies_per_env, 3))), None, gymapi.ENV_SPACE)
 

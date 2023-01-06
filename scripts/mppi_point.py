@@ -12,8 +12,8 @@ torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 
 # Make the environment and simulation
 allow_viewer = False
-visualize_rollouts = False
-num_envs = 100
+visualize_rollouts = True
+num_envs = 50
 spacing = 10.0
 robot = "point_robot"               # choose from "point_robot", "boxer", "albert"
 environment_type = "normal"         # choose from "normal", "battery"
@@ -39,7 +39,7 @@ mppi = fusion_mppi.FUSION_MPPI(
     u_min=torch.tensor([-1.5, -1.5]),
     step_dependent_dynamics=True,
     terminal_state_cost=None,
-    sample_null_action=False,
+    sample_null_action=True,
     use_priors=False,
     use_vacuum = True,
     robot_type=robot,

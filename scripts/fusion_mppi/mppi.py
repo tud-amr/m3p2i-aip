@@ -267,8 +267,11 @@ class MPPI():
             if self.use_priors:
                 u = self._priors_command(state, u, t, root_positions)
 
-            state = self._dynamics(state, u, t)
+            state, u = self._dynamics(state, u, t)
             c = self._running_cost(state, u)
+            # Update action if there were changes in fusion mppi due for instance to suction constraints
+            self.perturbed_action[:,t] = u
+
             cost_samples += c
             if self.M > 1:
                 cost_var += c.var(dim=0) * (self.rollout_var_discount ** t)

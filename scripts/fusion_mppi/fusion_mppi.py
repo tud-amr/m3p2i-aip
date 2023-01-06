@@ -1,5 +1,5 @@
 import fusion_mppi.mppi as mppi
-import torch
+import torch, math
 from isaacgym import gymtorch, gymapi
 from utils import sim_init, skill_utils
 
@@ -57,7 +57,7 @@ class FUSION_MPPI(mppi.MPPI):
 
         # Additional variables for the environment
         self.block_index = 7   # Pushing purple blox, index according to simulation
-        self.block_goal = torch.tensor([3, -3], device="cuda:0")
+        self.block_goal = torch.tensor([-3, 3], device="cuda:0")
         self.block_not_goal = torch.tensor([-2, 1], device="cuda:0")
         self.nav_goal = torch.tensor([3, 3], device="cuda:0")
 
@@ -128,6 +128,35 @@ class FUSION_MPPI(mppi.MPPI):
 
     @mppi.handle_batch_input
     def _dynamics(self, state, u, t):
+        actor_root_state = gymtorch.wrap_tensor(self.gym.acquire_actor_root_state_tensor(self.sim))
+        self.root_positions = actor_root_state[:, 0:3]
+        dof_states, _, _, _ = sim_init.acquire_states(self.gym, self.sim, print_flag=False)
+        dof_pos = torch.clone(dof_states).view(-1, 4)[:,[0,2]]
+
+        if self.suction_active:
+            root_pos = torch.reshape(self.root_positions[:, 0:2], (self.num_envs, self.bodies_per_env-2, 2))
+            # simulation of a magnetic/suction effect to attach to the box
+            suction_force, dir, mask = skill_utils.calculate_suction(root_pos[:, self.block_index, :], dof_pos, self.num_envs, self.kp_suction, self.block_index, self.bodies_per_env)
+            # Apply suction/magnetic force
+            self.gym.apply_rigid_body_force_tensors(self.sim, gymtorch.unwrap_tensor(torch.reshape(suction_force, (self.num_envs*self.bodies_per_env, 3))), None, gymapi.ENV_SPACE)
+            
+            # Modify allowed velocities if suction is active, just to have a cone backwards
+            rnd_theta = (torch.rand(self.num_envs)*2-1)*120*math.pi/180       # Random angles in a cone of 120 deg
+            rot_mat = torch.zeros(self.num_envs, 2, 2, device="cuda:0")
+            rnd_mag = torch.tensor(torch.rand(self.num_envs), device='cuda:0').reshape([self.num_envs, 1])*2
+
+            # Populate rot matrix
+            rot_mat[:, 0, 0] = torch.cos(rnd_theta)
+            rot_mat[:, 1, 1] = rot_mat[:, 0, 0]
+            rot_mat[:, 0, 1] = -torch.sin(rnd_theta)
+            rot_mat[:, 1, 0] = -rot_mat[:, 0, 1]
+
+            dir = dir.reshape([self.num_envs,1,2])
+            rnd_input = torch.bmm(dir, rot_mat).squeeze(1)*rnd_mag
+            # This is to quickly use the "sample null action" which is the last sample. Should be made more general, considering the N last inputs being priors
+            old_last_u = torch.clone(u[-1,:])
+            u[mask,:] = rnd_input[mask,:]
+            u[-1,:] = old_last_u
 
         # Use inverse kinematics if the MPPI action space is different than dof velocity space
         u = self._ik(u)
@@ -135,22 +164,9 @@ class FUSION_MPPI(mppi.MPPI):
         self.gym.set_dof_velocity_target_tensor(self.sim, gymtorch.unwrap_tensor(u))
         self.gym.simulate(self.sim)
         self.gym.fetch_results(self.sim, True)
-        actor_root_state = gymtorch.wrap_tensor(self.gym.acquire_actor_root_state_tensor(self.sim))
-
         self.gym.refresh_actor_root_state_tensor(self.sim)
         self.gym.refresh_dof_state_tensor(self.sim)
-        self.root_positions = actor_root_state[:, 0:3]
-        dof_states, _, _, _ = sim_init.acquire_states(self.gym, self.sim, print_flag=False)
-
-        dof_pos = torch.clone(dof_states).view(-1, 4)[:,[0,2]]
-
-        if self.suction_active:
-            root_pos = torch.reshape(self.root_positions[:, 0:2], (self.num_envs, self.actors_per_env, 2))
-            # simulation of a magnetic/suction effect to attach to the box
-            suction_force = skill_utils.calculate_suction(root_pos[:, self.block_index, :], dof_pos, self.num_envs, self.kp_suction, self.block_index, self.bodies_per_env)
-            # Apply suction/magnetic force
-            self.gym.apply_rigid_body_force_tensors(self.sim, gymtorch.unwrap_tensor(torch.reshape(suction_force, (self.num_envs*self.bodies_per_env, 3))), None, gymapi.ENV_SPACE)
-
+        
         if self.robot == 'boxer':
             res_ = actor_root_state[13::14]
             res = torch.cat([res_[:, 0:2], res_[:, 7:9]], axis=1)
@@ -162,7 +178,8 @@ class FUSION_MPPI(mppi.MPPI):
             self.gym.draw_viewer(self.viewer, self.sim, False)
             self.gym.sync_frame_time(self.sim)
 
-        return res
+        return res, u
+
 
     @mppi.handle_batch_input
     def _running_cost(self, state, u):
