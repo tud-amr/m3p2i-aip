@@ -231,6 +231,13 @@ def keyboard_control(gym, sim, viewer, robot, num_dofs, num_envs, dof_states, co
         up_vel = torch.tensor([max_vel, max_vel, max_vel, max_vel], dtype=torch.float32, device="cuda:0").repeat(num_envs)
         right_vel = torch.tensor([max_vel, -max_vel, max_vel, -max_vel], dtype=torch.float32, device="cuda:0").repeat(num_envs)
         vel_targets = {"up":up_vel, "down":down_vel, "left":left_vel, "right":right_vel}
+    elif robot == "heijn":
+        max_vel = 5
+        zero_vel = torch.zeros(1, num_dofs, dtype=torch.float32, device="cuda:0")
+        x_vel = torch.tensor([max_vel, 0, 0], dtype=torch.float32, device="cuda:0").repeat(num_envs)
+        y_vel = torch.tensor([0, max_vel, 0], dtype=torch.float32, device="cuda:0").repeat(num_envs)
+        theta_vel = torch.tensor([0, 0, max_vel], dtype=torch.float32, device="cuda:0").repeat(num_envs)
+        vel_targets = {"up":-y_vel, "down":y_vel, "left":x_vel, "right":-x_vel, "1":theta_vel, "2":-theta_vel }
 
     # Respond the keyboard
     for evt in gym.query_viewer_action_events(viewer):
