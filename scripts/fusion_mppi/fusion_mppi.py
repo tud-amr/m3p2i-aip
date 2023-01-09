@@ -171,16 +171,15 @@ class FUSION_MPPI(mppi.MPPI):
             u[-1,:] = old_last_u
 
         # Use inverse kinematics if the MPPI action space is different than dof velocity space
-        u = self._ik(u)
-
-        self.gym.set_dof_velocity_target_tensor(self.sim, gymtorch.unwrap_tensor(u))
+        u_ = self._ik(u)
+        self.gym.set_dof_velocity_target_tensor(self.sim, gymtorch.unwrap_tensor(u_))
         self.gym.simulate(self.sim)
         self.gym.fetch_results(self.sim, True)
         self.gym.refresh_actor_root_state_tensor(self.sim)
         self.gym.refresh_dof_state_tensor(self.sim)
         
         if self.robot == 'boxer':
-            res_ = actor_root_state[13::14]
+            res_ = actor_root_state[self.actors_per_env-1::self.actors_per_env]
             res = torch.cat([res_[:, 0:2], res_[:, 7:9]], axis=1)
         elif self.robot == 'point_robot':
             res = torch.clone(dof_states).view(-1, 4)   
@@ -214,7 +213,7 @@ class FUSION_MPPI(mppi.MPPI):
         coll_cost[coll_cost>0.1] = 1
         coll_cost[coll_cost<=0.1] = 0
         if self.robot == 'boxer':
-            task_cost = self.get_boxer_push_cost(state[:, :2])
+            task_cost = self.get_push_cost(state[:, :2])
         elif self.robot == 'point_robot':
             task_cost = self.get_push_cost(state_pos)
             #task_cost = self.get_push_not_goal_cost(state_pos)
