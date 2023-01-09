@@ -57,7 +57,7 @@ class FUSION_MPPI(mppi.MPPI):
 
         # Additional variables for the environment
         self.block_index = 7   # Pushing purple blox, index according to simulation
-        self.block_goal = torch.tensor([-3, 3], device="cuda:0")
+        self.block_goal = torch.tensor([3, 3], device="cuda:0")
         self.block_not_goal = torch.tensor([-2, 1], device="cuda:0")
         self.nav_goal = torch.tensor([3, 3], device="cuda:0")
 
@@ -71,7 +71,7 @@ class FUSION_MPPI(mppi.MPPI):
 
     def get_boxer_push_cost(self, r_pos):
         block_pos = torch.cat((torch.split(torch.clone(self.root_positions[:,0:2]), int(torch.clone(self.root_positions[:,0:2]).size(dim=0)/self.num_envs))),1)[self.block_index,:].reshape(self.num_envs,2)
-
+        
         robot_to_block = torch.linalg.norm(r_pos - block_pos, axis = 1)
         block_to_goal = torch.linalg.norm(self.block_goal - block_pos, axis = 1)
 
@@ -87,16 +87,21 @@ class FUSION_MPPI(mppi.MPPI):
     def get_push_cost(self, r_pos):
         block_pos = torch.cat((torch.split(torch.clone(self.root_positions[:,0:2]), int(torch.clone(self.root_positions[:,0:2]).size(dim=0)/self.num_envs))),1)[self.block_index,:].reshape(self.num_envs,2)
 
+        # Extend to 3D vectors for later cross product for alignment
+        block_pos = torch.cat((block_pos, torch.zeros(self.num_envs,1, device="cuda:0")), 1)
+        r_pos = torch.cat((r_pos, torch.zeros(self.num_envs,1, device="cuda:0")), 1)
+        extended_goal = torch.cat((self.block_goal, torch.tensor([0], device="cuda:0")), 0)
+
         robot_to_block = torch.linalg.norm(r_pos - block_pos, axis = 1)
-        block_to_goal = torch.linalg.norm(self.block_goal - block_pos, axis = 1)
+        block_to_goal = torch.linalg.norm(extended_goal - block_pos, axis = 1)
 
-        cost = robot_to_block + block_to_goal 
+        dist_cost = robot_to_block + block_to_goal 
 
-        robot_to_goal = torch.linalg.norm(r_pos - self.block_goal, axis = 1)
-        align_cost = torch.zeros_like(robot_to_goal)
-        align_cost[block_to_goal > robot_to_goal] = 1
-
-        cost += align_cost
+        # Force to be behind block on direction to goal
+        align_cost = 0.05*torch.linalg.norm(torch.linalg.cross(r_pos- extended_goal,block_pos - extended_goal, dim = 1), axis = 1)
+        align_cost[torch.linalg.norm(r_pos- extended_goal, axis = 1)<torch.linalg.norm(block_pos - extended_goal, axis = 1)] += 10
+        
+        cost = dist_cost + align_cost
         return cost
     
     def get_pull_cost(self, r_pos):
@@ -211,8 +216,8 @@ class FUSION_MPPI(mppi.MPPI):
         if self.robot == 'boxer':
             task_cost = self.get_boxer_push_cost(state[:, :2])
         elif self.robot == 'point_robot':
-            #task_cost = self.get_push_cost(state_pos)
+            task_cost = self.get_push_cost(state_pos)
             #task_cost = self.get_push_not_goal_cost(state_pos)
             #task_cost = self.get_navigation_cost(state_pos)
-            task_cost = self.get_pull_cost(state_pos)
+            #task_cost = self.get_pull_cost(state_pos)
         return  task_cost + w_c*coll_cost # + w_u*control_cost 

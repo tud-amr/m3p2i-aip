@@ -37,8 +37,9 @@ mppi = fusion_mppi.FUSION_MPPI(
     u_min=torch.tensor([-1.5, -5.5]),
     step_dependent_dynamics=True,
     terminal_state_cost=None,
-    sample_null_action=False,
+    sample_null_action=True,
     use_priors=False,
+    use_vacuum=False,
     robot_type=robot,
     u_per_command=15
     )

@@ -23,7 +23,7 @@ gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, sp
 dof_states, num_dofs, num_actors, root_states = sim_init.acquire_states(gym, sim, print_flag=False)
 
 # Helper variables, same as in fusion_mppi
-suction_active = True       # Activate suction or not when close to purple box
+suction_active = False      # Activate suction or not when close to purple box
 actors_per_env = int(num_actors/num_envs)
 bodies_per_env = gym.get_env_rigid_body_count(envs[0])
 block_index = 7
