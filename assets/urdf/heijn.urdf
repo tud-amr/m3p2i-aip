@@ -11,10 +11,13 @@
       <color rgba="0.8 0 0.0 0.2"/>
   </material>
   <material name="darkgrey">
-      <color rgba="0.502 0.502 0.502 1.0"/>
+      <color rgba="0.5 0.5 0.5 1.0"/>
+  </material>
+  <material name="grey">
+      <color rgba="0.7 0.7 0.7 1.0"/>
   </material>
   <material name="lightgrey">
-      <color rgba="0.402 0.402 0.402 0.9"/>
+      <color rgba="0.8 0.8 0.8 1"/>
   </material>
   <!--links-->
   <link name="world"/>
@@ -69,7 +72,7 @@
       <geometry>
           <cylinder length="0.33" radius="0.02"/>
       </geometry>
-      <material name="darkgrey"/>
+      <material name="grey"/>
     </visual>
   </link>
   <link name="platform_link">
@@ -89,7 +92,7 @@
       <geometry>
           <cylinder length="0.05" radius="0.05"/>
       </geometry>
-      <material name="darkgrey"/>
+      <material name="grey"/>
     </visual>
   </link>
   <link name="front_link">
@@ -135,7 +138,7 @@
     <child link="base_link"/>
     <origin rpy="0 0 0" xyz="0 0 0"/>
     <axis xyz="0 0 1"/>
-    <limit effort="300" lower="-5" upper="5" velocity="2.1750"/>
+    <limit effort="300" lower="-5000" upper="5000" velocity="2.1750"/>
   </joint>
   <joint name="robot_pole_joint" type="fixed">
     <parent link="base_link"/>
