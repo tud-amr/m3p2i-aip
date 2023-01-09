@@ -132,11 +132,18 @@ class FUSION_MPPI(mppi.MPPI):
         self.root_positions = actor_root_state[:, 0:3]
         dof_states, _, _, _ = sim_init.acquire_states(self.gym, self.sim, print_flag=False)
         dof_pos = torch.clone(dof_states).view(-1, 4)[:,[0,2]]
+        dof_vel = torch.clone(dof_states).view(-1, 4)[:,[1,3]]
 
         if self.suction_active:
             root_pos = torch.reshape(self.root_positions[:, 0:2], (self.num_envs, self.bodies_per_env-2, 2))
+            pos_dir = root_pos[:, self.block_index, :] - dof_pos
+            # True means the velocity moves towards block, otherwise means pull direction
+            flag_towards_block = torch.sum(dof_vel*pos_dir, 1) > 0
+
             # simulation of a magnetic/suction effect to attach to the box
             suction_force, dir, mask = skill_utils.calculate_suction(root_pos[:, self.block_index, :], dof_pos, self.num_envs, self.kp_suction, self.block_index, self.bodies_per_env)
+            # Set no suction force if robot moves towards the block
+            suction_force[flag_towards_block] = 0
             # Apply suction/magnetic force
             self.gym.apply_rigid_body_force_tensors(self.sim, gymtorch.unwrap_tensor(torch.reshape(suction_force, (self.num_envs*self.bodies_per_env, 3))), None, gymapi.ENV_SPACE)
             
