@@ -57,7 +57,7 @@ class FUSION_MPPI(mppi.MPPI):
 
         # Additional variables for the environment
         self.block_index = 7   # Pushing purple blox, index according to simulation
-        self.block_goal = torch.tensor([-3, -3], device="cuda:0")
+        self.block_goal = torch.tensor([-3, 3], device="cuda:0")
         self.block_not_goal = torch.tensor([-2, 1], device="cuda:0")
         self.nav_goal = torch.tensor([3, 3], device="cuda:0")
 
@@ -67,7 +67,7 @@ class FUSION_MPPI(mppi.MPPI):
         self.viewer = viewer
 
     def get_navigation_cost(self, r_pos):
-        return torch.linalg.norm(r_pos - self.nav_goal, axis=1)
+        return torch.clamp(torch.linalg.norm(r_pos - self.nav_goal, axis=1)-0.05, min=0, max=1999) 
 
     def get_push_cost(self, r_pos):
         block_pos = torch.cat((torch.split(torch.clone(self.root_positions[:,0:2]), int(torch.clone(self.root_positions[:,0:2]).size(dim=0)/self.num_envs))),1)[self.block_index,:].reshape(self.num_envs,2)
@@ -163,19 +163,20 @@ class FUSION_MPPI(mppi.MPPI):
             u[-1,:] = old_last_u
 
         # Use inverse kinematics if the MPPI action space is different than dof velocity space
-        u = self._ik(u)
-
-        self.gym.set_dof_velocity_target_tensor(self.sim, gymtorch.unwrap_tensor(u))
+        u_ = self._ik(u)
+        self.gym.set_dof_velocity_target_tensor(self.sim, gymtorch.unwrap_tensor(u_))
         self.gym.simulate(self.sim)
         self.gym.fetch_results(self.sim, True)
         self.gym.refresh_actor_root_state_tensor(self.sim)
         self.gym.refresh_dof_state_tensor(self.sim)
         
         if self.robot == 'boxer':
-            res_ = actor_root_state[13::14]
+            res_ = actor_root_state[self.actors_per_env-1::self.actors_per_env]
             res = torch.cat([res_[:, 0:2], res_[:, 7:9]], axis=1)
         elif self.robot == 'point_robot':
-            res = torch.clone(dof_states).view(-1, 4)   
+            res = torch.clone(dof_states).view(-1, 4)  
+        elif self.robot == 'heijn':
+            res = torch.clone(dof_states).view(-1, 6)  
 
         if self.viewer is not None:
             self.gym.step_graphics(self.sim)
@@ -192,7 +193,7 @@ class FUSION_MPPI(mppi.MPPI):
         
         state_pos = torch.cat((state[:, 0].unsqueeze(1), state[:, 2].unsqueeze(1)), 1)
         control_cost = torch.sum(torch.square(u),1)
-        w_u = 0.01
+        w_u = 0.1
         # Contact forces
         _net_cf = self.gym.acquire_net_contact_force_tensor(self.sim)
         net_cf = gymtorch.wrap_tensor(_net_cf)
@@ -212,4 +213,7 @@ class FUSION_MPPI(mppi.MPPI):
             #task_cost = self.get_push_not_goal_cost(state_pos)
             #task_cost = self.get_navigation_cost(state_pos)
             task_cost = self.get_pull_cost(state_pos)
+        elif self.robot == 'heijn':
+            #task_cost = self.get_navigation_cost(state_pos)
+            task_cost = self.get_push_cost(state_pos)
         return  task_cost + w_c*coll_cost # + w_u*control_cost 
