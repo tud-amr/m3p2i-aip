@@ -37,23 +37,34 @@ class IsaacgymMppiRos:
         time.sleep(1)
         
     def state_cb(self, msg):
+        _, _, yaw = euler_from_quaternion(list(msg.pose.pose.orientation))
         self.state = torch.tensor([
             msg.pose.pose.position.x,
             msg.twist.twist.linear.x,
             msg.pose.pose.position.y,
             msg.twist.twist.linear.y,
+            yaw,
+            msg.twist.twist.angular.z,
             ], device='cuda:0')
-        _, _, yaw = euler_from_quaternion(list(msg.pose.pose.orientation))
         self.R = np.array([[np.cos(yaw), -np.sin(yaw)], [np.sin(yaw), np.cos(yaw)]])
 
     def block_cb(self, msg):
+        _, _, yaw = euler_from_quaternion(list(msg.pose.pose.orientation))
         self.block_state = torch.tensor([
             msg.pose.pose.position.x,
-            msg.twist.twist.linear.x,
             msg.pose.pose.position.y,
+            yaw,
+            msg.pose.pose.orientation.x,
+            msg.pose.pose.orientation.y,
+            msg.pose.pose.orientation.z,
+            msg.pose.pose.orientation.w,
+            msg.twist.twist.linear.x,
             msg.twist.twist.linear.y,
+            msg.twist.twist.linear.z,
+            msg.twist.twist.angular.x,
+            msg.twist.twist.angular.y,
+            msg.twist.twist.angular.z,
             ], device='cuda:0')
-        _, _, yaw = euler_from_quaternion(list(msg.pose.pose.orientation))
         self.block_R = np.array([[np.cos(yaw), -np.sin(yaw)], [np.sin(yaw), np.cos(yaw)]])
 
     def init_isaacgym_mppi(self):
@@ -61,13 +72,13 @@ class IsaacgymMppiRos:
         allow_viewer = False
         self.num_envs = 20
         spacing = 10.0
-        robot = "point_robot"               # choose from "point_robot", "boxer", "albert"
+        robot = "heijn"               # choose from "point_robot", "boxer", "albert"
         environment_type = "normal"         # choose from "normal", "battery"
         control_type = "vel_control"        # choose from "vel_control", "pos_control", "force_control"
         self.gym, self.sim, self.viewer, envs, robot_handles = sim_init.make(allow_viewer, self.num_envs, spacing, robot, environment_type, control_type, dt=1/self.frequency)
 
         # Acquire states
-        dof_states, num_dofs, num_actors, root_states = sim_init.acquire_states(self.gym, self.sim, print_flag=False)
+        dof_states, num_dofs, self.num_actors, root_states = sim_init.acquire_states(self.gym, self.sim, print_flag=False)
 
         self.root_states = copy.deepcopy(root_states)
 
@@ -75,28 +86,33 @@ class IsaacgymMppiRos:
         self.mppi = fusion_mppi.FUSION_MPPI(
             dynamics=None, 
             running_cost=None, 
-            nx=4, 
-            noise_sigma = torch.tensor([[5, 0], [0, 5]], device="cuda:0", dtype=torch.float32),
+            nx=6, 
+            noise_sigma = torch.tensor([[15, 0, 0], [0, 15, 0], [0, 0, 15]], device="cuda:0", dtype=torch.float32),
             num_samples=self.num_envs, 
             horizon=20,
             lambda_=0.3, 
             device="cuda:0", 
-            u_max=torch.tensor([0.1, 0.1]),
-            u_min=torch.tensor([-0.1, -0.1]),
+            u_max=torch.tensor([0.2, 0.2, 0.2]),
+            u_min=torch.tensor([-0.2, -0.2, -0.2]),
             step_dependent_dynamics=True,
             terminal_state_cost=None,
             sample_null_action=True,
-            use_priors=True,
-            use_vacuum=False,
+            use_priors=False,
+            use_vacuum = False,
             robot_type=robot,
-            u_per_command=20
+            u_per_command=20,
+            actors_per_env=int(self.num_actors/self.num_envs),
+            bodies_per_env=self.gym.get_env_rigid_body_count(envs[0])
         )
 
     def run(self):
         while not rospy.is_shutdown():
             # Reset the simulator to requested state
-            s = self.state.repeat(self.num_envs, 1)# [x, v_x, y, v_y]
+            s = self.state.repeat(self.num_envs, 1) # [x, v_x, y, v_y, yaw, v_yaw]
             self.gym.set_dof_state_tensor(self.sim, gymtorch.unwrap_tensor(s))
+            block_index = 7
+            for i in range(self.num_envs):
+                self.root_states[i*int(self.num_actors/self.num_envs) + block_index] = self.block_state
             self.gym.set_actor_root_state_tensor(self.sim, gymtorch.unwrap_tensor(self.root_states))
             sim_init.refresh_states(self.gym, self.sim)
 
@@ -107,12 +123,13 @@ class IsaacgymMppiRos:
             action = np.array(self.mppi.command(s)[0].cpu())
 
             # Tranform world->robot frame
-            action = self.R.T.dot(action.T)
+            action[:2] = self.R.T.dot(action[:2].T)
 
             # Publish action command 
             command = Twist()
             command.linear.x = action[0]
             command.linear.y = action[1]
+            command.angular.z = action[2]
 
             self.pub.publish(command)
 
