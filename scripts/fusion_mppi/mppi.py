@@ -394,14 +394,8 @@ class MPPI():
 
     def _bound_action(self, action):
         if self.u_max is not None:
-            for t in range(self.T):
-                u = action[:, self._slice_control(t)]
-                cu = torch.max(torch.min(u, self.u_max), self.u_min)
-                action[:, self._slice_control(t)] = cu
+            action = torch.max(torch.min(action, self.u_max), self.u_min)
         return action
-
-    def _slice_control(self, t):
-        return slice(t * self.nu, (t + 1) * self.nu)
 
     def get_rollouts(self, state, num_rollouts=1):
         """

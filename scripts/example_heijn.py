@@ -8,7 +8,7 @@ from utils import sim_init, skill_utils
 allow_viewer = True
 num_envs = 1
 spacing = 10.0
-robot = "point_robot"                     # "point_robot", "boxer", "husky", "albert", and heijn
+robot = "heijn"                     # "point_robot", "boxer", "husky", "albert", and heijn
 environment_type = "normal"            # choose from "normal", "battery"
 control_type = "vel_control"        # choose from "vel_control", "pos_control", "force_control"
 

@@ -69,44 +69,41 @@ class FUSION_MPPI(mppi.MPPI):
     def get_navigation_cost(self, r_pos):
         return torch.clamp(torch.linalg.norm(r_pos - self.nav_goal, axis=1)-0.05, min=0, max=1999) 
 
-    def get_boxer_push_cost(self, r_pos):
-        block_pos = torch.cat((torch.split(torch.clone(self.root_positions[:,0:2]), int(torch.clone(self.root_positions[:,0:2]).size(dim=0)/self.num_envs))),1)[self.block_index,:].reshape(self.num_envs,2)
-
-        robot_to_block = torch.linalg.norm(r_pos - block_pos, axis = 1)
-        block_to_goal = torch.linalg.norm(self.block_goal - block_pos, axis = 1)
-
-        cost = robot_to_block + block_to_goal 
-
-        robot_to_goal = torch.linalg.norm(r_pos - self.block_goal, axis = 1)
-        align_cost = torch.zeros_like(robot_to_goal)
-        align_cost[block_to_goal > robot_to_goal] = 1
-
-        cost += align_cost
-        return cost
-
     def get_push_cost(self, r_pos):
         block_pos = torch.cat((torch.split(torch.clone(self.root_positions[:,0:2]), int(torch.clone(self.root_positions[:,0:2]).size(dim=0)/self.num_envs))),1)[self.block_index,:].reshape(self.num_envs,2)
 
+        # Extend to 3D vectors for later cross product for alignment
+        block_pos = torch.cat((block_pos, torch.zeros(self.num_envs,1, device="cuda:0")), 1)
+        r_pos = torch.cat((r_pos, torch.zeros(self.num_envs,1, device="cuda:0")), 1)
+        extended_goal = torch.cat((self.block_goal, torch.tensor([0], device="cuda:0")), 0)
+
         robot_to_block = torch.linalg.norm(r_pos - block_pos, axis = 1)
-        block_to_goal = torch.linalg.norm(self.block_goal - block_pos, axis = 1)
+        block_to_goal = torch.linalg.norm(extended_goal - block_pos, axis = 1)
 
-        cost = robot_to_block + block_to_goal 
+        dist_cost = robot_to_block + block_to_goal 
 
-        robot_to_goal = torch.linalg.norm(r_pos - self.block_goal, axis = 1)
-        align_cost = torch.zeros_like(robot_to_goal)
-        align_cost[block_to_goal > robot_to_goal] = 1
-
-        cost += align_cost
+        # Force to be behind block on direction to goal
+        align_cost = 0.05*torch.linalg.norm(torch.linalg.cross(r_pos- extended_goal,block_pos - extended_goal, dim = 1), axis = 1)
+        align_cost[torch.linalg.norm(r_pos- extended_goal, axis = 1)<torch.linalg.norm(block_pos - extended_goal, axis = 1)] += 10
+        
+        cost = dist_cost + align_cost
         return cost
     
     def get_pull_cost(self, r_pos):
-        # TODO modify to have only backwards velocities here or somewhere else when pull cost is active
         block_pos = torch.cat((torch.split(torch.clone(self.root_positions[:,0:2]), int(torch.clone(self.root_positions[:,0:2]).size(dim=0)/self.num_envs))),1)[self.block_index,:].reshape(self.num_envs,2)
+        robot_to_block = r_pos - block_pos
+        block_to_goal = self.block_goal - block_pos
 
-        robot_to_block = torch.linalg.norm(r_pos - block_pos, axis = 1)
-        block_to_goal = torch.linalg.norm(self.block_goal - block_pos, axis = 1)
+        robot_to_block_dist = torch.linalg.norm(robot_to_block, axis = 1)
+        block_to_goal_dist = torch.linalg.norm(block_to_goal, axis = 1)
+        dist_cost = robot_to_block_dist + block_to_goal_dist 
 
-        cost = robot_to_block + block_to_goal 
+        # Force the robot to be in the middle between block and goal,
+        # align_cost is actually the cos(theta)
+        align_cost = torch.sum(robot_to_block*block_to_goal, 1)/(robot_to_block_dist*block_to_goal_dist)
+        align_cost = (1-align_cost) * 5
+
+        cost = dist_cost + align_cost
         return cost
 
     def get_push_not_goal_cost(self, r_pos):
@@ -132,43 +129,49 @@ class FUSION_MPPI(mppi.MPPI):
         self.root_positions = actor_root_state[:, 0:3]
         dof_states, _, _, _ = sim_init.acquire_states(self.gym, self.sim, print_flag=False)
         dof_pos = torch.clone(dof_states).view(-1, 4)[:,[0,2]]
+        dof_vel = torch.clone(dof_states).view(-1, 4)[:,[1,3]]
 
-        # if self.suction_active:
-        #     root_pos = torch.reshape(self.root_positions[:, 0:2], (self.num_envs, self.bodies_per_env-2, 2))
-        #     # simulation of a magnetic/suction effect to attach to the box
-        #     suction_force, dir, mask = skill_utils.calculate_suction(root_pos[:, self.block_index, :], dof_pos, self.num_envs, self.kp_suction, self.block_index, self.bodies_per_env)
-        #     # Apply suction/magnetic force
-        #     self.gym.apply_rigid_body_force_tensors(self.sim, gymtorch.unwrap_tensor(torch.reshape(suction_force, (self.num_envs*self.bodies_per_env, 3))), None, gymapi.ENV_SPACE)
+        if self.suction_active:
+            root_pos = torch.reshape(self.root_positions[:, 0:2], (self.num_envs, self.bodies_per_env-2, 2))
+            pos_dir = root_pos[:, self.block_index, :] - dof_pos
+            # True means the velocity moves towards block, otherwise means pull direction
+            flag_towards_block = torch.sum(dof_vel*pos_dir, 1) > 0
+
+            # simulation of a magnetic/suction effect to attach to the box
+            suction_force, dir, mask = skill_utils.calculate_suction(root_pos[:, self.block_index, :], dof_pos, self.num_envs, self.kp_suction, self.block_index, self.bodies_per_env)
+            # Set no suction force if robot moves towards the block
+            suction_force[flag_towards_block] = 0
+            # Apply suction/magnetic force
+            self.gym.apply_rigid_body_force_tensors(self.sim, gymtorch.unwrap_tensor(torch.reshape(suction_force, (self.num_envs*self.bodies_per_env, 3))), None, gymapi.ENV_SPACE)
             
-        #     # Modify allowed velocities if suction is active, just to have a cone backwards
-        #     rnd_theta = (torch.rand(self.num_envs)*2-1)*120*math.pi/180       # Random angles in a cone of 120 deg
-        #     rot_mat = torch.zeros(self.num_envs, 2, 2, device="cuda:0")
-        #     rnd_mag = torch.tensor(torch.rand(self.num_envs), device='cuda:0').reshape([self.num_envs, 1])*2
+            # Modify allowed velocities if suction is active, just to have a cone backwards
+            rnd_theta = (torch.rand(self.num_envs)*2-1)*120*math.pi/180       # Random angles in a cone of 120 deg
+            rot_mat = torch.zeros(self.num_envs, 2, 2, device="cuda:0")
+            rnd_mag = torch.tensor(torch.rand(self.num_envs), device='cuda:0').reshape([self.num_envs, 1])*2
 
-        #     # Populate rot matrix
-        #     rot_mat[:, 0, 0] = torch.cos(rnd_theta)
-        #     rot_mat[:, 1, 1] = rot_mat[:, 0, 0]
-        #     rot_mat[:, 0, 1] = -torch.sin(rnd_theta)
-        #     rot_mat[:, 1, 0] = -rot_mat[:, 0, 1]
+            # Populate rot matrix
+            rot_mat[:, 0, 0] = torch.cos(rnd_theta)
+            rot_mat[:, 1, 1] = rot_mat[:, 0, 0]
+            rot_mat[:, 0, 1] = -torch.sin(rnd_theta)
+            rot_mat[:, 1, 0] = -rot_mat[:, 0, 1]
 
-        #     dir = dir.reshape([self.num_envs,1,2])
-        #     rnd_input = torch.bmm(dir, rot_mat).squeeze(1)*rnd_mag
-        #     # This is to quickly use the "sample null action" which is the last sample. Should be made more general, considering the N last inputs being priors
-        #     old_last_u = torch.clone(u[-1,:])
-        #     u[mask,:] = rnd_input[mask,:]
-        #     u[-1,:] = old_last_u
+            dir = dir.reshape([self.num_envs,1,2])
+            rnd_input = torch.bmm(dir, rot_mat).squeeze(1)*rnd_mag
+            # This is to quickly use the "sample null action" which is the last sample. Should be made more general, considering the N last inputs being priors
+            old_last_u = torch.clone(u[-1,:])
+            u[mask,:] = rnd_input[mask,:]
+            u[-1,:] = old_last_u
 
         # Use inverse kinematics if the MPPI action space is different than dof velocity space
-        u = self._ik(u)
-
-        self.gym.set_dof_velocity_target_tensor(self.sim, gymtorch.unwrap_tensor(u))
+        u_ = self._ik(u)
+        self.gym.set_dof_velocity_target_tensor(self.sim, gymtorch.unwrap_tensor(u_))
         self.gym.simulate(self.sim)
         self.gym.fetch_results(self.sim, True)
         self.gym.refresh_actor_root_state_tensor(self.sim)
         self.gym.refresh_dof_state_tensor(self.sim)
         
         if self.robot == 'boxer':
-            res_ = actor_root_state[13::14]
+            res_ = actor_root_state[self.actors_per_env-1::self.actors_per_env]
             res = torch.cat([res_[:, 0:2], res_[:, 7:9]], axis=1)
         elif self.robot == 'point_robot':
             res = torch.clone(dof_states).view(-1, 4)  
@@ -204,7 +207,7 @@ class FUSION_MPPI(mppi.MPPI):
         coll_cost[coll_cost>0.1] = 1
         coll_cost[coll_cost<=0.1] = 0
         if self.robot == 'boxer':
-            task_cost = self.get_boxer_push_cost(state[:, :2])
+            task_cost = self.get_push_cost(state[:, :2])
         elif self.robot == 'point_robot':
             #task_cost = self.get_push_cost(state_pos)
             #task_cost = self.get_push_not_goal_cost(state_pos)
@@ -213,4 +216,4 @@ class FUSION_MPPI(mppi.MPPI):
         elif self.robot == 'heijn':
             #task_cost = self.get_navigation_cost(state_pos)
             task_cost = self.get_push_cost(state_pos)
-        return  task_cost #+ w_c*coll_cost + w_u*control_cost 
+        return  task_cost + w_c*coll_cost # + w_u*control_cost 

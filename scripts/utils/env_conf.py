@@ -33,6 +33,7 @@ recharge_pose.p = gymapi.Vec3(docking_station_loc[1], docking_station_loc[0], 0)
 
 color_vec_box1 = gymapi.Vec3(0.5, 0.1, 0.7)
 color_vec_box2 = gymapi.Vec3(0.2, 0.1, 0.2)
+color_vec_crate = gymapi.Vec3(4/255, 160/255, 218/255)
 color_vec_box3 = gymapi.Vec3(0.5, 0.1, 0.3)
 
 color_vec_fixed = gymapi.Vec3(0.8, 0.2, 0.2)
@@ -54,7 +55,6 @@ def add_box(sim, gym, env, width, height, depth, pose, color, isFixed, name, ind
     # Additional assets from API
     asset_options_objects = gymapi.AssetOptions()
     asset_options_objects.fix_base_link = isFixed
-
     object_asset = gym.create_box(sim, width, height, depth, asset_options_objects)
     # Add obstacles
     box_handle = gym.create_actor(env, object_asset, pose, name, index, -1)
@@ -199,17 +199,23 @@ def add_obstacles(sim, gym, env, environment_type, index):
         dyn_obs_handle = add_box(sim, gym, env,0.4, 0.4, 0.1, dyn_obs_pose, color_vec_dyn_obs, False, "dyn_obs", index)
 
         box1_handle = add_box(sim, gym, env,0.4, 0.4, 0.1, box1_pose, color_vec_box1, False, "box1", index)
-        box2_handle = add_box(sim, gym, env,0.4, 0.4, 0.1, box2_pose, color_vec_box2, False, "box2", index)
+        box2_handle = add_box(sim, gym, env,0.5, 0.3, 0.3, box2_pose, color_vec_crate, False, "box2", index)
         box3_handle = add_box(sim, gym, env,0.4, 0.4, 0.1, box3_pose, color_vec_box3, False, "box3", index)
 
         goal_region1 = add_box(sim, gym, env, 1, 1, 0.01, goal1_pose, color_vec_box1, True, "goal_region1", -2) # No collisions with goal region
-        goal_region2 = add_box(sim, gym, env, 1, 1, 0.01, goal2_pose, color_vec_box2, True, "goal_region2", -2) # No collisions with goal region
+        goal_region2 = add_box(sim, gym, env, 1, 1, 0.01, goal2_pose, color_vec_box3, True, "goal_region2", -2) # No collisions with goal region
         goal_region3 = add_box(sim, gym, env, 1, 1, 0.01, goal3_pose, color_vec_box3, True, "goal_region3", -2) # No collisions with goal region
 
         recharge_region = add_box(sim, gym, env,1 , 1, 0.01, recharge_pose, color_vec_recharge, True, "goal_region", -2) # No collisions with recharge region
         # add movable squar box
         y_axis = add_box(sim, gym, env, 0.05, 0.5, 0.01, yaxis_pose, gymapi.Vec3(0.0, 1, 0.2), True, "y", -2)
         x_axis = add_box(sim, gym, env, 0.5, 0.05, 0.01, xaxis_pose, gymapi.Vec3(1, 0.0, 0.2), True, "x", -2)        
+
+        # Set AH crate mass 
+        crate_props = gym.get_actor_rigid_body_properties(env, box2_handle)
+        crate_props[0].mass = 1. # Set 1kg mass
+        gym.set_actor_rigid_body_properties(env, box2_handle, crate_props)
+        
     elif environment_type == "battery":
         # add fixed obstacle
         obstacle_handle = add_box(sim, gym, env, 0.3, 0.4, 0.5, obstacle_pose, color_vec_fixed, True, "obstacle", index)
