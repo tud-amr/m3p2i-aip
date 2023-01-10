@@ -123,6 +123,23 @@ class FUSION_MPPI(mppi.MPPI):
             return u_ik
         else: return u
 
+    def _predict_dyn_obs(self, factor, robot_state, dyn_obs_pos, dyn_obs_vel, t):
+        robot_pos = robot_state[:, [0, 2]] # K x 2
+        # Obs boundary [-2.5, 1.5] <--> [-1.5, 2.5]
+        obs_lb = torch.tensor([-2.5, 1.5], dtype=torch.float32, device="cuda:0")
+        obs_ub = torch.tensor([-1.5, 2.5], dtype=torch.float32, device="cuda:0")
+        dyn_obs_vel = torch.clamp(dyn_obs_vel, min = -0.001, max = 0.001)
+        pred_pos = dyn_obs_pos + t * dyn_obs_vel * 10
+        # Check the prec_pos and boundary
+        exceed_ub = pred_pos[:, 1] > obs_ub[1]
+        exceed_lb = pred_pos[:, 1] < obs_lb[1]
+        pred_pos[exceed_ub] = 2 * obs_ub - pred_pos[exceed_ub]
+        pred_pos[exceed_lb] = 2 * obs_lb - pred_pos[exceed_lb]
+        # Compute the cost
+        dyn_obs_cost = factor * torch.exp(-torch.norm(pred_pos - robot_pos, dim=1))
+
+        return dyn_obs_cost
+
     @mppi.handle_batch_input
     def _dynamics(self, state, u, t):
         actor_root_state = gymtorch.wrap_tensor(self.gym.acquire_actor_root_state_tensor(self.sim))

@@ -254,7 +254,11 @@ class MPPI():
         actor_root_state = gymtorch.wrap_tensor(self.gym.acquire_actor_root_state_tensor(self.sim))
         self.gym.refresh_actor_root_state_tensor(self.sim)
         root_positions = actor_root_state[:, 0:3]
-
+        root_velocitys = actor_root_state[:, 7:10]
+        root_pos = torch.reshape(root_positions[:, 0:2], (self.num_envs, self.actors_per_env, 2))
+        root_vel = torch.reshape(root_velocitys[:, 0:2], (self.num_envs, self.actors_per_env, 2))
+        dyn_obs_pos = root_pos[:, 5, :]
+        dyn_obs_vel = root_vel[:, 5, :]
         for t in range(T):
             u = self.u_scale * perturbed_actions[:, t].repeat(self.M, 1, 1)
             
@@ -271,8 +275,13 @@ class MPPI():
             c = self._running_cost(state, u)
             # Update action if there were changes in fusion mppi due for instance to suction constraints
             self.perturbed_action[:,t] = u
-
             cost_samples += c
+            
+            # Add cost of the dynamic obstacle
+            penalty_factor = 2 # the larger the factor, the more penalty to geting close to the obs
+            dyn_obs_cost = self._predict_dyn_obs(penalty_factor, state[0], dyn_obs_pos, dyn_obs_vel, t+1)
+            cost_samples += dyn_obs_cost
+
             if self.M > 1:
                 cost_var += c.var(dim=0) * (self.rollout_var_discount ** t)
 
