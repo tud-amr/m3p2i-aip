@@ -13,10 +13,10 @@ torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 # Make the environment and simulation
 allow_viewer = False
 visualize_rollouts = False
-num_envs = 100
+num_envs = 200
 spacing = 10.0
 robot = "heijn"               # choose from "point_robot", "boxer", "albert"
-environment_type = "normal"         # choose from "normal", "battery"
+environment_type = "lab"         # choose from "normal", "battery"
 control_type = "vel_control"        # choose from "vel_control", "pos_control", "force_control"
 gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, spacing, robot, environment_type, control_type)
 
@@ -45,6 +45,7 @@ mppi = fusion_mppi.FUSION_MPPI(
     robot_type=robot,
     u_per_command=20,
     actors_per_env=actors_per_env,
+    env_type=environment_type,
     bodies_per_env=bodies_per_env
     )
 

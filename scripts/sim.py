@@ -12,7 +12,7 @@ torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 allow_viewer = True
 num_envs = 1 
 spacing = 10.0
-robot = "point_robot"               # choose from "point_robot", "boxer", "albert"
+robot = "boxer"               # choose from "point_robot", "boxer", "albert"
 environment_type = "normal"            # choose from "normal", "battery"
 control_type = "vel_control"        # choose from "vel_control", "pos_control", "force_control"
 dt = 0.05
@@ -23,11 +23,13 @@ gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, sp
 dof_states, num_dofs, num_actors, root_states = sim_init.acquire_states(gym, sim, print_flag=False)
 
 # Helper variables, same as in fusion_mppi
-suction_active = False       # Activate suction or not when close to purple box
+suction_active = False      # Activate suction or not when close to purple box
 actors_per_env = int(num_actors/num_envs)
 bodies_per_env = gym.get_env_rigid_body_count(envs[0])
 block_index = 7
 kp_suction = 400
+
+print(actors_per_env)
 
 # Time logging
 frame_count = 0
@@ -96,8 +98,9 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
             gym.apply_rigid_body_force_tensors(sim, gymtorch.unwrap_tensor(torch.reshape(suction_force, (num_envs*bodies_per_env, 3))), None, gymapi.ENV_SPACE)
 
         # Update movement of dynamic obstacle
-        sim_init.update_dyn_obs(gym, sim, num_actors, num_envs, count)
-        count += 1
+        if environment_type == 'normal':
+            sim_init.update_dyn_obs(gym, sim, num_actors, num_envs, count)
+            count += 1
 
         # Step the similation
         sim_init.step(gym, sim)

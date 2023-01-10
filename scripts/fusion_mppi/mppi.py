@@ -81,7 +81,8 @@ class MPPI():
                  use_vacuum=False,
                  robot='point_robot',
                  noise_abs_cost=False,
-                 actors_per_env=None, 
+                 actors_per_env=None,
+                 env_type='normal', 
                  bodies_per_env=None):
         """
         :param dynamics: function(state, action) -> next_state (K x nx) taking in batch state (K x nx) and action (K x nu)
@@ -222,6 +223,9 @@ class MPPI():
         # reduce dimensionality if we only need the first command
         if self.u_per_command == 1:
             action = action[0]
+
+        if self.sample_null_action and cost_total[-1] <= 0.01:
+            action = torch.zeros_like(action)
 
         return action
 

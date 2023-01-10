@@ -7,10 +7,13 @@ box1_pose = gymapi.Transform()
 box1_pose.p = gymapi.Vec3(1, -2, 0)
 
 box2_pose = gymapi.Transform()
-box2_pose.p = gymapi.Vec3(-2, 1, 0)
+box2_pose.p = gymapi.Vec3(2, 1, 0)
 
 box3_pose = gymapi.Transform()
 box3_pose.p = gymapi.Vec3(3, 0, 0)
+
+crate_pose = gymapi.Transform()
+crate_pose.p = gymapi.Vec3(-1, -1, 0)
 
 obstacle_pose = gymapi.Transform()
 obstacle_pose.p = gymapi.Vec3(2, 2, 0)
@@ -67,16 +70,16 @@ def add_arena(sim, gym, env, square_size, wall_thikhness, origin_x, origin_y, in
     # Add 4 walls
     wall_pose.p = gymapi.Vec3(square_size/2+origin_x, origin_y, 0.0)
     wall_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1)
-    add_box(sim, gym, env, wall_thikhness, square_size, 1, wall_pose, color_vec_walls, True, "wall1", index)
+    add_box(sim, gym, env, wall_thikhness, square_size, 0.2, wall_pose, color_vec_walls, True, "wall1", index)
     wall_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1)
     wall_pose.p = gymapi.Vec3(-square_size/2+origin_x, origin_y, 0.0)
-    add_box(sim, gym, env, wall_thikhness, square_size, 1, wall_pose, color_vec_walls, True, "wall2", index)
+    add_box(sim, gym, env, wall_thikhness, square_size, 0.2, wall_pose, color_vec_walls, True, "wall2", index)
     wall_pose.p = gymapi.Vec3(origin_x, square_size/2+origin_y, 0.0)
     wall_pose.r = gymapi.Quat(0.0, 0.0, 0.707107, 0.707107)
-    add_box(sim, gym, env, wall_thikhness, square_size, 1, wall_pose, color_vec_walls, True, "wall3", index)
+    add_box(sim, gym, env, wall_thikhness, square_size, 0.2, wall_pose, color_vec_walls, True, "wall3", index)
     wall_pose.p = gymapi.Vec3(origin_x, -square_size/2+origin_y, 0.0)
     wall_pose.r = gymapi.Quat(0.0, 0.0, 0.707107, 0.707107)
-    add_box(sim, gym, env, wall_thikhness, square_size, 1, wall_pose, color_vec_walls, True, "wall4", index)
+    add_box(sim, gym, env, wall_thikhness, square_size, 0.2, wall_pose, color_vec_walls, True, "wall4", index)
 
 def load_robot(robot, gym, sim):
     if robot == "albert":
@@ -199,7 +202,7 @@ def add_obstacles(sim, gym, env, environment_type, index):
         dyn_obs_handle = add_box(sim, gym, env,0.4, 0.4, 0.1, dyn_obs_pose, color_vec_dyn_obs, False, "dyn_obs", index)
 
         box1_handle = add_box(sim, gym, env,0.4, 0.4, 0.1, box1_pose, color_vec_box1, False, "box1", index)
-        box2_handle = add_box(sim, gym, env,0.5, 0.3, 0.3, box2_pose, color_vec_crate, False, "box2", index)
+        box2_handle = add_box(sim, gym, env,0.4, 0.4, 0.1, box2_pose, color_vec_crate, False, "box2", index)
         box3_handle = add_box(sim, gym, env,0.4, 0.4, 0.1, box3_pose, color_vec_box3, False, "box3", index)
 
         goal_region1 = add_box(sim, gym, env, 1, 1, 0.01, goal1_pose, color_vec_box1, True, "goal_region1", -2) # No collisions with goal region
@@ -210,11 +213,6 @@ def add_obstacles(sim, gym, env, environment_type, index):
         # add movable squar box
         y_axis = add_box(sim, gym, env, 0.05, 0.5, 0.01, yaxis_pose, gymapi.Vec3(0.0, 1, 0.2), True, "y", -2)
         x_axis = add_box(sim, gym, env, 0.5, 0.05, 0.01, xaxis_pose, gymapi.Vec3(1, 0.0, 0.2), True, "x", -2)        
-
-        # Set AH crate mass 
-        crate_props = gym.get_actor_rigid_body_properties(env, box2_handle)
-        crate_props[0].mass = 1. # Set 1kg mass
-        gym.set_actor_rigid_body_properties(env, box2_handle, crate_props)
         
     elif environment_type == "battery":
         # add fixed obstacle
@@ -227,9 +225,18 @@ def add_obstacles(sim, gym, env, environment_type, index):
         
         y_axis = add_box(sim, gym, env, 0.05, 0.5, 0.01, yaxis_pose, gymapi.Vec3(0.0, 1, 0.2), True, "y", -2)
         x_axis = add_box(sim, gym, env, 0.5, 0.05, 0.01, xaxis_pose, gymapi.Vec3(1, 0.0, 0.2), True, "x", -2)
-        # add movable squar box
+
+    elif environment_type == "lab":        
+        crate_handle = add_box(sim, gym, env,0.5, 0.3, 0.3, crate_pose, color_vec_crate, False, "box2", index)
+        y_axis = add_box(sim, gym, env, 0.05, 0.5, 0.01, yaxis_pose, gymapi.Vec3(0.0, 1, 0.2), True, "y", -2)
+        x_axis = add_box(sim, gym, env, 0.5, 0.05, 0.01, xaxis_pose, gymapi.Vec3(1, 0.0, 0.2), True, "x", -2)        
+
+        # Set AH crate mass 
+        crate_props = gym.get_actor_rigid_body_properties(env, crate_handle)
+        crate_props[0].mass = 1. # Set 1kg mass
+        gym.set_actor_rigid_body_properties(env, crate_handle, crate_props)      
     else:
-        print("Invalid obstacle type")
+        print("Invalid environment type")
     
 def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, environment_type, control_type = "vel_control"):
     # Some common handles for later use
@@ -242,7 +249,15 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, e
         # Create env
         env = gym.create_env(sim, gymapi.Vec3(-spacing, 0.0, -spacing), gymapi.Vec3(spacing, spacing, spacing), num_per_row)
         envs.append(env)
-        add_arena(sim, gym, env, 8, 0.1, 0, 0, i) # Wall size, wall thickness, origin_x, origin_y, index
+        
+        if environment_type == "normal" or environment_type == "battery":
+            wall_size = 8
+            wall_thickness = 0.1
+        if environment_type == "lab":
+            wall_size = 5
+            wall_thickness = 0.05
+
+        add_arena(sim, gym, env, wall_size, wall_thickness, 0, 0, i) # Wall size, wall thickness, origin_x, origin_y, index
         
         # Add obstacles
         add_obstacles(sim, gym, env, environment_type, index = i)
