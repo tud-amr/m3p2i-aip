@@ -53,7 +53,7 @@ class IsaacgymMppiRos:
         self.block_state = torch.tensor([
             msg.pose.pose.position.x,
             msg.pose.pose.position.y,
-            yaw,
+            0,
             msg.pose.pose.orientation.x,
             msg.pose.pose.orientation.y,
             msg.pose.pose.orientation.z,
@@ -70,7 +70,7 @@ class IsaacgymMppiRos:
     def init_isaacgym_mppi(self):
         # Make the environment and simulation
         allow_viewer = False
-        self.num_envs = 20
+        self.num_envs = 200
         spacing = 10.0
         robot = "heijn"               # choose from "point_robot", "boxer", "albert"
         environment_type = "normal"         # choose from "normal", "battery"
@@ -92,8 +92,8 @@ class IsaacgymMppiRos:
             horizon=20,
             lambda_=0.3, 
             device="cuda:0", 
-            u_max=torch.tensor([0.2, 0.2, 0.2]),
-            u_min=torch.tensor([-0.2, -0.2, -0.2]),
+            u_max=torch.tensor([0.6, 0.6, 1.0]),
+            u_min=torch.tensor([-0.6, -0.6, -1.0]),
             step_dependent_dynamics=True,
             terminal_state_cost=None,
             sample_null_action=True,
@@ -124,7 +124,6 @@ class IsaacgymMppiRos:
 
             # Tranform world->robot frame
             action[:2] = self.R.T.dot(action[:2].T)
-
             # Publish action command 
             command = Twist()
             command.linear.x = action[0]
