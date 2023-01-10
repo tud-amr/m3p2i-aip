@@ -73,7 +73,7 @@ class IsaacgymMppiRos:
         self.num_envs = 200
         spacing = 10.0
         robot = "heijn"               # choose from "point_robot", "boxer", "albert"
-        environment_type = "normal"         # choose from "normal", "battery"
+        environment_type = "lab"         # choose from "normal", "battery"
         control_type = "vel_control"        # choose from "vel_control", "pos_control", "force_control"
         self.gym, self.sim, self.viewer, envs, robot_handles = sim_init.make(allow_viewer, self.num_envs, spacing, robot, environment_type, control_type, dt=1/self.frequency)
 
@@ -102,6 +102,7 @@ class IsaacgymMppiRos:
             robot_type=robot,
             u_per_command=20,
             actors_per_env=int(self.num_actors/self.num_envs),
+            env_type=environment_type,
             bodies_per_env=self.gym.get_env_rigid_body_count(envs[0])
         )
 

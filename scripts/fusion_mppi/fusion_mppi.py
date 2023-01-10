@@ -24,6 +24,7 @@ class FUSION_MPPI(mppi.MPPI):
                     robot_type='point_robot',
                     noise_abs_cost=False,
                     actors_per_env=None, 
+                    env_type="normal",
                     bodies_per_env=None):
         super().__init__(dynamics, running_cost, nx, noise_sigma, num_samples, horizon, device, 
                     terminal_state_cost, 
@@ -44,7 +45,8 @@ class FUSION_MPPI(mppi.MPPI):
                     use_vacuum,
                     robot_type,
                     noise_abs_cost,
-                    actors_per_env, 
+                    actors_per_env,
+                    env_type, 
                     bodies_per_env)
         self.gym = None
         self.sim = None
@@ -54,10 +56,14 @@ class FUSION_MPPI(mppi.MPPI):
         self.suction_active = use_vacuum
         self.bodies_per_env = bodies_per_env
         self.actors_per_env = actors_per_env
+        self.env_type = env_type
 
         # Additional variables for the environment
-        self.block_index = 7   # Pushing purple blox, index according to simulation
-        self.block_goal = torch.tensor([-3, 3], device="cuda:0")
+        if self.env_type == "normal":
+            self.block_index = 7   # Pushing purple blox, index according to simulation
+        if self.env_type == "lab":
+            self.block_index = 4  
+        self.block_goal = torch.tensor([0, 0], device="cuda:0")
         self.block_not_goal = torch.tensor([-2, 1], device="cuda:0")
         self.nav_goal = torch.tensor([3, 3], device="cuda:0")
 
@@ -72,19 +78,30 @@ class FUSION_MPPI(mppi.MPPI):
     def get_push_cost(self, r_pos):
         block_pos = torch.cat((torch.split(torch.clone(self.root_positions[:,0:2]), int(torch.clone(self.root_positions[:,0:2]).size(dim=0)/self.num_envs))),1)[self.block_index,:].reshape(self.num_envs,2)
 
-        # Extend to 3D vectors for later cross product for alignment
-        block_pos = torch.cat((block_pos, torch.zeros(self.num_envs,1, device="cuda:0")), 1)
-        r_pos = torch.cat((r_pos, torch.zeros(self.num_envs,1, device="cuda:0")), 1)
-        extended_goal = torch.cat((self.block_goal, torch.tensor([0], device="cuda:0")), 0)
+        robot_to_block = r_pos - block_pos
+        block_to_goal = self.block_goal - block_pos
 
-        robot_to_block = torch.linalg.norm(r_pos - block_pos, axis = 1)
-        block_to_goal = torch.linalg.norm(extended_goal - block_pos, axis = 1)
+        robot_to_block_dist = torch.linalg.norm(robot_to_block, axis = 1)
+        block_to_goal_dist = torch.linalg.norm(block_to_goal, axis = 1)
+        dist_cost = robot_to_block_dist + block_to_goal_dist 
 
-        dist_cost = robot_to_block + block_to_goal 
+        # Force the robot behind block and goal,
+        # align_cost is actually the cos(theta)
 
-        # Force to be behind block on direction to goal
-        align_cost = 0.05*torch.linalg.norm(torch.linalg.cross(r_pos- extended_goal,block_pos - extended_goal, dim = 1), axis = 1)
-        align_cost[torch.linalg.norm(r_pos- extended_goal, axis = 1)<torch.linalg.norm(block_pos - extended_goal, axis = 1)] += 10
+        # Tuning per robot
+        if self.robot == "heijn":
+            align_weight = 0.1
+            align_offset = 0.1
+        elif self.robot == "point_robot":
+            align_weight = 0.1
+            align_offset = 0
+        elif self.robot == "boxer":
+            align_weight = 0.6
+            align_offset = 0.3
+
+        align_cost = torch.sum(robot_to_block*block_to_goal, 1)/(robot_to_block_dist*block_to_goal_dist)
+        align_cost = align_weight*align_cost
+        align_cost[torch.linalg.norm(r_pos- self.block_goal, axis = 1)<torch.linalg.norm(block_pos - self.block_goal, axis = 1)+align_offset] += 10
         
         cost = dist_cost + align_cost
         return cost
@@ -200,8 +217,14 @@ class FUSION_MPPI(mppi.MPPI):
         _net_cf = self.gym.refresh_net_contact_force_tensor(self.sim)
         # Take only forces in x,y in modulus for each environment. Avoid all collisions
         net_cf = torch.sum(torch.abs(torch.cat((net_cf[:, 0].unsqueeze(1), net_cf[:, 1].unsqueeze(1)), 1)),1)
-        # The last actors are allowed to collide with eachother (movabable obstacles and robot)
-        coll_cost = torch.sum(net_cf.reshape([self.num_envs, int(net_cf.size(dim=0)/self.num_envs)])[:,0:6], 1)
+        # The last actors are allowed to collide with eachother (movabable obstacles and robot), check depending on the amount of actors
+        if self.env_type == 'normal':   
+            obst_up_to = 6
+        elif self.env_type == 'lab':
+            obst_up_to = 4 
+
+        coll_cost = torch.sum(net_cf.reshape([self.num_envs, int(net_cf.size(dim=0)/self.num_envs)])[:,0:obst_up_to], 1)
+
         w_c = 1000 # Weight for collisions
         # Binary check for collisions. So far checking all collision with unmovable obstacles. Movable obstacles touching unmovable ones are considered collisions       
         coll_cost[coll_cost>0.1] = 1
@@ -209,10 +232,10 @@ class FUSION_MPPI(mppi.MPPI):
         if self.robot == 'boxer':
             task_cost = self.get_push_cost(state[:, :2])
         elif self.robot == 'point_robot':
-            #task_cost = self.get_push_cost(state_pos)
+            task_cost = self.get_push_cost(state_pos)
             #task_cost = self.get_push_not_goal_cost(state_pos)
             #task_cost = self.get_navigation_cost(state_pos)
-            task_cost = self.get_pull_cost(state_pos)
+            #task_cost = self.get_pull_cost(state_pos)
         elif self.robot == 'heijn':
             #task_cost = self.get_navigation_cost(state_pos)
             task_cost = self.get_push_cost(state_pos)
