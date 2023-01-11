@@ -7,13 +7,14 @@ from utils import env_conf, sim_init, data_transfer, skill_utils
 import time, numpy as np
 import socket
 torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
+import matplotlib.pyplot as plt
 
 # Make the environment and simulation
 allow_viewer = True
 num_envs = 1 
 spacing = 10.0
-robot = "boxer"               # choose from "point_robot", "boxer", "albert"
-environment_type = "normal"            # choose from "normal", "battery"
+robot = "heijn"               # choose from "point_robot", "boxer", "albert"
+environment_type = "lab"            # choose from "normal", "battery"
 control_type = "vel_control"        # choose from "vel_control", "pos_control", "force_control"
 dt = 0.05
 
@@ -28,8 +29,6 @@ actors_per_env = int(num_actors/num_envs)
 bodies_per_env = gym.get_env_rigid_body_count(envs[0])
 block_index = 7
 kp_suction = 400
-
-print(actors_per_env)
 
 # Time logging
 frame_count = 0
@@ -84,6 +83,10 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
             action_fk[1] = (action[0] / r) + ((L*action[1])/(2*r))
             action = action_fk
 
+        if 'action_seq' not in locals():
+            action_seq = torch.zeros_like(action)
+
+        action_seq = torch.cat((action_seq, action), 0)
         # Apply optimal action
         gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(action))
 
@@ -116,5 +119,20 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
 
         next_fps_report, frame_count, t1 = sim_init.time_logging(gym, sim, next_fps_report, frame_count, t1, num_envs)
 
+# Saving and plotting
+num_dof = int(list(action.size())[0])
+num_inputs = int(list(action_seq.size())[0]/num_dof)
+action_seq = action_seq.reshape(num_inputs, num_dof)
+u1 = action_seq[:,0].tolist()
+u2 = action_seq[:,1].tolist()
+
+time_steps = np.linspace(0,frame_count, num=num_inputs)
+torch.Tensor.ndim = property(lambda self: len(self.shape))
+
+plt.plot(time_steps, u1)
+plt.plot(time_steps, u2)
+
+plt.ylabel('u_1')
+plt.show()
 # Destroy the simulation
 sim_init.destroy_sim(gym, sim, viewer)

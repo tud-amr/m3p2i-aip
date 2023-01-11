@@ -5,6 +5,7 @@ from isaacgym import gymtorch
 from torch.distributions.multivariate_normal import MultivariateNormal
 import functools
 import numpy as np
+from scipy import signal
 from priors.fabrics_planner import fabrics_point
 
 logger = logging.getLogger(__name__)
@@ -204,7 +205,6 @@ class MPPI():
         """
         # shift command 1 time step
         self.U = torch.roll(self.U, -1, dims=0)
-        self.U[-1] = self.u_init
 
         if not torch.is_tensor(state):
             state = torch.tensor(state)
@@ -217,6 +217,7 @@ class MPPI():
 
         eta = torch.sum(self.cost_total_non_zero)
         self.omega = (1. / eta) * self.cost_total_non_zero
+        
         for t in range(self.T):
             self.U[t] += torch.sum(self.omega.view(-1, 1) * self.noise[:, t], dim=0)
         action = self.U[:self.u_per_command]
@@ -226,6 +227,11 @@ class MPPI():
 
         if self.sample_null_action and cost_total[-1] <= 0.01:
             action = torch.zeros_like(action)
+
+        # Smoothing with Savitzky-Golay filter
+        u_ = action.cpu().numpy()
+        u_filtered = signal.savgol_filter(u_, 20, 1, deriv=0, delta=1.0, axis=0, mode='interp', cval=0.0)
+        action = torch.from_numpy(u_filtered).to('cuda')
 
         return action
 
