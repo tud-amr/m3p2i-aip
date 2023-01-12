@@ -84,7 +84,8 @@ class MPPI():
                  noise_abs_cost=False,
                  actors_per_env=None,
                  env_type='normal', 
-                 bodies_per_env=None):
+                 bodies_per_env=None,
+                 filter_u=True):
         """
         :param dynamics: function(state, action) -> next_state (K x nx) taking in batch state (K x nx) and action (K x nu)
         :param running_cost: function(state, action) -> cost (K) taking in batch state and action (same as dynamics)
@@ -113,7 +114,7 @@ class MPPI():
         self.dtype = noise_sigma.dtype
         self.K = num_samples  # N_SAMPLES
         self.T = horizon  # TIMESTEPS
-
+        self.filter_u = filter_u
         # dimensions of state and control
         self.nx = nx
         self.nu = 1 if len(noise_sigma.shape) == 0 else noise_sigma.shape[0]
@@ -183,6 +184,27 @@ class MPPI():
         # Priors parameters
         self.kp = 0.5
 
+        # filtering
+        if robot == "point_robot":
+            if self.T < 20:
+                self.sgf_window = self.T
+            else:
+                self.sgf_window = 10
+            self.sgf_order = 2
+        elif robot == "heijn":
+            if self.T < 20:
+                self.sgf_window = self.T
+            else:
+                self.sgf_window = 20
+            self.sgf_order = 1
+        elif robot == "boxer":
+            if self.T < 20:
+                self.sgf_window = self.T
+            else:
+                self.sgf_window = 10
+            self.sgf_order = 3
+
+
         # Initialize fabrics prior
         if self.use_priors:
             # Create fabrics planner with single obstacle
@@ -229,9 +251,10 @@ class MPPI():
             action = torch.zeros_like(action)
 
         # Smoothing with Savitzky-Golay filter
-        u_ = action.cpu().numpy()
-        u_filtered = signal.savgol_filter(u_, 20, 1, deriv=0, delta=1.0, axis=0, mode='interp', cval=0.0)
-        action = torch.from_numpy(u_filtered).to('cuda')
+        if self.filter_u:
+            u_ = action.cpu().numpy()
+            u_filtered = signal.savgol_filter(u_, self.sgf_window, self.sgf_order, deriv=0, delta=1.0, axis=0, mode='interp', cval=0.0)
+            action = torch.from_numpy(u_filtered).to('cuda')
 
         return action
 

@@ -25,7 +25,8 @@ class FUSION_MPPI(mppi.MPPI):
                     noise_abs_cost=False,
                     actors_per_env=None, 
                     env_type="normal",
-                    bodies_per_env=None):
+                    bodies_per_env=None,
+                    filter_u=True):
         super().__init__(dynamics, running_cost, nx, noise_sigma, num_samples, horizon, device, 
                     terminal_state_cost, 
                     lambda_, 
@@ -47,7 +48,8 @@ class FUSION_MPPI(mppi.MPPI):
                     noise_abs_cost,
                     actors_per_env,
                     env_type, 
-                    bodies_per_env)
+                    bodies_per_env,
+                    filter_u)
         self.gym = None
         self.sim = None
         self.num_envs = num_samples
@@ -94,17 +96,19 @@ class FUSION_MPPI(mppi.MPPI):
             align_weight = 1
             align_offset = 0.1
         elif self.robot == "point_robot":
-            align_weight = 0.1
-            align_offset = 0
+            align_weight = 0.5
+            align_offset = 0.05
         elif self.robot == "boxer":
-            align_weight = 0.6
-            align_offset = 0.3
+            align_weight = 1
 
         align_cost = torch.sum(robot_to_block*block_to_goal, 1)/(robot_to_block_dist*block_to_goal_dist)
         align_cost = align_weight*align_cost
-        align_cost[torch.linalg.norm(r_pos- self.block_goal, axis = 1)<torch.linalg.norm(block_pos - self.block_goal, axis = 1)+align_offset] += 1
         
-        cost = dist_cost + align_cost*block_to_goal_dist
+        if self.robot != 'boxer':
+            align_cost += torch.abs(torch.linalg.norm(r_pos- self.block_goal, axis = 1) - (torch.linalg.norm(block_pos - self.block_goal, axis = 1) + align_offset))
+
+        cost = dist_cost + align_cost
+
         return cost
     
     def get_pull_cost(self, r_pos):
@@ -254,10 +258,10 @@ class FUSION_MPPI(mppi.MPPI):
             task_cost = self.get_navigation_cost(state[:, :2])
             #task_cost = self.get_push_cost(state[:, :2])
         elif self.robot == 'point_robot':
-            #task_cost = self.get_push_cost(state_pos)
+            task_cost = self.get_push_cost(state_pos)
             #task_cost = self.get_push_not_goal_cost(state_pos)
             #task_cost = self.get_navigation_cost(state_pos)
-            task_cost = self.get_pull_cost(state_pos)
+            #task_cost = self.get_pull_cost(state_pos)
         elif self.robot == 'heijn':
             #task_cost = self.get_navigation_cost(state_pos)
             task_cost = self.get_push_cost(state_pos)
@@ -267,4 +271,4 @@ class FUSION_MPPI(mppi.MPPI):
         past_u = torch.clone(u)
         
         
-        return  task_cost + w_c*coll_cost  + acc_cost # + w_u*control_cost
+        return  task_cost + w_c*coll_cost + acc_cost # + w_u*control_cost

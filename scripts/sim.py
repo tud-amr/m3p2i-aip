@@ -35,6 +35,7 @@ frame_count = 0
 next_fps_report = 2.0
 t1 = 0
 count = 0
+sim_time = np.array([])
 
 # Set server address
 server_address = './uds_socket'
@@ -42,6 +43,7 @@ server_address = './uds_socket'
 with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
     s.connect(server_address)
     t_prev = time.monotonic()
+
     while viewer is None or not gym.query_viewer_has_closed(viewer):
         # Send dof states to mppi and receive message
         s.sendall(data_transfer.torch_to_bytes(dof_states))
@@ -97,6 +99,7 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
             dof_pos = dof_states[:,0].reshape([num_envs, 2])
             # simulation of a magnetic/suction effect to attach to the box
             suction_force, _, _ = skill_utils.calculate_suction(root_positions[:, block_index, :], dof_pos, num_envs, kp_suction, block_index, bodies_per_env)
+            print(suction_force)
             # Apply suction/magnetic force
             gym.apply_rigid_body_force_tensors(sim, gymtorch.unwrap_tensor(torch.reshape(suction_force, (num_envs*bodies_per_env, 3))), None, gymapi.ENV_SPACE)
 
@@ -110,6 +113,7 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
         sim_init.refresh_states(gym, sim)
 
         # Step rendering
+        sim_time = np.append(sim_time, t_prev)
         t_now = time.monotonic()
         if (t_now - t_prev) < dt:
             sim_init.step_rendering(gym, sim, viewer, sync_frame_time=True)
@@ -120,19 +124,31 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
         next_fps_report, frame_count, t1 = sim_init.time_logging(gym, sim, next_fps_report, frame_count, t1, num_envs)
 
 # Saving and plotting
+sim_time-= sim_time[0]
+sim_time = np.append(0, sim_time)
+
 num_dof = int(list(action.size())[0])
-num_inputs = int(list(action_seq.size())[0]/num_dof)
-action_seq = action_seq.reshape(num_inputs, num_dof)
-u1 = action_seq[:,0].tolist()
-u2 = action_seq[:,1].tolist()
+action_seq = action_seq.reshape(len(sim_time), num_dof)
+ctrl_input = np.zeros([len(sim_time), num_dof])
 
-time_steps = np.linspace(0,frame_count, num=num_inputs)
-torch.Tensor.ndim = property(lambda self: len(self.shape))
+fig, axs = plt.subplots(num_dof)
+fig.suptitle('Control Inputs')
+plot_colors = ['hotpink','darkviolet','mediumblue']
 
-plt.plot(time_steps, u1)
-plt.plot(time_steps, u2)
+if robot == "point_robot" or robot == "heijn":
+    label = ['x_vel', 'y_vel', 'theta_vel']
+elif robot == "boxer":
+    label = ['r_vel', 'l_vel']
 
-plt.ylabel('u_1')
+
+for j in range(num_dof):
+    ctrl_input[:,j] = action_seq[:,j].tolist()
+    axs[j].plot(sim_time, ctrl_input[:,j], color=plot_colors[j], marker=".")
+    axs[j].legend([label[j]])
+    axs[j].set(xlabel = 'Time [s]')
+
+print("Avg. control frequency", len(action_seq)/sim_time[-1])
 plt.show()
+
 # Destroy the simulation
 sim_init.destroy_sim(gym, sim, viewer)
