@@ -20,6 +20,8 @@ environment_type = "normal"         # choose from "normal", "battery"
 control_type = "vel_control"        # choose from "vel_control", "pos_control", "force_control"
 gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, spacing, robot, environment_type, control_type)
 
+test_robot = True
+
 # Acquire states
 dof_states, num_dofs, num_actors, root_states = sim_init.acquire_states(gym, sim, print_flag=False)
 actors_per_env = int(num_actors/num_envs)
@@ -61,6 +63,14 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
     conn, addr = s.accept()
     with conn:
         print(f"Connected by {addr}")
+        
+        # Send info for simulation, robot and environment types
+        res = conn.recv(1024)
+        conn.sendall(robot.encode())
+
+        res = conn.recv(1024)
+        conn.sendall(environment_type.encode())
+
         i=0
         while True:
             i+=1

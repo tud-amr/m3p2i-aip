@@ -13,20 +13,11 @@ import matplotlib.pyplot as plt
 allow_viewer = True
 num_envs = 1 
 spacing = 10.0
-robot = "heijn"               # choose from "point_robot", "boxer", "albert"
-environment_type = "lab"            # choose from "normal", "battery"
 control_type = "vel_control"        # choose from "vel_control", "pos_control", "force_control"
 dt = 0.05
 
-gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, spacing, robot, environment_type, control_type, dt=dt)
-
-# Acquire states
-dof_states, num_dofs, num_actors, root_states = sim_init.acquire_states(gym, sim, print_flag=False)
-
 # Helper variables, same as in fusion_mppi
 suction_active = False      # Activate suction or not when close to purple box
-actors_per_env = int(num_actors/num_envs)
-bodies_per_env = gym.get_env_rigid_body_count(envs[0])
 block_index = 7
 kp_suction = 400
 
@@ -44,6 +35,19 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
     s.connect(server_address)
     t_prev = time.monotonic()
 
+    s.sendall(b"Robot")
+    robot = s.recv(1024).decode()
+    s.sendall(b"Environment")
+    environment_type = s.recv(1024).decode()
+
+    gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, spacing, robot, environment_type, control_type, dt=dt)
+
+    # Acquire states
+    dof_states, num_dofs, num_actors, root_states = sim_init.acquire_states(gym, sim, print_flag=False)
+    
+    actors_per_env = int(num_actors/num_envs)
+    bodies_per_env = gym.get_env_rigid_body_count(envs[0])
+
     while viewer is None or not gym.query_viewer_has_closed(viewer):
         # Send dof states to mppi and receive message
         s.sendall(data_transfer.torch_to_bytes(dof_states))
@@ -60,6 +64,7 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
         # Send message and receive rollout states
         s.sendall(b"Visualize flag")
         visualize_rollouts = s.recv(1024)
+
         visualize_rollouts = int(data_transfer.bytes_to_torch(visualize_rollouts))
         if visualize_rollouts:
             s.sendall(b"Visualize rollouts")

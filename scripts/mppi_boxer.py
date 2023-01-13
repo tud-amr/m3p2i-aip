@@ -61,6 +61,14 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
     conn, addr = s.accept()
     with conn:
         print(f"Connected by {addr}")
+        
+        # Send info for simulation, robot and environment types
+        res = conn.recv(1024)
+        conn.sendall(robot.encode())
+
+        res = conn.recv(1024)
+        conn.sendall(environment_type.encode())
+
         i=0
         while True:
             i+=1
