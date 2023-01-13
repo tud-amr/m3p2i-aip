@@ -111,7 +111,7 @@ class IsaacgymMppiRos:
             # Reset the simulator to requested state
             s = self.state.repeat(self.num_envs, 1) # [x, v_x, y, v_y, yaw, v_yaw]
             self.gym.set_dof_state_tensor(self.sim, gymtorch.unwrap_tensor(s))
-            block_index = 7
+            block_index = 4
             for i in range(self.num_envs):
                 self.root_states[i*int(self.num_actors/self.num_envs) + block_index] = self.block_state
             self.gym.set_actor_root_state_tensor(self.sim, gymtorch.unwrap_tensor(self.root_states))
