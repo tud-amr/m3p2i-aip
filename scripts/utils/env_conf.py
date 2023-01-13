@@ -54,6 +54,21 @@ xaxis_pose.p = gymapi.Vec3(0.25, 0, 0)
 yaxis_pose = gymapi.Transform()
 yaxis_pose.p = gymapi.Vec3(0, 0.25, 0.01)
 
+franka_pose = gymapi.Transform()
+franka_pose.p = gymapi.Vec3(0, 0, 0)
+
+table_dims = gymapi.Vec3(0.6, 1.0, 0.4)
+table_pose = gymapi.Transform()
+table_pose.p = gymapi.Vec3(0.5, 0.0, 0.5 * table_dims.z)
+
+box_pose = gymapi.Transform()
+
+envs = []
+box_idxs = []
+hand_idxs = []
+init_pos_list = []
+init_rot_list = []
+
 def add_box(sim, gym, env, width, height, depth, pose, color, isFixed, name, index):
     # Additional assets from API
     asset_options_objects = gymapi.AssetOptions()
@@ -88,8 +103,8 @@ def load_robot(robot, gym, sim):
         robot_asset = load_boxer(gym, sim)
     elif robot == "point_robot":
         robot_asset = load_point_robot(gym, sim)
-    elif robot == "franka":
-        robot_asset = load_franka(gym, sim)
+    elif robot == "panda":
+        robot_asset = load_panda(gym, sim)
     elif robot == "husky":
         robot_asset = load_husky(gym, sim)
     elif robot == "heijn":
@@ -148,19 +163,27 @@ def load_heijn(gym, sim):
     robot_asset = gym.load_asset(sim, asset_root, asset_file, asset_options)
     return robot_asset
 
-def load_franka(gym, sim):
+def load_panda(gym, sim):
     # Load asset
     asset_root = "../assets"
     franka_asset_file = "urdf/franka_description/robots/franka_panda.urdf"
 
     asset_options = gymapi.AssetOptions()
-    asset_options.fix_base_link = True
-    asset_options.flip_visual_attachments = True
     asset_options.armature = 0.01
+    asset_options.fix_base_link = True
+    asset_options.disable_gravity = True
+    asset_options.flip_visual_attachments = True
+    franka_asset = gym.load_asset(sim, asset_root, franka_asset_file, asset_options)
+    # configure franka dofs
+    franka_dof_props = gym.get_asset_dof_properties(franka_asset)
+    franka_lower_limits = franka_dof_props["lower"]
+    franka_upper_limits = franka_dof_props["upper"]
+    franka_ranges = franka_upper_limits - franka_lower_limits
+    franka_mids = 0.3 * (franka_upper_limits + franka_lower_limits)
+    franka_dof_props["driveMode"][7:].fill(gymapi.DOF_MODE_POS)
+    franka_dof_props["stiffness"][7:].fill(800.0)
+    franka_dof_props["damping"][7:].fill(40.0)
 
-    print("Loading asset '%s' from '%s'" % (franka_asset_file, asset_root))
-    franka_asset = gym.load_asset(
-        sim, asset_root, franka_asset_file, asset_options)
     return franka_asset
 
 def load_husky(gym, sim):
@@ -257,14 +280,43 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, e
             wall_size = 5
             wall_thickness = 0.05
 
-        add_arena(sim, gym, env, wall_size, wall_thickness, 0, 0, i) # Wall size, wall thickness, origin_x, origin_y, index
-        
-        # Add obstacles
-        add_obstacles(sim, gym, env, environment_type, index = i)
+        if environment_type == "table":
+            # add table
+            asset_options = gymapi.AssetOptions()
+            asset_options.fix_base_link = True
+            table_asset = gym.create_box(sim, table_dims.x, table_dims.y, table_dims.z, asset_options)
+            table_handle = gym.create_actor(env, table_asset, table_pose, "table", i, 0)
 
-        # Add robot
-        robot_handle = gym.create_actor(env, robot_asset, pose, "robot", i, 1)
+            # add box
+            # create box asset
+            box_size = 0.045
+            asset_options = gymapi.AssetOptions()
+            box_asset = gym.create_box(sim, box_size, box_size, box_size, asset_options)
+
+            box_pose.p.x = table_pose.p.x + np.random.uniform(-0.2, 0.1)
+            box_pose.p.y = table_pose.p.y + np.random.uniform(-0.3, 0.3)
+            box_pose.p.z = table_dims.z + 0.5 * box_size
+            box_pose.r = gymapi.Quat.from_axis_angle(gymapi.Vec3(0, 0, 1), np.random.uniform(-math.pi, math.pi))
+            box_handle = gym.create_actor(env, box_asset, box_pose, "box", i, 0)
+            color = gymapi.Vec3(np.random.uniform(0, 1), np.random.uniform(0, 1), np.random.uniform(0, 1))
+            gym.set_rigid_body_color(env, box_handle, 0, gymapi.MESH_VISUAL_AND_COLLISION, color)
+
+            # get global index of box in rigid body state tensor
+            box_idx = gym.get_actor_rigid_body_index(env, box_handle, 0, gymapi.DOMAIN_SIM)
+            box_idxs.append(box_idx)
+
+            # add franka
+            robot_handle = gym.create_actor(env, robot_asset, franka_pose, "franka", i, 2)
+            
+        else:
+            add_arena(sim, gym, env, wall_size, wall_thickness, 0, 0, i) # Wall size, wall thickness, origin_x, origin_y, index
+            # Add obstacles
+            add_obstacles(sim, gym, env, environment_type, index = i)
+            # Add robot
+            robot_handle = gym.create_actor(env, robot_asset, pose, "robot", i, 1)
+        
         robot_handles.append(robot_handle)
+        
         if environment_type == "battery":
             gym.set_rigid_body_color(env, robot_handle, -1, gymapi.MESH_VISUAL_AND_COLLISION, color_vec_battery_ok)
 
