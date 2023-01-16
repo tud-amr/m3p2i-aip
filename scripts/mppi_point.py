@@ -12,13 +12,15 @@ torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 
 # Make the environment and simulation
 allow_viewer = False
-visualize_rollouts = True
-num_envs = 50
+visualize_rollouts = False
+num_envs = 100
 spacing = 10.0
 robot = "point_robot"               # choose from "point_robot", "boxer", "albert"
 environment_type = "normal"         # choose from "normal", "battery"
 control_type = "vel_control"        # choose from "vel_control", "pos_control", "force_control"
 gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, spacing, robot, environment_type, control_type)
+
+test_robot = True
 
 # Acquire states
 dof_states, num_dofs, num_actors, root_states = sim_init.acquire_states(gym, sim, print_flag=False)
@@ -30,7 +32,7 @@ mppi = fusion_mppi.FUSION_MPPI(
     dynamics=None, 
     running_cost=None, 
     nx=4, 
-    noise_sigma = torch.tensor([[5, 0], [0, 5]], device="cuda:0", dtype=torch.float32),
+    noise_sigma = torch.tensor([[1, 0], [0, 1]], device="cuda:0", dtype=torch.float32),
     num_samples=num_envs, 
     horizon=20,
     lambda_=0.1, 
@@ -46,7 +48,8 @@ mppi = fusion_mppi.FUSION_MPPI(
     u_per_command=20,
     actors_per_env=actors_per_env,
     env_type=environment_type,
-    bodies_per_env=bodies_per_env
+    bodies_per_env=bodies_per_env,
+    filter_u=True
     )
 
 # Make sure the socket does not already exist
@@ -60,6 +63,14 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
     conn, addr = s.accept()
     with conn:
         print(f"Connected by {addr}")
+        
+        # Send info for simulation, robot and environment types
+        res = conn.recv(1024)
+        conn.sendall(robot.encode())
+
+        res = conn.recv(1024)
+        conn.sendall(environment_type.encode())
+
         i=0
         while True:
             i+=1
