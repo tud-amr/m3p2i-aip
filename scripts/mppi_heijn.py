@@ -30,13 +30,13 @@ mppi = fusion_mppi.FUSION_MPPI(
     dynamics=None, 
     running_cost=None, 
     nx=6, 
-    noise_sigma = torch.tensor([[15, 0, 0], [0, 15, 0], [0, 0, 15]], device="cuda:0", dtype=torch.float32),
+    noise_sigma = torch.tensor([[3, 0, 0], [0, 3, 0], [0, 0, 5]], device="cuda:0", dtype=torch.float32),
     num_samples=num_envs, 
     horizon=20,
-    lambda_=0.3, 
+    lambda_=1, 
     device="cuda:0", 
-    u_max=torch.tensor([1.5, 1.5, 1.5]),
-    u_min=torch.tensor([-1.5, -1.5, -1.5]),
+    u_max=torch.tensor([1.5, 1.5, 3.5]),
+    u_min=torch.tensor([-1.5, -1.5, -3.5]),
     step_dependent_dynamics=True,
     terminal_state_cost=None,
     sample_null_action=True,
@@ -60,6 +60,14 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
     conn, addr = s.accept()
     with conn:
         print(f"Connected by {addr}")
+        
+        # Send info for simulation, robot and environment types
+        res = conn.recv(1024)
+        conn.sendall(robot.encode())
+
+        res = conn.recv(1024)
+        conn.sendall(environment_type.encode())
+
         i=0
         while True:
             i+=1
