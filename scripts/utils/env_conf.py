@@ -180,7 +180,7 @@ def load_panda(gym, sim):
     franka_upper_limits = franka_dof_props["upper"]
     franka_ranges = franka_upper_limits - franka_lower_limits
     franka_mids = 0.3 * (franka_upper_limits + franka_lower_limits)
-    franka_dof_props["driveMode"][7:].fill(gymapi.DOF_MODE_POS)
+    franka_dof_props["driveMode"][7:].fill(gymapi.DOF_MODE_VEL)
     franka_dof_props["stiffness"][7:].fill(800.0)
     franka_dof_props["damping"][7:].fill(40.0)
 
@@ -308,6 +308,26 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, e
             # add franka
             robot_handle = gym.create_actor(env, robot_asset, franka_pose, "franka", i, 2)
             
+            # configure franka dofs
+            franka_dof_props = gym.get_asset_dof_properties(robot_asset)
+            franka_lower_limits = franka_dof_props["lower"]
+            franka_upper_limits = franka_dof_props["upper"]
+            franka_mids = 0.3 * (franka_upper_limits + franka_lower_limits)
+
+            # default dof states and position targets
+            franka_num_dofs = gym.get_asset_dof_count(robot_asset)
+            default_dof_pos = np.zeros(franka_num_dofs, dtype=np.float32)
+            default_dof_pos[:7] = franka_mids[:7]
+            # grippers open
+            default_dof_pos[7:] = franka_upper_limits[7:]
+
+            default_dof_state = np.zeros(franka_num_dofs, gymapi.DofState.dtype)
+            default_dof_state["pos"] = default_dof_pos
+            default_dof_state = np.zeros(franka_num_dofs, gymapi.DofState.dtype)
+            default_dof_state["pos"] = default_dof_pos
+
+            gym.set_actor_dof_states(env, robot_handle, default_dof_state, gymapi.STATE_ALL)
+
         else:
             add_arena(sim, gym, env, wall_size, wall_thickness, 0, 0, i) # Wall size, wall thickness, origin_x, origin_y, index
             # Add obstacles
@@ -337,6 +357,7 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, e
         else:
             print("Invalid control type!")
         gym.set_actor_dof_properties(env, robot_handle, props)
+        
 
         # Set friction of rotacasters to zero for boxer
         boxer_rigid_body_names = ['base_link_ori', 'base_link', 'chassis_link', 'rotacastor_left_link', 'rotacastor_right_link', 'wheel_left_link', 'wheel_right_link', 'ee_link']

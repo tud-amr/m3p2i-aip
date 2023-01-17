@@ -44,7 +44,7 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
 
     # Acquire states
     dof_states, num_dofs, num_actors, root_states = sim_init.acquire_states(gym, sim, print_flag=False)
-    
+
     actors_per_env = int(num_actors/num_envs)
     bodies_per_env = gym.get_env_rigid_body_count(envs[0])
 
@@ -98,9 +98,9 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
         gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(action))
 
         actor_root_state = gymtorch.wrap_tensor(gym.acquire_actor_root_state_tensor(sim))
-        root_positions = torch.reshape(actor_root_state[:, 0:2], (num_envs, actors_per_env, 2))
         
-        if suction_active:  
+        if suction_active: 
+            root_positions = torch.reshape(actor_root_state[:, 0:2], (num_envs, actors_per_env, 2)) 
             dof_pos = dof_states[:,0].reshape([num_envs, 2])
             # simulation of a magnetic/suction effect to attach to the box
             suction_force, _, _ = skill_utils.calculate_suction(root_positions[:, block_index, :], dof_pos, num_envs, kp_suction, block_index, bodies_per_env)

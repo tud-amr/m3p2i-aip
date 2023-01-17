@@ -2,6 +2,7 @@ import fusion_mppi.mppi as mppi
 import torch, math
 from isaacgym import gymtorch, gymapi
 from utils import sim_init, skill_utils
+import numpy as np
 
 class FUSION_MPPI(mppi.MPPI):
     def __init__(self, dynamics, running_cost, nx, noise_sigma, num_samples=100, horizon=15, device="cpu", 
@@ -60,15 +61,27 @@ class FUSION_MPPI(mppi.MPPI):
         self.actors_per_env = actors_per_env
         self.env_type = env_type
         self.device = device
-        
-        # Additional variables for the environment
+
+
+        # Additional variables for the environment or robot
         if self.env_type == "normal":
             self.block_index = 7   # Pushing purple blox, index according to simulation
         if self.env_type == "lab":
             self.block_index = 4  
-        self.block_goal = torch.tensor([0, 0], device="cuda:0")
+        if self.env_type == 'table':
+            self.hand_index = 10 # Panda hand index in lab environment
+            self.block_index = 1
+        if robot_type == 'panda':
+            self.hand_indexes = np.zeros(self.num_envs)
+            self.block_indexes = np.zeros(self.num_envs)
+            for i in range(self.num_envs):
+                self.hand_indexes[i] = self.hand_index + i*self.bodies_per_env
+                self.block_indexes[i] = self.block_index + i*self.bodies_per_env
+ 
+        self.block_goal = torch.tensor([0.5, 0], device="cuda:0")
         self.block_not_goal = torch.tensor([-2, 1], device="cuda:0")
         self.nav_goal = torch.tensor([3, 3], device="cuda:0")
+        self.panda_hand_goal = torch.tensor([0.58, -0.3, 0.6, 1, 0, 0, 0], device="cuda:0")
 
     def update_gym(self, gym, sim, viewer=None):
         self.gym = gym
@@ -133,6 +146,21 @@ class FUSION_MPPI(mppi.MPPI):
         non_goal_cost = torch.clamp((1/torch.linalg.norm(self.block_not_goal - block_pos,axis = 1)), min=0, max=10)
         return torch.linalg.norm(r_pos - block_pos, axis = 1) + non_goal_cost
 
+    def get_panda_cost(self, joint_pos):
+        hand_index = 10
+        # hand_pos = torch.cat((torch.split(torch.clone(self.root_positions), int(torch.clone(self.root_positions).size(dim=0)/self.num_envs))),1)[hand_index,:].reshape(self.num_envs,3)
+        # print(self.root_positions[-1,:])
+        hand_state = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))[self.hand_indexes, 0:7]
+        block_state = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))[self.block_indexes, 0:7]
+        # block_state[:,2] += 0.2
+        # print(hand_state[-1,:])
+        joint_goal = torch.tensor([0.8, 0., 0., -0.94248, 0., 1.1205001, 0., 0.012, 0.012], device=self.device)
+        #return torch.linalg.norm(hand_state - self.panda_hand_goal, axis = 1)
+        #return torch.linalg.norm(joint_pos - joint_goal, axis = 1)
+        reach_cost = torch.linalg.norm(hand_state[:,0:3] - block_state[:,0:3], axis = 1) + torch.linalg.norm(hand_state[:,4:7] - self.panda_hand_goal[4:7], axis = 1)
+        goal_cost = torch.linalg.norm(self.block_goal - block_state[:,0:2], axis = 1)
+        return reach_cost + goal_cost
+
     @mppi.handle_batch_input
     def _ik(self, u):
         if self.robot == 'boxer':
@@ -165,12 +193,13 @@ class FUSION_MPPI(mppi.MPPI):
     @mppi.handle_batch_input
     def _dynamics(self, state, u, t):
         actor_root_state = gymtorch.wrap_tensor(self.gym.acquire_actor_root_state_tensor(self.sim))
-        self.root_positions = actor_root_state[:, 0:3]
         dof_states, _, _, _ = sim_init.acquire_states(self.gym, self.sim, print_flag=False)
-        dof_pos = torch.clone(dof_states).view(-1, 4)[:,[0,2]]
-        dof_vel = torch.clone(dof_states).view(-1, 4)[:,[1,3]]
-
+        self.root_positions = actor_root_state[:, 0:3]
+        
         if self.suction_active:
+            dof_pos = torch.clone(dof_states).view(-1, 4)[:,[0,2]]
+            dof_vel = torch.clone(dof_states).view(-1, 4)[:,[1,3]]
+            
             root_pos = torch.reshape(self.root_positions[:, 0:2], (self.num_envs, self.bodies_per_env-2, 2))
             pos_dir = root_pos[:, self.block_index, :] - dof_pos
             # True means the velocity moves towards block, otherwise means pull direction
@@ -216,6 +245,8 @@ class FUSION_MPPI(mppi.MPPI):
             res = torch.clone(dof_states).view(-1, 4)  
         elif self.robot == 'heijn':
             res = torch.clone(dof_states).view(-1, 6)  
+        elif self.robot == 'panda':
+            res = torch.clone(dof_states).view(-1, 18)
 
         if self.viewer is not None:
             self.gym.step_graphics(self.sim)
@@ -233,7 +264,13 @@ class FUSION_MPPI(mppi.MPPI):
         if 'past_u' not in locals():
             past_u = torch.zeros_like(u, device=self.device)
 
-        state_pos = torch.cat((state[:, 0].unsqueeze(1), state[:, 2].unsqueeze(1)), 1)
+        if self.robot == 'panda':
+                state_pos = torch.cat((state[:, 0].unsqueeze(1), state[:, 2].unsqueeze(1), state[:, 4].unsqueeze(1),
+                                       state[:, 6].unsqueeze(1), state[:, 8].unsqueeze(1), state[:, 10].unsqueeze(1),
+                                       state[:, 12].unsqueeze(1), state[:, 14].unsqueeze(1), state[:, 16].unsqueeze(1)), 1)
+        else:
+            state_pos = torch.cat((state[:, 0].unsqueeze(1), state[:, 2].unsqueeze(1)), 1)
+
         control_cost = torch.sum(torch.square(u),1)
         w_u = 0.1
         # Contact forces
@@ -247,6 +284,8 @@ class FUSION_MPPI(mppi.MPPI):
             obst_up_to = 6
         elif self.env_type == 'lab':
             obst_up_to = 4 
+        elif self.env_type == 'table':
+            obst_up_to = 1
 
         coll_cost = torch.sum(net_cf.reshape([self.num_envs, int(net_cf.size(dim=0)/self.num_envs)])[:,0:obst_up_to], 1)
 
@@ -265,10 +304,16 @@ class FUSION_MPPI(mppi.MPPI):
         elif self.robot == 'heijn':
             #task_cost = self.get_navigation_cost(state_pos)
             task_cost = self.get_push_cost(state_pos)
+        elif self.robot == 'panda':
+            task_cost = self.get_panda_cost(state_pos)
 
         # Acceleration cost
-        acc_cost = 0.0001*torch.linalg.norm(torch.square((u[0:1]-past_u[0:1])/0.05), dim=1)
+        acc_cost = 0.00001*torch.linalg.norm(torch.square((u[0:1]-past_u[0:1])/0.05), dim=1)
+        
+        if self.robot == 'panda':
+            acc_cost = 0.000001*torch.linalg.norm(torch.square((u-past_u)/0.05), dim=1)
+        
         past_u = torch.clone(u)
         
         
-        return  task_cost + w_c*coll_cost + acc_cost # + w_u*control_cost
+        return  task_cost + w_c*coll_cost #+ acc_cost # + w_u*control_cost
