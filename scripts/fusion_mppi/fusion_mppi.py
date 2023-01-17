@@ -69,11 +69,17 @@ class FUSION_MPPI(mppi.MPPI):
         self.block_goal = torch.tensor([0, 0], device="cuda:0")
         self.block_not_goal = torch.tensor([-2, 1], device="cuda:0")
         self.nav_goal = torch.tensor([3, 3], device="cuda:0")
+        self.task = "navigation"  # "navigation", "push", "pull", "push_not_goal"
+        self.align_weight = {"heijn":1, "point_robot":0.5, "boxer":1}
+        self.align_offset = {"heijn":0.1, "point_robot":0.05}
 
     def update_gym(self, gym, sim, viewer=None):
         self.gym = gym
         self.sim = sim
         self.viewer = viewer
+    
+    def update_task(self, task):
+        self.task = task
     
     def update_nav_goal(self, goal):
         self.nav_goal = goal
@@ -93,22 +99,11 @@ class FUSION_MPPI(mppi.MPPI):
 
         # Force the robot behind block and goal,
         # align_cost is actually the cos(theta)
-
-        # Tuning per robot
-        if self.robot == "heijn":
-            align_weight = 1
-            align_offset = 0.1
-        elif self.robot == "point_robot":
-            align_weight = 0.5
-            align_offset = 0.05
-        elif self.robot == "boxer":
-            align_weight = 1
-
         align_cost = torch.sum(robot_to_block*block_to_goal, 1)/(robot_to_block_dist*block_to_goal_dist)
-        align_cost = align_weight*align_cost
+        align_cost = self.align_weight[self.robot]*align_cost
         
         if self.robot != 'boxer':
-            align_cost += torch.abs(torch.linalg.norm(r_pos- self.block_goal, axis = 1) - (torch.linalg.norm(block_pos - self.block_goal, axis = 1) + align_offset))
+            align_cost += torch.abs(torch.linalg.norm(r_pos- self.block_goal, axis = 1) - (torch.linalg.norm(block_pos - self.block_goal, axis = 1) + self.align_offset[self.robot]))
 
         cost = dist_cost + align_cost
 
@@ -227,9 +222,7 @@ class FUSION_MPPI(mppi.MPPI):
 
         return res, u
 
-
-    @mppi.handle_batch_input
-    def _running_cost(self, state, u):
+    def get_motion_cost(self, state, u):
         # State: for each environment, the current state containing position and velocity
         # Action: same but for control input
         
@@ -239,7 +232,8 @@ class FUSION_MPPI(mppi.MPPI):
         state_pos = torch.cat((state[:, 0].unsqueeze(1), state[:, 2].unsqueeze(1)), 1)
         control_cost = torch.sum(torch.square(u),1)
         w_u = 0.1
-        # Contact forces
+
+        # Collision cost via contact forces
         _net_cf = self.gym.acquire_net_contact_force_tensor(self.sim)
         net_cf = gymtorch.wrap_tensor(_net_cf)
         _net_cf = self.gym.refresh_net_contact_force_tensor(self.sim)
@@ -252,26 +246,33 @@ class FUSION_MPPI(mppi.MPPI):
             obst_up_to = 4 
 
         coll_cost = torch.sum(net_cf.reshape([self.num_envs, int(net_cf.size(dim=0)/self.num_envs)])[:,0:obst_up_to], 1)
-
         w_c = 1000 # Weight for collisions
         # Binary check for collisions. So far checking all collision with unmovable obstacles. Movable obstacles touching unmovable ones are considered collisions       
         coll_cost[coll_cost>0.1] = 1
         coll_cost[coll_cost<=0.1] = 0
-        if self.robot == 'boxer':
-            task_cost = self.get_navigation_cost(state[:, :2])
-            #task_cost = self.get_push_cost(state[:, :2])
-        elif self.robot == 'point_robot':
-            # task_cost = self.get_push_cost(state_pos)
-            #task_cost = self.get_push_not_goal_cost(state_pos)
-            task_cost = self.get_navigation_cost(state_pos)
-            #task_cost = self.get_pull_cost(state_pos)
-        elif self.robot == 'heijn':
-            #task_cost = self.get_navigation_cost(state_pos)
-            task_cost = self.get_push_cost(state_pos)
 
         # Acceleration cost
         acc_cost = 0.0001*torch.linalg.norm(torch.square((u[0:1]-past_u[0:1])/0.05), dim=1)
         past_u = torch.clone(u)
+
+        return w_c*coll_cost + acc_cost # + w_u*control_cost
+
+    @mppi.handle_batch_input
+    def _running_cost(self, state, u):
+        if self.robot == 'boxer':
+            state_pos = state[:, :2]
+        else:
+            state_pos = torch.cat((state[:, 0].unsqueeze(1), state[:, 2].unsqueeze(1)), 1)
+
+        if self.task == 'navigation':
+            task_cost = self.get_navigation_cost(state_pos)
+        elif self.task == 'push':
+            task_cost = self.get_push_cost(state_pos)
+        elif self.task == 'pull':
+            task_cost = self.get_pull_cost(state_pos)
+        elif self.robot == 'push_not_goal':
+            task_cost = self.get_push_not_goal_cost(state_pos)
+
+        total_cost = task_cost + self.get_motion_cost(state, u)
         
-        
-        return  task_cost + w_c*coll_cost + acc_cost # + w_u*control_cost
+        return  total_cost

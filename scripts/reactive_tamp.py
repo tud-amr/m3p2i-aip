@@ -15,6 +15,7 @@ class PLANNER_PATROLLING:
         self.goals = goals
         self.goal_id = 0
         self.curr_goal = self.goals[self.goal_id]
+        self.task = "navigation"
     
     def update_goal(self):
         self.goal_id += 1
@@ -76,7 +77,8 @@ class REACTIVE_TAMP:
         # Update task planner goal
         if torch.norm(curr_pos - self.task_planner.curr_goal) < 0.1:
             self.task_planner.update_goal()
-        # Send task goal to motion planner
+        # Send task and goal to motion planner
+        self.motion_planner.update_task(self.task_planner.task)
         self.motion_planner.update_nav_goal(self.task_planner.curr_goal)
 
     def run(self):
