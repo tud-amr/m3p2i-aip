@@ -152,13 +152,14 @@ class FUSION_MPPI(mppi.MPPI):
         # print(self.root_positions[-1,:])
         hand_state = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))[self.hand_indexes, 0:7]
         block_state = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))[self.block_indexes, 0:7]
-        # block_state[:,2] += 0.2
+        # block_state[:,2] += 0.1
         # print(hand_state[-1,:])
         joint_goal = torch.tensor([0.8, 0., 0., -0.94248, 0., 1.1205001, 0., 0.012, 0.012], device=self.device)
         #return torch.linalg.norm(hand_state - self.panda_hand_goal, axis = 1)
         #return torch.linalg.norm(joint_pos - joint_goal, axis = 1)
-        reach_cost = torch.linalg.norm(hand_state[:,0:3] - block_state[:,0:3], axis = 1) + torch.linalg.norm(hand_state[:,4:7] - self.panda_hand_goal[4:7], axis = 1)
+        reach_cost = torch.linalg.norm(hand_state[:,0:3] - block_state[:,0:3], axis = 1) + 0.3*torch.linalg.norm(hand_state[:,4:7] - self.panda_hand_goal[4:7], axis = 1)
         goal_cost = torch.linalg.norm(self.block_goal - block_state[:,0:2], axis = 1)
+        reach_cost[reach_cost<0.2] = 0*torch.linalg.norm(hand_state[:,4:7] - self.panda_hand_goal[4:7], axis = 1)[reach_cost<0.2]
         return reach_cost + goal_cost
 
     @mppi.handle_batch_input
@@ -316,4 +317,4 @@ class FUSION_MPPI(mppi.MPPI):
         past_u = torch.clone(u)
         
         
-        return  task_cost + w_c*coll_cost #+ acc_cost # + w_u*control_cost
+        return  task_cost + w_c*coll_cost + acc_cost # + w_u*control_cost

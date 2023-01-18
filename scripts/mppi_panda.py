@@ -14,9 +14,9 @@ torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 allow_viewer = False
 visualize_rollouts = False
 num_envs = 1000
-spacing = 3.0
-robot = "panda"               # choose from "point_robot", "boxer", "albert"
-environment_type = "table"         # choose from "normal", "battery"
+spacing = 2.0
+robot = "panda"                     # choose from "point_robot", "boxer", "albert", "panda"
+environment_type = "table"          # choose from "normal", "battery", "table"
 control_type = "vel_control"        # choose from "vel_control", "pos_control", "force_control"
 gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, spacing, robot, environment_type, control_type)
 
@@ -25,14 +25,14 @@ dof_states, num_dofs, num_actors, root_states = sim_init.acquire_states(gym, sim
 actors_per_env = int(num_actors/num_envs)
 bodies_per_env = gym.get_env_rigid_body_count(envs[0])
 sigma = 5
-max_vel = 0.6
+max_vel = 2.5
 # Creater mppi object
 mppi = fusion_mppi.FUSION_MPPI(
     dynamics=None, 
     running_cost=None, 
     nx=18, 
-    noise_sigma = torch.tensor([[sigma, 0, 0, 0, 0, 0, 0, 0, 0],
-                                [0, sigma, 0, 0, 0, 0, 0, 0, 0], 
+    noise_sigma = torch.tensor([[2*sigma, 0, 0, 0, 0, 0, 0, 0, 0],
+                                [0, 2*sigma, 0, 0, 0, 0, 0, 0, 0], 
                                 [0, 0, sigma, 0, 0, 0, 0, 0, 0],
                                 [0, 0, 0, sigma, 0, 0, 0, 0, 0],
                                 [0, 0, 0, 0, sigma, 0, 0, 0, 0],
@@ -44,8 +44,8 @@ mppi = fusion_mppi.FUSION_MPPI(
     horizon=10,
     lambda_=0.5, 
     device="cuda:0", 
-    u_max=torch.tensor([max_vel, max_vel, max_vel, max_vel, max_vel, max_vel, max_vel, max_vel, max_vel]),
-    u_min=torch.tensor([-max_vel, -max_vel, -max_vel, -max_vel, -max_vel, -max_vel, -max_vel, -max_vel, -max_vel]),
+    u_max=torch.tensor([max_vel, max_vel, max_vel, max_vel, max_vel, max_vel, max_vel, 0.1*max_vel, 0.1*max_vel]),
+    u_min=torch.tensor([-max_vel, -max_vel, -max_vel, -max_vel, -max_vel, -max_vel, -max_vel, -0.1*max_vel, -0.1*max_vel]),
     step_dependent_dynamics=True,
     terminal_state_cost=None,
     sample_null_action=True,
@@ -56,7 +56,7 @@ mppi = fusion_mppi.FUSION_MPPI(
     actors_per_env=actors_per_env,
     env_type=environment_type,
     bodies_per_env=bodies_per_env,
-    filter_u=False
+    filter_u=True
     )
 
 # Make sure the socket does not already exist
@@ -64,6 +64,7 @@ server_address = './uds_socket'
 data_transfer.check_server(server_address)
 
 with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
+    
     # Build the connection
     s.bind(server_address)
     s.listen()

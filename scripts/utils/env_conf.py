@@ -61,13 +61,20 @@ table_dims = gymapi.Vec3(0.6, 1.0, 0.4)
 table_pose = gymapi.Transform()
 table_pose.p = gymapi.Vec3(0.5, 0.0, 0.5 * table_dims.z)
 
+box_size = 0.04
 box_pose = gymapi.Transform()
+box_pose.p.x = table_pose.p.x + np.random.uniform(-0.2, 0.1)
+box_pose.p.y = table_pose.p.y + np.random.uniform(-0.3, 0.3)
+box_pose.p.z = table_pose.p.z + 0.05
+box_pose.r = gymapi.Quat.from_axis_angle(gymapi.Vec3(0, 0, 1), np.random.uniform(-math.pi, math.pi))
 
 envs = []
 box_idxs = []
 hand_idxs = []
 init_pos_list = []
 init_rot_list = []
+
+banana_color = gymapi.Vec3(0.85, 0.88, 0.2)
 
 def add_box(sim, gym, env, width, height, depth, pose, color, isFixed, name, index):
     # Additional assets from API
@@ -218,6 +225,13 @@ def load_husky(gym, sim):
     pose.p = gymapi.Vec3(0.0, 0.0, 0.01)    
     return robot_asset
 
+def load_banana(gym, sim):
+    asset_options = gymapi.AssetOptions()
+    asset_options.fix_base_link = False
+    banana_asset_file = "urdf/objects/banana/banana.urdf"
+    banana_asset = gym.load_asset(sim, "../assets", banana_asset_file, asset_options)
+    return banana_asset
+
 def add_obstacles(sim, gym, env, environment_type, index):
     if environment_type == "normal":
         # add fixed obstacle
@@ -268,6 +282,11 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, e
     print("Creating %d environments" % num_envs)
     num_per_row = int(math.sqrt(num_envs))
     gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(1.5, 6, 8), gymapi.Vec3(1.5, 0, 0))
+
+    if environment_type == "table":
+        banana_asset = load_banana(gym, sim)
+        # gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(1.5, 1.5, 1.5), gymapi.Vec3(0., 0., 0))
+    
     for i in range(num_envs):
         # Create env
         env = gym.create_env(sim, gymapi.Vec3(-spacing, 0.0, -spacing), gymapi.Vec3(spacing, spacing, spacing), num_per_row)
@@ -286,10 +305,10 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, e
             asset_options.fix_base_link = True
             table_asset = gym.create_box(sim, table_dims.x, table_dims.y, table_dims.z, asset_options)
             table_handle = gym.create_actor(env, table_asset, table_pose, "table", i, 0)
-
+            
+            
             # add box
-            # create box asset
-            box_size = 0.045
+            box_size = 0.04
             asset_options = gymapi.AssetOptions()
             box_asset = gym.create_box(sim, box_size, box_size, box_size, asset_options)
 
@@ -299,11 +318,15 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, e
             box_pose.r = gymapi.Quat.from_axis_angle(gymapi.Vec3(0, 0, 1), np.random.uniform(-math.pi, math.pi))
             box_handle = gym.create_actor(env, box_asset, box_pose, "box", i, 0)
             color = gymapi.Vec3(np.random.uniform(0, 1), np.random.uniform(0, 1), np.random.uniform(0, 1))
-            gym.set_rigid_body_color(env, box_handle, 0, gymapi.MESH_VISUAL_AND_COLLISION, color)
+            gym.set_rigid_body_color(env, box_handle, 0, gymapi.MESH_VISUAL_AND_COLLISION, color_vec_crate)
 
             # get global index of box in rigid body state tensor
             box_idx = gym.get_actor_rigid_body_index(env, box_handle, 0, gymapi.DOMAIN_SIM)
             box_idxs.append(box_idx)
+
+            # banana_handle = gym.create_actor(env, banana_asset, box_pose, "banana", i, 0)
+            # gym.set_rigid_body_color(env, banana_handle, 0, gymapi.MESH_VISUAL_AND_COLLISION, banana_color)
+            # banana_handle = gym.create_actor(env, banana_asset, box_pose, "banana", i, 2)
 
             # add franka
             robot_handle = gym.create_actor(env, robot_asset, franka_pose, "franka", i, 2)
@@ -370,5 +393,5 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, e
             shape_props[2].torsion_friction = 0.
             shape_props[2].rolling_friction = 0.
             gym.set_actor_rigid_shape_properties(env, robot_handle, shape_props)
-
+    print('Ready to start')
     return envs, robot_handles
