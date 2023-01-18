@@ -4,6 +4,7 @@ from isaacgym import gymtorch
 import torch
 from fusion_mppi import mppi, fusion_mppi
 from utils import env_conf, sim_init, data_transfer
+from params import params_point as params
 import time
 import copy
 import socket, io
@@ -25,16 +26,17 @@ class PLANNER_PATROLLING:
 
 
 class REACTIVE_TAMP:
-    def __init__(self) -> None:
+    def __init__(self, allow_viewer, visualize_rollouts, num_envs, spacing, robot, environment_type,
+                 nx, noise_sigma, horizon, lambda_, device, u_max, u_min, step_dependent_dynamics,
+                 terminal_state_cost, sample_null_action, use_priors, use_vacuum, u_per_command, filter_u) -> None:
         # Make the environment and simulation
-        allow_viewer = False
-        self.visualize_rollouts = False
-        self.num_envs = 100
-        spacing = 10.0
-        self.robot = "point_robot"               # choose from "point_robot", "boxer", "albert"
-        self.environment_type = "normal"         # choose from "normal", "battery"
-        control_type = "vel_control"             # choose from "vel_control", "pos_control", "force_control"
-        self.gym, self.sim, self.viewer, envs, _ = sim_init.make(allow_viewer, self.num_envs, spacing, self.robot, self.environment_type, control_type)
+        self.allow_viewer = allow_viewer
+        self.visualize_rollouts = visualize_rollouts
+        self.num_envs = num_envs
+        self.spacing = spacing
+        self.robot = robot
+        self.environment_type = environment_type
+        self.gym, self.sim, self.viewer, envs, _ = sim_init.make(self.allow_viewer, self.num_envs, self.spacing, self.robot, self.environment_type)
 
         # Acquire states
         self.dof_states, self.num_dofs, self.num_actors, self.root_states = sim_init.acquire_states(self.gym, self.sim, print_flag=False)
@@ -46,27 +48,27 @@ class REACTIVE_TAMP:
 
         # Choose the motion planner
         self.motion_planner = fusion_mppi.FUSION_MPPI(
-                            dynamics=None, 
-                            running_cost=None, 
-                            nx=2, 
-                            noise_sigma = torch.tensor([[1, 0], [0, 1]], device="cuda:0", dtype=torch.float32),
-                            num_samples=self.num_envs, 
-                            horizon=20,
-                            lambda_=0.1, 
-                            device="cuda:0", 
-                            u_max=torch.tensor([1.5, 1.5]),
-                            u_min=torch.tensor([-1.5, -1.5]),
-                            step_dependent_dynamics=True,
-                            terminal_state_cost=None,
-                            sample_null_action=True,
-                            use_priors=False,
-                            use_vacuum = False,
-                            robot_type=self.robot,
-                            u_per_command=20,
-                            actors_per_env=actors_per_env,
-                            env_type=self.environment_type,
-                            bodies_per_env=bodies_per_env,
-                            filter_u=True
+                            dynamics = None, 
+                            running_cost = None, 
+                            nx = nx, 
+                            noise_sigma = noise_sigma,
+                            num_samples = self.num_envs, 
+                            horizon = horizon,
+                            lambda_ = lambda_, 
+                            device = device, 
+                            u_max = u_max,
+                            u_min = u_min,
+                            step_dependent_dynamics = step_dependent_dynamics,
+                            terminal_state_cost = terminal_state_cost,
+                            sample_null_action = sample_null_action,
+                            use_priors = use_priors,
+                            use_vacuum = use_vacuum,
+                            robot_type = self.robot,
+                            u_per_command = u_per_command,
+                            actors_per_env = actors_per_env,
+                            env_type = self.environment_type,
+                            bodies_per_env = bodies_per_env,
+                            filter_u = filter_u
                             )
         
         # Make sure the socket does not already exist
@@ -89,14 +91,6 @@ class REACTIVE_TAMP:
             conn, addr = s.accept()
             with conn:
                 print(f"Connected by {addr}")
-                
-                # Send info for simulation, robot and environment types
-                res = conn.recv(1024)
-                conn.sendall(self.robot.encode())
-
-                res = conn.recv(1024)
-                conn.sendall(self.environment_type.encode())
-
                 i=0
                 while True:
                     i+=1
@@ -127,9 +121,7 @@ class REACTIVE_TAMP:
                     actions = self.motion_planner.command(s[0])
                     conn.sendall(data_transfer.torch_to_bytes(actions))
 
-                    # Send rollouts data
-                    res = conn.recv(1024)
-                    conn.sendall(data_transfer.torch_to_bytes(int(self.visualize_rollouts)))
+                    # Visualize rollouts
                     if self.visualize_rollouts:
                         # Get the rollouts trajectory
                         rollouts = self.motion_planner.states[0, :, :, :].cpu().clone().numpy()
@@ -143,5 +135,24 @@ class REACTIVE_TAMP:
                             current_traj[:, 0] = rollouts[i][:, 2]     # y pos
                             conn.sendall(data_transfer.numpy_to_bytes(current_traj))
 
-reactive_tamp = REACTIVE_TAMP()
+reactive_tamp = REACTIVE_TAMP(allow_viewer = params.allow_viewer, 
+                              visualize_rollouts = params.visualize_rollouts, 
+                              num_envs = params.num_envs, 
+                              spacing = params.spacing, 
+                              robot = params.robot, 
+                              environment_type = params.environment_type,
+                              nx = params.nx, 
+                              noise_sigma = params.noise_sigma, 
+                              horizon = params.horizon, 
+                              lambda_ = params.lambda_, 
+                              device = params.device, 
+                              u_max = params.u_max, 
+                              u_min = params.u_min, 
+                              step_dependent_dynamics = params.step_dependent_dynamics,
+                              terminal_state_cost = params.terminal_state_cost, 
+                              sample_null_action = params.sample_null_action, 
+                              use_priors = params.use_priors, 
+                              use_vacuum = params.suction_active, 
+                              u_per_command = params.u_per_command, 
+                              filter_u = params.filter_u)
 reactive_tamp.run()
