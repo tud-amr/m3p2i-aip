@@ -4,7 +4,7 @@ from isaacgym import gymtorch
 import torch
 from fusion_mppi import mppi, fusion_mppi
 from utils import env_conf, sim_init, data_transfer
-from params import params_point as params
+from params import params_boxer as params
 import time
 import copy
 import socket, io
@@ -106,13 +106,20 @@ class REACTIVE_TAMP:
                     _root_states = data_transfer.bytes_to_torch(r).repeat(self.num_envs, 1)
 
                     # Reset the simulator to requested state
-                    s = _dof_states.view(-1, 4) # [x, v_x, y, v_y]
+                    if self.robot == "point_robot" or "boxer":
+                        s = _dof_states.view(-1, 4) # [x, v_x, y, v_y]
+                    elif self.robot == "heijn":
+                        s = _dof_states.view(-1, 6) # [x, v_x, y, v_y, theta, v_theta]
                     self.gym.set_dof_state_tensor(self.sim, gymtorch.unwrap_tensor(s))
                     self.gym.set_actor_root_state_tensor(self.sim, gymtorch.unwrap_tensor(_root_states))
                     sim_init.refresh_states(self.gym, self.sim)
 
                     # Update TAMP interface
-                    self.tamp_interface(torch.tensor([s[0][0], s[0][2]], device="cuda:0"))
+                    if self.robot == "boxer":
+                        robot_pos = _root_states[-1, :2]
+                    elif self.robot == "point_robot" or "heijn":
+                        robot_pos = torch.tensor([s[0][0], s[0][2]], device="cuda:0")
+                    self.tamp_interface(robot_pos)
 
                     # Update gym in mppi
                     self.motion_planner.update_gym(self.gym, self.sim, self.viewer)

@@ -4,7 +4,7 @@ from isaacgym import gymtorch
 import torch
 from fusion_mppi import mppi
 from utils import env_conf, sim_init, data_transfer, skill_utils
-from params import params_point as params
+from params import params_boxer as params
 import time, numpy as np
 import socket
 torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
