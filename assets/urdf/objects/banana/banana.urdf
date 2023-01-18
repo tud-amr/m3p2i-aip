@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<robot name="banana">
+  <link name="banana">
+    <visual>
+      <origin xyz="0.0 0.0 0.0"/>
+      <geometry>
+        <mesh filename="objects/banana/textured.obj" scale="0.005 0.005 0.005"/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0.0 0.0 0.0"/>
+      <geometry>
+        <mesh filename="objects/banana/collision.obj" scale="0.005 0.005 0.005"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="0.3"/>
+      <inertia ixx="0.001" ixy="0.0" ixz="0.0" iyy="0.001" iyz="0.0" izz="0.001"/>
+    </inertial>
+  </link>
+</robot>
