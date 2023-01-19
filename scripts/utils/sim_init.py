@@ -26,8 +26,10 @@ def configure_sim(dt=0.05):
     sim_params.physx.num_velocity_iterations = 1
     sim_params.physx.num_threads = args.num_threads
     sim_params.physx.use_gpu = args.use_gpu
-    sim_params.physx.contact_offset = 0.01
+    sim_params.physx.contact_offset = 0.001
     sim_params.physx.rest_offset = 0.0
+    sim_params.physx.friction_offset_threshold = 0.01
+    sim_params.physx.friction_correlation_distance = 0.001
     return sim_params
 
 # Creating gym

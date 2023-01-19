@@ -152,7 +152,7 @@ class FUSION_MPPI(mppi.MPPI):
         # print(self.root_positions[-1,:])
         hand_state = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))[self.hand_indexes, 0:7]
         block_state = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))[self.block_indexes, 0:7]
-        # block_state[:,2] += 0.1
+        block_state[:,2] += 0.1
         # print(hand_state[-1,:])
         joint_goal = torch.tensor([0.8, 0., 0., -0.94248, 0., 1.1205001, 0., 0.012, 0.012], device=self.device)
         #return torch.linalg.norm(hand_state - self.panda_hand_goal, axis = 1)
@@ -298,9 +298,9 @@ class FUSION_MPPI(mppi.MPPI):
             task_cost = self.get_navigation_cost(state[:, :2])
             #task_cost = self.get_push_cost(state[:, :2])
         elif self.robot == 'point_robot':
-            task_cost = self.get_push_cost(state_pos)
+            #task_cost = self.get_push_cost(state_pos)
             #task_cost = self.get_push_not_goal_cost(state_pos)
-            #task_cost = self.get_navigation_cost(state_pos)
+            task_cost = self.get_navigation_cost(state_pos)
             #task_cost = self.get_pull_cost(state_pos)
         elif self.robot == 'heijn':
             #task_cost = self.get_navigation_cost(state_pos)
@@ -312,7 +312,7 @@ class FUSION_MPPI(mppi.MPPI):
         acc_cost = 0.00001*torch.linalg.norm(torch.square((u[0:1]-past_u[0:1])/0.05), dim=1)
         
         if self.robot == 'panda':
-            acc_cost = 0.000001*torch.linalg.norm(torch.square((u-past_u)/0.05), dim=1)
+            acc_cost = 0.0001*torch.linalg.norm(torch.square((u-past_u)/0.05), dim=1)
         
         past_u = torch.clone(u)
         
