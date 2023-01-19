@@ -26,7 +26,7 @@ class PLANNER_PATROLLING:
 
 
 class REACTIVE_TAMP:
-    def __init__(self, allow_viewer, visualize_rollouts, num_envs, spacing, robot, environment_type,
+    def __init__(self, allow_viewer, visualize_rollouts, task, num_envs, spacing, robot, environment_type,
                  nx, noise_sigma, horizon, lambda_, device, u_max, u_min, step_dependent_dynamics,
                  terminal_state_cost, sample_null_action, use_priors, use_vacuum, u_per_command, filter_u) -> None:
         # Make the environment and simulation
@@ -44,7 +44,9 @@ class REACTIVE_TAMP:
         bodies_per_env = self.gym.get_env_rigid_body_count(envs[0])
 
         # Choose the task planner
-        self.task_planner = PLANNER_PATROLLING(goals = torch.tensor([[-3, -3], [3, -3], [3, 3], [-3, 3]], device="cuda:0"))
+        self.task = task
+        if self.task == "Patrolling":
+            self.task_planner = PLANNER_PATROLLING(goals = torch.tensor([[-3, -3], [3, -3], [3, 3], [-3, 3]], device="cuda:0"))
 
         # Choose the motion planner
         self.motion_planner = fusion_mppi.FUSION_MPPI(
@@ -119,7 +121,8 @@ class REACTIVE_TAMP:
                         robot_pos = _root_states[-1, :2]
                     elif self.robot == "point_robot" or "heijn":
                         robot_pos = torch.tensor([s[0][0], s[0][2]], device="cuda:0")
-                    self.tamp_interface(robot_pos)
+                    if self.task == "Patrolling":
+                        self.tamp_interface(robot_pos)
 
                     # Update gym in mppi
                     self.motion_planner.update_gym(self.gym, self.sim, self.viewer)
@@ -144,6 +147,7 @@ class REACTIVE_TAMP:
 
 reactive_tamp = REACTIVE_TAMP(allow_viewer = params.allow_viewer, 
                               visualize_rollouts = params.visualize_rollouts, 
+                              task = params.task,
                               num_envs = params.num_envs, 
                               spacing = params.spacing, 
                               robot = params.robot, 
