@@ -2,6 +2,7 @@ from isaacgym import gymapi
 import math 
 import torch
 import numpy as np
+from pathlib import Path
 
 box1_pose = gymapi.Transform()
 box1_pose.p = gymapi.Vec3(1, -2, 0)
@@ -98,9 +99,21 @@ def load_robot(robot, gym, sim):
         print("Invalid robot type")
     return robot_asset
 
+def get_asset_path():
+    curr_path = Path().absolute()
+    list = str(curr_path).split('/')
+    asset_path = ''
+    for i in list:
+        if i != "scripts":
+            asset_path += i + "/"
+        else:
+            break
+    asset_path += 'assets'
+    return asset_path
+
 def load_albert(gym, sim):
     # Load asset
-    asset_root = "../assets"
+    asset_root = get_asset_path()
     point_robot_asset_file = "urdf/albert/albert.urdf"
 
     print("Loading asset '%s' from '%s'" % (point_robot_asset_file, asset_root))
@@ -114,7 +127,7 @@ def load_albert(gym, sim):
 
 def load_boxer(gym, sim):
     # Load asset
-    asset_root = "../assets"
+    asset_root = get_asset_path()
     point_robot_asset_file = "urdf/boxer/boxer.urdf"
 
     print("Loading asset '%s' from '%s'" % (point_robot_asset_file, asset_root))
@@ -128,7 +141,7 @@ def load_boxer(gym, sim):
 
 def load_point_robot(gym, sim):
     # Load robot asset
-    asset_root = "../assets"
+    asset_root = get_asset_path()
     asset_file = "urdf/pointRobot.urdf"
     asset_options = gymapi.AssetOptions()
     asset_options.fix_base_link = True
@@ -139,7 +152,7 @@ def load_point_robot(gym, sim):
 
 def load_heijn(gym, sim):
     # Load robot asset
-    asset_root = "../assets"
+    asset_root = get_asset_path()
     asset_file = "urdf/heijn.urdf"
     asset_options = gymapi.AssetOptions()
     asset_options.fix_base_link = True
@@ -150,7 +163,7 @@ def load_heijn(gym, sim):
 
 def load_franka(gym, sim):
     # Load asset
-    asset_root = "../assets"
+    asset_root = get_asset_path()
     franka_asset_file = "urdf/franka_description/robots/franka_panda.urdf"
 
     asset_options = gymapi.AssetOptions()
@@ -165,7 +178,7 @@ def load_franka(gym, sim):
 
 def load_husky(gym, sim):
     # Load asset
-    asset_root = "../assets"
+    asset_root = get_asset_path()
     husky_asset_file = "urdf/husky_description/husky_rectangular_bumper.urdf"
 
     print("Loading asset '%s' from '%s'" % (husky_asset_file, asset_root))

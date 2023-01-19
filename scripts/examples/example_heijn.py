@@ -2,6 +2,8 @@ from isaacgym import gymapi
 from isaacgym import gymutil
 from isaacgym import gymtorch
 import torch
+import sys
+sys.path.append('../')
 from utils import sim_init, skill_utils
 
 # Make the environment and simulation

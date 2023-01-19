@@ -2,6 +2,8 @@ from isaacgym import gymapi
 from isaacgym import gymutil
 from isaacgym import gymtorch
 import torch
+import sys
+sys.path.append('../')
 from pytorch_mppi import mppi
 from utils import env_conf, sim_init
 import time

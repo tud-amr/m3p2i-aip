@@ -4,7 +4,9 @@ from isaacgym import gymapi
 from isaacgym import gymtorch
 import torch
 import numpy as np
-from decision_making import ai_agent, adaptive_action_selection
+import sys
+sys.path.append('../')
+from active_inference import ai_agent, adaptive_action_selection
 from active_inference import isaac_int_req_templates, isaac_state_action_templates 
 from utils import env_conf, sim_init
 
