@@ -285,11 +285,11 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, e
     robot_handles = []
     print("Creating %d environments" % num_envs)
     num_per_row = int(math.sqrt(num_envs))
-    gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(1.5, 6, 8), gymapi.Vec3(1.5, 0, 0))
+    #gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(1.5, 6, 8), gymapi.Vec3(1.5, 0, 0))
 
     if environment_type == "table":
         mug_asset = load_mug(gym, sim)
-        # gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(1.5, 1.5, 1.5), gymapi.Vec3(0., 0., 0))
+        gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(2, 0, 1.5), gymapi.Vec3(0., 0., 0))
     
     for i in range(num_envs):
         # Create env
@@ -312,23 +312,23 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, e
             
             
             # add box
-            # box_size = 0.04
-            # asset_options = gymapi.AssetOptions()
-            # box_asset = gym.create_box(sim, box_size, box_size, box_size, asset_options)
+            box_size = 0.04
+            asset_options = gymapi.AssetOptions()
+            box_asset = gym.create_box(sim, box_size, box_size, box_size, asset_options)
 
-            # box_pose.p.x = table_pose.p.x + np.random.uniform(-0.2, 0.1)
-            # box_pose.p.y = table_pose.p.y + np.random.uniform(-0.3, 0.3)
-            # box_pose.p.z = table_dims.z + 0.5 * box_size
-            # box_pose.r = gymapi.Quat.from_axis_angle(gymapi.Vec3(0, 0, 1), np.random.uniform(-math.pi, math.pi))
-            # box_handle = gym.create_actor(env, box_asset, box_pose, "box", i, 0)
-            # color = gymapi.Vec3(np.random.uniform(0, 1), np.random.uniform(0, 1), np.random.uniform(0, 1))
-            # gym.set_rigid_body_color(env, box_handle, 0, gymapi.MESH_VISUAL_AND_COLLISION, color_vec_crate)
+            box_pose.p.x = table_pose.p.x + np.random.uniform(-0.2, 0.1)
+            box_pose.p.y = table_pose.p.y + np.random.uniform(-0.3, 0.3)
+            box_pose.p.z = table_dims.z + 0.5 * box_size
+            box_pose.r = gymapi.Quat.from_axis_angle(gymapi.Vec3(0, 0, 1), np.random.uniform(-math.pi, math.pi))
+            box_handle = gym.create_actor(env, box_asset, box_pose, "box", i, 0)
+            color = gymapi.Vec3(np.random.uniform(0, 1), np.random.uniform(0, 1), np.random.uniform(0, 1))
+            gym.set_rigid_body_color(env, box_handle, 0, gymapi.MESH_VISUAL_AND_COLLISION, color_vec_crate)
 
-            # # get global index of box in rigid body state tensor
-            # box_idx = gym.get_actor_rigid_body_index(env, box_handle, 0, gymapi.DOMAIN_SIM)
-            # box_idxs.append(box_idx)
+            # get global index of box in rigid body state tensor
+            box_idx = gym.get_actor_rigid_body_index(env, box_handle, 0, gymapi.DOMAIN_SIM)
+            box_idxs.append(box_idx)
 
-            mug_handle = gym.create_actor(env, mug_asset, box_pose, "mug", i, 0)
+            # mug_handle = gym.create_actor(env, mug_asset, box_pose, "mug", i, 0)
 
             # add franka
             robot_handle = gym.create_actor(env, robot_asset, franka_pose, "franka", i, 2)
@@ -337,7 +337,7 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, e
             franka_dof_props = gym.get_asset_dof_properties(robot_asset)
             franka_lower_limits = franka_dof_props["lower"]
             franka_upper_limits = franka_dof_props["upper"]
-            franka_mids = 0.3 * (franka_upper_limits + franka_lower_limits)
+            franka_mids = 0.5 * (franka_upper_limits + franka_lower_limits)
 
             # default dof states and position targets
             franka_num_dofs = gym.get_asset_dof_count(robot_asset)

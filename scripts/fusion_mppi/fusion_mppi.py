@@ -1,6 +1,6 @@
 import fusion_mppi.mppi as mppi
 import torch, math
-from isaacgym import gymtorch, gymapi
+from isaacgym import gymtorch, gymapi, torch_utils
 from utils import sim_init, skill_utils
 import numpy as np
 
@@ -71,18 +71,21 @@ class FUSION_MPPI(mppi.MPPI):
         if self.env_type == 'table':
             self.hand_index = 10 # Panda hand index in lab environment
             self.block_index = 1
+            self.ee_index = 8
         if robot_type == 'panda':
             self.hand_indexes = np.zeros(self.num_envs)
             self.block_indexes = np.zeros(self.num_envs)
+            self.ee_indexes = np.zeros(self.num_envs)
             for i in range(self.num_envs):
                 self.hand_indexes[i] = self.hand_index + i*self.bodies_per_env
                 self.block_indexes[i] = self.block_index + i*self.bodies_per_env
- 
-        self.block_goal = torch.tensor([0.5, 0], device="cuda:0")
+                self.ee_indexes[i] = self.block_index + i*self.bodies_per_env
+
+        self.block_goal = torch.tensor([0.5, 0.3], device="cuda:0")
         self.block_not_goal = torch.tensor([-2, 1], device="cuda:0")
         self.nav_goal = torch.tensor([3, 3], device="cuda:0")
         self.panda_hand_goal = torch.tensor([0.58, -0.3, 0.6, 1, 0, 0, 0], device="cuda:0")
-
+    
     def update_gym(self, gym, sim, viewer=None):
         self.gym = gym
         self.sim = sim
@@ -152,15 +155,21 @@ class FUSION_MPPI(mppi.MPPI):
         # print(self.root_positions[-1,:])
         hand_state = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))[self.hand_indexes, 0:7]
         block_state = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))[self.block_indexes, 0:7]
-        block_state[:,2] += 0.1
+        # over_block = torch.clone(block_state) 
+        # over_block[:,2] = 0.52
         # print(hand_state[-1,:])
-        joint_goal = torch.tensor([0.8, 0., 0., -0.94248, 0., 1.1205001, 0., 0.012, 0.012], device=self.device)
+        # joint_goal = torch.tensor([0.8, 0., 0., -0.94248, 0., 1.1205001, 0., 0.012, 0.012], device=self.device)
         #return torch.linalg.norm(hand_state - self.panda_hand_goal, axis = 1)
         #return torch.linalg.norm(joint_pos - joint_goal, axis = 1)
-        reach_cost = torch.linalg.norm(hand_state[:,0:3] - block_state[:,0:3], axis = 1) + 0.3*torch.linalg.norm(hand_state[:,4:7] - self.panda_hand_goal[4:7], axis = 1)
+        reach_cost = torch.linalg.norm(hand_state[:,0:3] - block_state[:,0:3], axis = 1) 
         goal_cost = torch.linalg.norm(self.block_goal - block_state[:,0:2], axis = 1)
-        reach_cost[reach_cost<0.2] = 0*torch.linalg.norm(hand_state[:,4:7] - self.panda_hand_goal[4:7], axis = 1)[reach_cost<0.2]
-        return reach_cost + goal_cost
+        reach_cost[reach_cost<0.05] = 0*reach_cost[reach_cost<0.05]
+        #print(hand_state[:,3:7])
+        hand_roll, hand_pitch, _ = torch_utils.get_euler_xyz(hand_state[:,3:7])
+        
+        align_cost = torch.abs(hand_roll-math.pi) + torch.abs(hand_pitch-2*math.pi)
+        
+        return  align_cost + 3*reach_cost + goal_cost
 
     @mppi.handle_batch_input
     def _ik(self, u):
@@ -292,7 +301,6 @@ class FUSION_MPPI(mppi.MPPI):
 
         w_c = 1000 # Weight for collisions
         # Binary check for collisions. So far checking all collision with unmovable obstacles. Movable obstacles touching unmovable ones are considered collisions       
-        coll_cost[coll_cost>0.1] = 1
         coll_cost[coll_cost<=0.1] = 0
         if self.robot == 'boxer':
             task_cost = self.get_navigation_cost(state[:, :2])
@@ -317,4 +325,4 @@ class FUSION_MPPI(mppi.MPPI):
         past_u = torch.clone(u)
         
         
-        return  task_cost + w_c*coll_cost + acc_cost # + w_u*control_cost
+        return  task_cost + coll_cost + acc_cost # + w_u*control_cost

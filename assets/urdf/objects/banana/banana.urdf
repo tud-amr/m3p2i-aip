@@ -12,6 +12,19 @@
       <geometry>
         <mesh filename="objects/banana/collision.obj" scale="0.01 0.01 0.01"/>
       </geometry>
+      <surface>
+        <friction>
+          <ode>
+            <mu>100000.0</mu>
+            <mu2>100000.0</mu2>
+          </ode>
+        </friction>
+        <contact>
+          <ode>
+            <min_depth>0.005</min_depth>
+          </ode>
+        </contact>
+      </surface>
     </collision>
     <inertial>
       <mass value="0.3"/>

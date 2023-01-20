@@ -420,6 +420,9 @@ class MPPI():
         # broadcast own control to noise over samples; now it's K x T x nu
         self.perturbed_action = self.U + self.noise
         
+        # if self.robot == "panda":
+        #     self.perturbed_action[:,-1] = - self.perturbed_action[:,self.nu - 2]
+
         # naively bound control
         self.perturbed_action = self._bound_action(self.perturbed_action)
 

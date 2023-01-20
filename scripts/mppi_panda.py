@@ -13,7 +13,7 @@ torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 # Make the environment and simulation
 allow_viewer = False
 visualize_rollouts = False
-num_envs = 100
+num_envs = 1000
 spacing = 2.0
 robot = "panda"                     # choose from "point_robot", "boxer", "albert", "panda"
 environment_type = "table"          # choose from "normal", "battery", "table"
@@ -24,15 +24,15 @@ gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, sp
 dof_states, num_dofs, num_actors, root_states = sim_init.acquire_states(gym, sim, print_flag=False)
 actors_per_env = int(num_actors/num_envs)
 bodies_per_env = gym.get_env_rigid_body_count(envs[0])
-sigma = 5
-max_vel = 1.0
+sigma = 2
+max_vel = 0.2
 # Creater mppi object
 mppi = fusion_mppi.FUSION_MPPI(
     dynamics=None, 
     running_cost=None, 
     nx=18, 
-    noise_sigma = torch.tensor([[2*sigma, 0, 0, 0, 0, 0, 0, 0, 0],
-                                [0, 2*sigma, 0, 0, 0, 0, 0, 0, 0], 
+    noise_sigma = torch.tensor([[sigma, 0, 0, 0, 0, 0, 0, 0, 0],
+                                [0, sigma, 0, 0, 0, 0, 0, 0, 0], 
                                 [0, 0, sigma, 0, 0, 0, 0, 0, 0],
                                 [0, 0, 0, sigma, 0, 0, 0, 0, 0],
                                 [0, 0, 0, 0, sigma, 0, 0, 0, 0],
@@ -42,10 +42,10 @@ mppi = fusion_mppi.FUSION_MPPI(
                                 [0, 0, 0, 0, 0, 0, 0, 0, sigma],], device="cuda:0", dtype=torch.float32),
     num_samples=num_envs, 
     horizon=10,
-    lambda_=0.5, 
+    lambda_=0.1, 
     device="cuda:0", 
-    u_max=torch.tensor([max_vel, max_vel, max_vel, max_vel, max_vel, max_vel, max_vel, 0.5*max_vel, 0.5*max_vel]),
-    u_min=torch.tensor([-max_vel, -max_vel, -max_vel, -max_vel, -max_vel, -max_vel, -max_vel, -0.5*max_vel, -0.5*max_vel]),
+    u_max=torch.tensor([max_vel, max_vel, max_vel, max_vel, max_vel, max_vel, max_vel, max_vel, max_vel]),
+    u_min=torch.tensor([-max_vel, -max_vel, -max_vel, -max_vel, -max_vel, -max_vel, -max_vel, -max_vel, -max_vel]),
     step_dependent_dynamics=True,
     terminal_state_cost=None,
     sample_null_action=True,
