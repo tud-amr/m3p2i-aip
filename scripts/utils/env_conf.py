@@ -55,7 +55,7 @@ yaxis_pose = gymapi.Transform()
 yaxis_pose.p = gymapi.Vec3(0, 0.25, 0.01)
 
 franka_pose = gymapi.Transform()
-franka_pose.p = gymapi.Vec3(0, 0, 0)
+franka_pose.p = gymapi.Vec3(-0.3, 0, 0)
 
 table_dims = gymapi.Vec3(0.6, 1.0, 0.4)
 table_pose = gymapi.Transform()
@@ -66,7 +66,7 @@ shelf_pose = gymapi.Transform()
 shelf_pose.p = gymapi.Vec3(1, -0.5*shelves_dims.y, 0)
 
 
-box_size = 0.04
+box_size = 0.03
 box_pose = gymapi.Transform()
 box_pose.p.x = table_pose.p.x + np.random.uniform(-0.2, 0.1)
 box_pose.p.y = table_pose.p.y + np.random.uniform(-0.3, 0.3)
@@ -329,7 +329,6 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, e
             shelf_handle = gym.create_actor(env, shelf_asset, shelf_pose, "shelf", i, 0)
 
             # add box
-            box_size = 0.04
             asset_options = gymapi.AssetOptions()
             box_asset = gym.create_box(sim, box_size, box_size, box_size, asset_options)
 

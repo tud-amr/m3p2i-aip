@@ -81,7 +81,7 @@ class FUSION_MPPI(mppi.MPPI):
                 self.block_indexes[i] = self.block_index + i*self.bodies_per_env
                 self.ee_indexes[i] = self.ee_index + i*self.bodies_per_env
 
-        self.block_goal = torch.tensor([0.5, -0.3, 0.8], device="cuda:0")
+        self.block_goal = torch.tensor([0, 0, 0.5], device="cuda:0")
         self.block_not_goal = torch.tensor([-2, 1], device="cuda:0")
         self.nav_goal = torch.tensor([3, 3], device="cuda:0")
         self.panda_hand_goal = torch.tensor([0.5, 0, 0.7, 1, 0, 0, 0], device="cuda:0")
@@ -154,7 +154,7 @@ class FUSION_MPPI(mppi.MPPI):
         block_state = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))[self.block_indexes, 0:7]
         self.ee_state = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))[self.ee_indexes, 0:7]
         reach_cost = torch.linalg.norm(self.ee_state[:,0:3] - block_state[:,0:3], axis = 1) 
-        goal_cost = torch.linalg.norm(self.block_goal - block_state[:,0:3], axis = 1)
+        goal_cost = torch.linalg.norm(self.block_goal[0:3] - block_state[:,0:3], axis = 1) #+ torch.abs(self.block_goal[2] - block_state[:,2])
         # reach_cost[reach_cost<0.05] = 0*reach_cost[reach_cost<0.05]
 
         ee_roll, ee_pitch, _ = torch_utils.get_euler_xyz(self.ee_state[:,3:7])

@@ -25,7 +25,7 @@ dof_states, num_dofs, num_actors, root_states = sim_init.acquire_states(gym, sim
 actors_per_env = int(num_actors/num_envs)
 bodies_per_env = gym.get_env_rigid_body_count(envs[0])
 sigma = 2
-max_vel = 0.2
+max_vel = 0.4
 # Creater mppi object
 mppi = fusion_mppi.FUSION_MPPI(
     dynamics=None, 
@@ -38,14 +38,14 @@ mppi = fusion_mppi.FUSION_MPPI(
                                 [0, 0, 0, 0, sigma, 0, 0, 0, 0],
                                 [0, 0, 0, 0, 0, sigma, 0, 0, 0],
                                 [0, 0, 0, 0, 0, 0, sigma, 0, 0],
-                                [0, 0, 0, 0, 0, 0, 0, sigma, 0],
-                                [0, 0, 0, 0, 0, 0, 0, 0, sigma],], device="cuda:0", dtype=torch.float32),
+                                [0, 0, 0, 0, 0, 0, 0, 0.2*sigma, 0],
+                                [0, 0, 0, 0, 0, 0, 0, 0, 0.2*sigma],], device="cuda:0", dtype=torch.float32),
     num_samples=num_envs, 
     horizon=10,
     lambda_=0.1, 
     device="cuda:0", 
-    u_max=torch.tensor([max_vel, max_vel, max_vel, max_vel, max_vel, max_vel, max_vel, max_vel, max_vel]),
-    u_min=torch.tensor([-max_vel, -max_vel, -max_vel, -max_vel, -max_vel, -max_vel, -max_vel, -max_vel, -max_vel]),
+    u_max=torch.tensor([max_vel, max_vel, max_vel, max_vel, max_vel, max_vel, max_vel, 0.5*max_vel, 0.5*max_vel]),
+    u_min=torch.tensor([-max_vel, -max_vel, -max_vel, -max_vel, -max_vel, -max_vel, -max_vel, -0.5*max_vel, -0.5*max_vel]),
     step_dependent_dynamics=True,
     terminal_state_cost=None,
     sample_null_action=True,
