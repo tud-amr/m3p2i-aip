@@ -61,6 +61,11 @@ table_dims = gymapi.Vec3(0.6, 1.0, 0.4)
 table_pose = gymapi.Transform()
 table_pose.p = gymapi.Vec3(0.5, 0.0, 0.5 * table_dims.z)
 
+shelves_dims = gymapi.Vec3(0.6, 1.0, 1.5)
+shelf_pose = gymapi.Transform()
+shelf_pose.p = gymapi.Vec3(1, -0.5*shelves_dims.y, 0)
+
+
 box_size = 0.04
 box_pose = gymapi.Transform()
 box_pose.p.x = table_pose.p.x + np.random.uniform(-0.2, 0.1)
@@ -236,6 +241,17 @@ def load_mug(gym, sim):
     mug_asset = gym.load_asset(sim, "../assets", mug_asset_file, asset_options)
     return mug_asset
 
+def load_shelf(gym, sim):
+    asset_options = gymapi.AssetOptions()
+    asset_options.fix_base_link = True
+    asset_options.vhacd_enabled = True
+    asset_options.vhacd_params = gymapi.VhacdParams()
+    asset_options.vhacd_params.resolution = 10
+    shelf_asset_file = "urdf/AH_shelf/shelf.urdf"
+    shelf_asset = gym.load_asset(sim, "../assets", shelf_asset_file, asset_options)
+
+    return shelf_asset
+
 def add_obstacles(sim, gym, env, environment_type, index):
     if environment_type == "normal":
         # add fixed obstacle
@@ -285,12 +301,13 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, e
     robot_handles = []
     print("Creating %d environments" % num_envs)
     num_per_row = int(math.sqrt(num_envs))
-    #gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(1.5, 6, 8), gymapi.Vec3(1.5, 0, 0))
+    gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(1.5, 6, 8), gymapi.Vec3(1.5, 0, 0))
 
     if environment_type == "table":
+        gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(0, 1, 1.5), gymapi.Vec3(0.5, 0., 0.5))
         mug_asset = load_mug(gym, sim)
-        gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(2, 0, 1.5), gymapi.Vec3(0., 0., 0))
-    
+        shelf_asset = load_shelf(gym, sim)
+
     for i in range(num_envs):
         # Create env
         env = gym.create_env(sim, gymapi.Vec3(-spacing, 0.0, -spacing), gymapi.Vec3(spacing, spacing, spacing), num_per_row)
@@ -308,16 +325,16 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, e
             asset_options = gymapi.AssetOptions()
             asset_options.fix_base_link = True
             table_asset = gym.create_box(sim, table_dims.x, table_dims.y, table_dims.z, asset_options)
-            table_handle = gym.create_actor(env, table_asset, table_pose, "table", i, 0)
-            
-            
+            #table_handle = gym.create_actor(env, table_asset, table_pose, "table", i, 0)
+            shelf_handle = gym.create_actor(env, shelf_asset, shelf_pose, "shelf", i, 0)
+
             # add box
             box_size = 0.04
             asset_options = gymapi.AssetOptions()
             box_asset = gym.create_box(sim, box_size, box_size, box_size, asset_options)
 
-            box_pose.p.x = table_pose.p.x + np.random.uniform(-0.2, 0.1)
-            box_pose.p.y = table_pose.p.y + np.random.uniform(-0.3, 0.3)
+            box_pose.p.x = table_pose.p.x #+ np.random.uniform(-0.2, 0.1)
+            box_pose.p.y = table_pose.p.y #+ np.random.uniform(-0.3, 0.3)
             box_pose.p.z = table_dims.z + 0.5 * box_size
             box_pose.r = gymapi.Quat.from_axis_angle(gymapi.Vec3(0, 0, 1), np.random.uniform(-math.pi, math.pi))
             box_handle = gym.create_actor(env, box_asset, box_pose, "box", i, 0)

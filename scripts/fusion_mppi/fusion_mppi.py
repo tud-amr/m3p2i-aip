@@ -71,7 +71,7 @@ class FUSION_MPPI(mppi.MPPI):
         if self.env_type == 'table':
             self.hand_index = 10 # Panda hand index in lab environment
             self.block_index = 1
-            self.ee_index = 8
+            self.ee_index = 10
         if robot_type == 'panda':
             self.hand_indexes = np.zeros(self.num_envs)
             self.block_indexes = np.zeros(self.num_envs)
@@ -79,13 +79,13 @@ class FUSION_MPPI(mppi.MPPI):
             for i in range(self.num_envs):
                 self.hand_indexes[i] = self.hand_index + i*self.bodies_per_env
                 self.block_indexes[i] = self.block_index + i*self.bodies_per_env
-                self.ee_indexes[i] = self.block_index + i*self.bodies_per_env
+                self.ee_indexes[i] = self.ee_index + i*self.bodies_per_env
 
-        self.block_goal = torch.tensor([0.5, 0.3], device="cuda:0")
+        self.block_goal = torch.tensor([0.5, -0.3, 0.8], device="cuda:0")
         self.block_not_goal = torch.tensor([-2, 1], device="cuda:0")
         self.nav_goal = torch.tensor([3, 3], device="cuda:0")
-        self.panda_hand_goal = torch.tensor([0.58, -0.3, 0.6, 1, 0, 0, 0], device="cuda:0")
-    
+        self.panda_hand_goal = torch.tensor([0.5, 0, 0.7, 1, 0, 0, 0], device="cuda:0")
+
     def update_gym(self, gym, sim, viewer=None):
         self.gym = gym
         self.sim = sim
@@ -150,26 +150,18 @@ class FUSION_MPPI(mppi.MPPI):
         return torch.linalg.norm(r_pos - block_pos, axis = 1) + non_goal_cost
 
     def get_panda_cost(self, joint_pos):
-        hand_index = 10
-        # hand_pos = torch.cat((torch.split(torch.clone(self.root_positions), int(torch.clone(self.root_positions).size(dim=0)/self.num_envs))),1)[hand_index,:].reshape(self.num_envs,3)
-        # print(self.root_positions[-1,:])
-        hand_state = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))[self.hand_indexes, 0:7]
+        # hand_state = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))[self.hand_indexes, 0:7]
         block_state = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))[self.block_indexes, 0:7]
-        # over_block = torch.clone(block_state) 
-        # over_block[:,2] = 0.52
-        # print(hand_state[-1,:])
-        # joint_goal = torch.tensor([0.8, 0., 0., -0.94248, 0., 1.1205001, 0., 0.012, 0.012], device=self.device)
-        #return torch.linalg.norm(hand_state - self.panda_hand_goal, axis = 1)
-        #return torch.linalg.norm(joint_pos - joint_goal, axis = 1)
-        reach_cost = torch.linalg.norm(hand_state[:,0:3] - block_state[:,0:3], axis = 1) 
-        goal_cost = torch.linalg.norm(self.block_goal - block_state[:,0:2], axis = 1)
-        reach_cost[reach_cost<0.05] = 0*reach_cost[reach_cost<0.05]
-        #print(hand_state[:,3:7])
-        hand_roll, hand_pitch, _ = torch_utils.get_euler_xyz(hand_state[:,3:7])
+        self.ee_state = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))[self.ee_indexes, 0:7]
+        reach_cost = torch.linalg.norm(self.ee_state[:,0:3] - block_state[:,0:3], axis = 1) 
+        goal_cost = torch.linalg.norm(self.block_goal - block_state[:,0:3], axis = 1)
+        # reach_cost[reach_cost<0.05] = 0*reach_cost[reach_cost<0.05]
+
+        ee_roll, ee_pitch, _ = torch_utils.get_euler_xyz(self.ee_state[:,3:7])
         
-        align_cost = torch.abs(hand_roll-math.pi) + torch.abs(hand_pitch-2*math.pi)
+        align_cost = torch.abs(ee_roll) + torch.abs(ee_pitch)
         
-        return  align_cost + 3*reach_cost + goal_cost
+        return  reach_cost + goal_cost #+ align_cost # 
 
     @mppi.handle_batch_input
     def _ik(self, u):
