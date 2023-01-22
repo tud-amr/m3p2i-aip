@@ -1,0 +1,5 @@
+physics_engine: 'physx'
+num_threads: 0
+compute_device_id: 0
+graphics_device_id: 0
+use_gpu: True

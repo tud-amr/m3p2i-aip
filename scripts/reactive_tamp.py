@@ -4,7 +4,7 @@ from isaacgym import gymtorch
 import torch
 from fusion_mppi import mppi, fusion_mppi
 from utils import env_conf, sim_init, data_transfer
-from params import params_boxer as params
+from params import params_utils
 import time
 import copy
 import socket, io
@@ -145,25 +145,28 @@ class REACTIVE_TAMP:
                             current_traj[:, 0] = rollouts[i][:, 2]     # y pos
                             conn.sendall(data_transfer.numpy_to_bytes(current_traj))
 
-reactive_tamp = REACTIVE_TAMP(allow_viewer = params.allow_viewer, 
-                              visualize_rollouts = params.visualize_rollouts, 
-                              task = params.task,
-                              num_envs = params.num_envs, 
-                              spacing = params.spacing, 
-                              robot = params.robot, 
-                              environment_type = params.environment_type,
-                              nx = params.nx, 
-                              noise_sigma = params.noise_sigma, 
-                              horizon = params.horizon, 
-                              lambda_ = params.lambda_, 
-                              device = params.device, 
-                              u_max = params.u_max, 
-                              u_min = params.u_min, 
-                              step_dependent_dynamics = params.step_dependent_dynamics,
-                              terminal_state_cost = params.terminal_state_cost, 
-                              sample_null_action = params.sample_null_action, 
-                              use_priors = params.use_priors, 
-                              use_vacuum = params.suction_active, 
-                              u_per_command = params.u_per_command, 
-                              filter_u = params.filter_u)
-reactive_tamp.run()
+if __name__== "__main__":
+    params = params_utils.load_params()
+    
+    reactive_tamp = REACTIVE_TAMP(allow_viewer = params.allow_viewer, 
+                                visualize_rollouts = params.visualize_rollouts, 
+                                task = params.task,
+                                num_envs = params.num_envs, 
+                                spacing = params.spacing, 
+                                robot = params.robot, 
+                                environment_type = params.environment_type,
+                                nx = params.nx, 
+                                noise_sigma = params.noise_sigma, 
+                                horizon = params.horizon, 
+                                lambda_ = params.lambda_, 
+                                device = params.device, 
+                                u_max = params.u_max, 
+                                u_min = params.u_min, 
+                                step_dependent_dynamics = params.step_dependent_dynamics,
+                                terminal_state_cost = params.terminal_state_cost, 
+                                sample_null_action = params.sample_null_action, 
+                                use_priors = params.use_priors, 
+                                use_vacuum = params.suction_active, 
+                                u_per_command = params.u_per_command, 
+                                filter_u = params.filter_u)
+    reactive_tamp.run()

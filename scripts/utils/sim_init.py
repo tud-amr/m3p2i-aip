@@ -5,10 +5,11 @@ import torch
 import numpy as np
 import utils.env_conf as env_conf
 import numpy as np
+import utils.path_utils as path_utils
+import os
 
 # Parse arguments
-args = gymutil.parse_arguments(description="Experiments")
-args.use_gpu = True
+args = path_utils.load_yaml(os.path.join(path_utils.get_params_path(),'physx.yml')) # dictionary
 
 # Configure sim
 def configure_sim(dt=0.05):
@@ -20,12 +21,12 @@ def configure_sim(dt=0.05):
     sim_params.up_axis = gymapi.UP_AXIS_Z
     sim_params.gravity = gymapi.Vec3(0.0, 0.0, -9.8)
     # Set PhysX-specific parameters
-    sim_params.use_gpu_pipeline = args.use_gpu
+    sim_params.use_gpu_pipeline = args['use_gpu']
     sim_params.physx.solver_type = 1
     sim_params.physx.num_position_iterations = 6
     sim_params.physx.num_velocity_iterations = 1
-    sim_params.physx.num_threads = args.num_threads
-    sim_params.physx.use_gpu = args.use_gpu
+    sim_params.physx.num_threads = args['num_threads']
+    sim_params.physx.use_gpu = args['use_gpu']
     sim_params.physx.contact_offset = 0.01
     sim_params.physx.rest_offset = 0.0
     return sim_params
@@ -34,7 +35,12 @@ def configure_sim(dt=0.05):
 def config_gym(viewer, dt):
     params = configure_sim(dt)
     gym = gymapi.acquire_gym()
-    sim = gym.create_sim(args.compute_device_id, args.graphics_device_id, args.physics_engine, params)
+    physics_engine = args['physics_engine']
+    if(physics_engine=='physx'):
+        physics_engine = gymapi.SIM_PHYSX
+    elif(physics_engine == 'flex'):
+        physics_engine = gymapi.SIM_FLEX
+    sim = gym.create_sim(args['compute_device_id'], args['graphics_device_id'], physics_engine, params)
     if viewer:
         viewer = gym.create_viewer(sim, gymapi.CameraProperties())
         # Subscribe to input events.
