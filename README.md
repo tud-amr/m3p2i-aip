@@ -32,21 +32,21 @@ conda acivate <env_name>
 Then you are ready to test a script:
 
 ````bash
-cd <path/to/your/isaac_gym_folder>/scripts
+cd <path/to/your/isaac_gym_folder>/scripts/examples
 python3 example_key.py
 ````
 With this script you can drive the robot around with ASDW keys. 
 
 If you want to test the MPPI, you will need two instances of Isaac Gym, one for the rollouts, and one for the "real system". Run the commands below in two terminals from the */scripts* folder: 
 ````
-python3 mppi_$(robot_type).py 
+python3 reactive_tamp.py --robot $(robot_type) 
 ````
 
 ````
-python3 sim.py
+python3 sim.py --robot $(robot_type)
 ````
 
-You can experiments with the arguments passed to the MPPI, such as sampling around prior controllers or null actions, as well as time horizon and number of samples. 
+You can experiments with the arguments passed to the MPPI, such as sampling around prior controllers or null actions, as well as time horizon and number of samples. The arguments and parameters can be modified in the */params* folder. 
 
 ## Troubleshooting
 If you have an Nvidia card and after running the simulation you get a black screen, you might need to force the use of the GPU card through ``export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json``. Run this command from the same folder as the script to be launched
