@@ -10,145 +10,153 @@ import socket
 torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 import matplotlib.pyplot as plt
 
-# Import parameters
-params = params_utils.load_params()
+class SIM():
+    def __init__(self, params) -> None:
+        # Make the environment and simulation
+        self.allow_viewer = params.sim_allow_viewer
+        self.num_envs = params.sim_num_envs
+        self.spacing = params.spacing
+        self.robot = params.robot
+        self.environment_type = params.environment_type
+        self.dt = params.dt
+        self.visualize_rollouts = params.visualize_rollouts
+        self.gym, self.sim, self.viewer, self.envs, _ = sim_init.make(self.allow_viewer, self.num_envs, self.spacing, self.robot, self.environment_type, dt = self.dt)
 
-# Make the environment and simulation
-allow_viewer = params.sim_allow_viewer
-num_envs = params.sim_num_envs
-spacing = params.spacing
-robot = params.robot
-environment_type = params.environment_type
-dt = params.dt
-visualize_rollouts = params.visualize_rollouts
-gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, spacing, robot, environment_type, dt = dt)
+        # Acquire states
+        self.dof_states, self.num_dofs, self.num_actors, self.root_states = sim_init.acquire_states(self.gym, self.sim, print_flag=False)
+        self.actors_per_env = int(self.num_actors/self.num_envs)
+        self.bodies_per_env = self.gym.get_env_rigid_body_count(self.envs[0])
 
-# Acquire states
-dof_states, num_dofs, num_actors, root_states = sim_init.acquire_states(gym, sim, print_flag=False)
-actors_per_env = int(num_actors/num_envs)
-bodies_per_env = gym.get_env_rigid_body_count(envs[0])
+        # Helper variables, same as in fusion_mppi
+        self.suction_active = params.suction_active
+        self.block_index = params.block_index
+        self.kp_suction = params.kp_suction
 
-# Helper variables, same as in fusion_mppi
-suction_active = params.suction_active
-block_index = params.block_index
-kp_suction = params.kp_suction
+        # Time logging
+        self.frame_count = 0
+        self.next_fps_report = 2.0
+        self.t1 = 0
+        self.count = 0
+        self.sim_time = np.array([])
 
-# Time logging
-frame_count = 0
-next_fps_report = 2.0
-t1 = 0
-count = 0
-sim_time = np.array([])
+        # Set server address
+        self.server_address = './uds_socket'
+    
+    def run(self):
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
+            s.connect(self.server_address)
+            t_prev = time.monotonic()
 
-# Set server address
-server_address = './uds_socket'
+            while self.viewer is None or not self.gym.query_viewer_has_closed(self.viewer):
+                # Send dof states to mppi and receive message
+                s.sendall(data_transfer.torch_to_bytes(self.dof_states))
+                message = s.recv(1024)
 
-with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
-    s.connect(server_address)
-    t_prev = time.monotonic()
+                # Send root states and receive optimal actions
+                s.sendall(data_transfer.torch_to_bytes(self.root_states))
+                b = s.recv(2**14)
+                actions = data_transfer.bytes_to_torch(b)
 
-    while viewer is None or not gym.query_viewer_has_closed(viewer):
-        # Send dof states to mppi and receive message
-        s.sendall(data_transfer.torch_to_bytes(dof_states))
-        message = s.recv(1024)
+                # Clear lines at the beginning
+                self.gym.clear_lines(self.viewer)
+                
+                # Visualize rollouts
+                if self.visualize_rollouts:
+                    s.sendall(b"Visualize rollouts")
+                    K = s.recv(1024)
+                    K = int(data_transfer.bytes_to_numpy(K))
+                    rollout_state = np.zeros((1, 2), dtype=np.float32)
+                    for i in range(K):
+                        s.sendall(b"next")
+                        _rollout_state = s.recv(2**18)
+                        rollout_state = data_transfer.bytes_to_numpy(_rollout_state)
+                        sim_init.visualize_rollouts(self.gym, self.viewer, self.envs[0], rollout_state)
 
-        # Send root states and receive optimal actions
-        s.sendall(data_transfer.torch_to_bytes(root_states))
-        b = s.recv(2**14)
-        actions = data_transfer.bytes_to_torch(b)
+                # Visualize optimal trajectory
+                #sim_init.visualize_traj(gym, viewer, envs[0], actions, dof_states)
 
-        # Clear lines at the beginning
-        gym.clear_lines(viewer)
-        
-        # Visualize rollouts
-        if visualize_rollouts:
-            s.sendall(b"Visualize rollouts")
-            K = s.recv(1024)
-            K = int(data_transfer.bytes_to_numpy(K))
-            rollout_states = np.zeros((1, 2), dtype=np.float32)
-            for i in range(K):
-                s.sendall(b"next")
-                _rollout_state = s.recv(2**18)
-                rollout_state = data_transfer.bytes_to_numpy(_rollout_state)
-                sim_init.visualize_rollouts(gym, viewer, envs[0], rollout_state)
+                self.action = actions[0]
+                if self.robot == 'boxer':
+                    r = 0.08
+                    L = 2*0.157
+                    # Diff drive fk
+                    action_fk = self.action.clone()
+                    action_fk[0] = (self.action[0] / r) - ((L*self.action[1])/(2*r))
+                    action_fk[1] = (self.action[0] / r) + ((L*self.action[1])/(2*r))
+                    self.action = action_fk
 
-        # Visualize optimal trajectory
-        #sim_init.visualize_traj(gym, viewer, envs[0], actions, dof_states)
+                if self.count == 0:
+                    self.action_seq = torch.zeros_like(self.action)
+                self.action_seq = torch.cat((self.action_seq, self.action), 0)
+                
+                # Apply optimal action
+                self.gym.set_dof_velocity_target_tensor(self.sim, gymtorch.unwrap_tensor(self.action))
 
-        action = actions[0]
-        if robot == 'boxer':
-            r = 0.08
-            L = 2*0.157
-            # Diff drive fk
-            action_fk = action.clone()
-            action_fk[0] = (action[0] / r) - ((L*action[1])/(2*r))
-            action_fk[1] = (action[0] / r) + ((L*action[1])/(2*r))
-            action = action_fk
+                actor_root_state = gymtorch.wrap_tensor(self.gym.acquire_actor_root_state_tensor(self.sim))
+                
+                if self.suction_active:  
+                    root_positions = torch.reshape(actor_root_state[:, 0:2], (self.num_envs, self.actors_per_env, 2))
+                    dof_pos = self.dof_states[:,0].reshape([self.num_envs, 2])
+                    # simulation of a magnetic/suction effect to attach to the box
+                    suction_force, _, _ = skill_utils.calculate_suction(root_positions[:, self.block_index, :], dof_pos, self.num_envs, self.kp_suction, self.block_index, self.bodies_per_env)
+                    # print(suction_force)
+                    # Apply suction/magnetic force
+                    self.gym.apply_rigid_body_force_tensors(self.sim, gymtorch.unwrap_tensor(torch.reshape(suction_force, (self.num_envs*self.bodies_per_env, 3))), None, gymapi.ENV_SPACE)
 
-        if 'action_seq' not in locals():
-            action_seq = torch.zeros_like(action)
+                # Update movement of dynamic obstacle
+                if self.environment_type == 'normal':
+                    sim_init.update_dyn_obs(self.gym, self.sim, self.num_actors, self.num_envs, self.count)
+                    self.count += 1
 
-        action_seq = torch.cat((action_seq, action), 0)
-        # Apply optimal action
-        gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(action))
+                # Step the similation
+                sim_init.step(self.gym, self.sim)
+                sim_init.refresh_states(self.gym, self.sim)
 
-        actor_root_state = gymtorch.wrap_tensor(gym.acquire_actor_root_state_tensor(sim))
-        root_positions = torch.reshape(actor_root_state[:, 0:2], (num_envs, actors_per_env, 2))
-        
-        if suction_active:  
-            dof_pos = dof_states[:,0].reshape([num_envs, 2])
-            # simulation of a magnetic/suction effect to attach to the box
-            suction_force, _, _ = skill_utils.calculate_suction(root_positions[:, block_index, :], dof_pos, num_envs, kp_suction, block_index, bodies_per_env)
-            print(suction_force)
-            # Apply suction/magnetic force
-            gym.apply_rigid_body_force_tensors(sim, gymtorch.unwrap_tensor(torch.reshape(suction_force, (num_envs*bodies_per_env, 3))), None, gymapi.ENV_SPACE)
+                # Step rendering
+                self.sim_time = np.append(self.sim_time, t_prev)
+                t_now = time.monotonic()
+                if (t_now - t_prev) < self.dt:
+                    sim_init.step_rendering(self.gym, self.sim, self.viewer, sync_frame_time=True)
+                else:
+                    sim_init.step_rendering(self.gym, self.sim, self.viewer, sync_frame_time=False)
+                t_prev = t_now
 
-        # Update movement of dynamic obstacle
-        if environment_type == 'normal':
-            sim_init.update_dyn_obs(gym, sim, num_actors, num_envs, count)
-            count += 1
+                self.next_fps_report, self.frame_count, self.t1 = sim_init.time_logging(self.gym, self.sim, self.next_fps_report, self.frame_count, self.t1, self.num_envs)
 
-        # Step the similation
-        sim_init.step(gym, sim)
-        sim_init.refresh_states(gym, sim)
+    def plot(self):
+        # Saving and plotting
+        self.sim_time-= self.sim_time[0]
+        self.sim_time = np.append(0, self.sim_time)
 
-        # Step rendering
-        sim_time = np.append(sim_time, t_prev)
-        t_now = time.monotonic()
-        if (t_now - t_prev) < dt:
-            sim_init.step_rendering(gym, sim, viewer, sync_frame_time=True)
-        else:
-            sim_init.step_rendering(gym, sim, viewer, sync_frame_time=False)
-        t_prev = t_now
+        num_dof = int(list(self.action.size())[0])
+        self.action_seq = self.action_seq.reshape(len(self.sim_time), num_dof)
+        ctrl_input = np.zeros([len(self.sim_time), num_dof])
 
-        next_fps_report, frame_count, t1 = sim_init.time_logging(gym, sim, next_fps_report, frame_count, t1, num_envs)
+        fig, axs = plt.subplots(num_dof)
+        fig.suptitle('Control Inputs')
+        plot_colors = ['hotpink','darkviolet','mediumblue']
 
-# Saving and plotting
-sim_time-= sim_time[0]
-sim_time = np.append(0, sim_time)
+        if self.robot == "point_robot" or self.robot == "heijn":
+            label = ['x_vel', 'y_vel', 'theta_vel']
+        elif self.robot == "boxer":
+            label = ['r_vel', 'l_vel']
 
-num_dof = int(list(action.size())[0])
-action_seq = action_seq.reshape(len(sim_time), num_dof)
-ctrl_input = np.zeros([len(sim_time), num_dof])
+        for j in range(num_dof):
+            ctrl_input[:,j] = self.action_seq[:,j].tolist()
+            axs[j].plot(self.sim_time, ctrl_input[:,j], color=plot_colors[j], marker=".")
+            axs[j].legend([label[j]])
+            axs[j].set(xlabel = 'Time [s]')
 
-fig, axs = plt.subplots(num_dof)
-fig.suptitle('Control Inputs')
-plot_colors = ['hotpink','darkviolet','mediumblue']
+        print("Avg. control frequency ", format(len(self.action_seq)/self.sim_time[-1], '.4f'))
+        plt.show()
 
-if robot == "point_robot" or robot == "heijn":
-    label = ['x_vel', 'y_vel', 'theta_vel']
-elif robot == "boxer":
-    label = ['r_vel', 'l_vel']
+    def destroy(self):
+        # Destroy the simulation
+        sim_init.destroy_sim(self.gym, self.sim, self.viewer)
 
-
-for j in range(num_dof):
-    ctrl_input[:,j] = action_seq[:,j].tolist()
-    axs[j].plot(sim_time, ctrl_input[:,j], color=plot_colors[j], marker=".")
-    axs[j].legend([label[j]])
-    axs[j].set(xlabel = 'Time [s]')
-
-print("Avg. control frequency", len(action_seq)/sim_time[-1])
-plt.show()
-
-# Destroy the simulation
-sim_init.destroy_sim(gym, sim, viewer)
+if __name__== "__main__":
+    params = params_utils.load_params()
+    sim = SIM(params)
+    sim.run()
+    sim.plot()
+    sim.destroy()

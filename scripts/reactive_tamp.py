@@ -26,16 +26,14 @@ class PLANNER_PATROLLING:
 
 
 class REACTIVE_TAMP:
-    def __init__(self, allow_viewer, visualize_rollouts, task, num_envs, spacing, robot, environment_type,
-                 nx, noise_sigma, horizon, lambda_, device, u_max, u_min, step_dependent_dynamics,
-                 terminal_state_cost, sample_null_action, use_priors, use_vacuum, u_per_command, filter_u) -> None:
+    def __init__(self, params) -> None:
         # Make the environment and simulation
-        self.allow_viewer = allow_viewer
-        self.visualize_rollouts = visualize_rollouts
-        self.num_envs = num_envs
-        self.spacing = spacing
-        self.robot = robot
-        self.environment_type = environment_type
+        self.allow_viewer = params.allow_viewer
+        self.visualize_rollouts = params.visualize_rollouts
+        self.num_envs = params.num_envs
+        self.spacing = params.spacing
+        self.robot = params.robot
+        self.environment_type = params.environment_type
         self.gym, self.sim, self.viewer, envs, _ = sim_init.make(self.allow_viewer, self.num_envs, self.spacing, self.robot, self.environment_type)
 
         # Acquire states
@@ -44,7 +42,7 @@ class REACTIVE_TAMP:
         bodies_per_env = self.gym.get_env_rigid_body_count(envs[0])
 
         # Choose the task planner
-        self.task = task
+        self.task = params.task
         if self.task == "Patrolling":
             self.task_planner = PLANNER_PATROLLING(goals = torch.tensor([[-3, -3], [3, -3], [3, 3], [-3, 3]], device="cuda:0"))
 
@@ -52,25 +50,25 @@ class REACTIVE_TAMP:
         self.motion_planner = fusion_mppi.FUSION_MPPI(
                             dynamics = None, 
                             running_cost = None, 
-                            nx = nx, 
-                            noise_sigma = noise_sigma,
+                            nx = params.nx, 
+                            noise_sigma = params.noise_sigma,
                             num_samples = self.num_envs, 
-                            horizon = horizon,
-                            lambda_ = lambda_, 
-                            device = device, 
-                            u_max = u_max,
-                            u_min = u_min,
-                            step_dependent_dynamics = step_dependent_dynamics,
-                            terminal_state_cost = terminal_state_cost,
-                            sample_null_action = sample_null_action,
-                            use_priors = use_priors,
-                            use_vacuum = use_vacuum,
+                            horizon = params.horizon,
+                            lambda_ = params.lambda_, 
+                            device = params.device, 
+                            u_max = params.u_max,
+                            u_min = params.u_min,
+                            step_dependent_dynamics = params.step_dependent_dynamics,
+                            terminal_state_cost = params.terminal_state_cost,
+                            sample_null_action = params.sample_null_action,
+                            use_priors = params.use_priors,
+                            use_vacuum = params.suction_active,
                             robot_type = self.robot,
-                            u_per_command = u_per_command,
+                            u_per_command = params.u_per_command,
                             actors_per_env = actors_per_env,
                             env_type = self.environment_type,
                             bodies_per_env = bodies_per_env,
-                            filter_u = filter_u
+                            filter_u = params.filter_u
                             )
         
         # Make sure the socket does not already exist
@@ -147,26 +145,5 @@ class REACTIVE_TAMP:
 
 if __name__== "__main__":
     params = params_utils.load_params()
-    
-    reactive_tamp = REACTIVE_TAMP(allow_viewer = params.allow_viewer, 
-                                visualize_rollouts = params.visualize_rollouts, 
-                                task = params.task,
-                                num_envs = params.num_envs, 
-                                spacing = params.spacing, 
-                                robot = params.robot, 
-                                environment_type = params.environment_type,
-                                nx = params.nx, 
-                                noise_sigma = params.noise_sigma, 
-                                horizon = params.horizon, 
-                                lambda_ = params.lambda_, 
-                                device = params.device, 
-                                u_max = params.u_max, 
-                                u_min = params.u_min, 
-                                step_dependent_dynamics = params.step_dependent_dynamics,
-                                terminal_state_cost = params.terminal_state_cost, 
-                                sample_null_action = params.sample_null_action, 
-                                use_priors = params.use_priors, 
-                                use_vacuum = params.suction_active, 
-                                u_per_command = params.u_per_command, 
-                                filter_u = params.filter_u)
+    reactive_tamp = REACTIVE_TAMP(params)
     reactive_tamp.run()
