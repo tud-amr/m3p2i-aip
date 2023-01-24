@@ -10,6 +10,7 @@ torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 import matplotlib.pyplot as plt
 
 # Make the environment and simulation
+log_data = False                    # Set true for plots of control inputs and other stats
 allow_viewer = True
 num_envs = 1 
 spacing = 10.0
@@ -129,31 +130,35 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
         next_fps_report, frame_count, t1 = sim_init.time_logging(gym, sim, next_fps_report, frame_count, t1, num_envs)
 
 # Saving and plotting
-sim_time-= sim_time[0]
-sim_time = np.append(0, sim_time)
+if log_data:
+    sim_time-= sim_time[0]
+    sim_time = np.append(0, sim_time)
 
-num_dof = int(list(action.size())[0])
-action_seq = action_seq.reshape(len(sim_time), num_dof)
-ctrl_input = np.zeros([len(sim_time), num_dof])
+    num_dof = int(list(action.size())[0])
+    action_seq = action_seq.reshape(len(sim_time), num_dof)
+    ctrl_input = np.zeros([len(sim_time), num_dof])
 
-fig, axs = plt.subplots(num_dof)
-fig.suptitle('Control Inputs')
-plot_colors = ['hotpink','darkviolet','mediumblue']
+    fig, axs = plt.subplots(num_dof)
+    fig.suptitle('Control Inputs')
+    plot_colors = ['hotpink','darkviolet','mediumblue']
 
-if robot == "point_robot" or robot == "heijn":
-    label = ['x_vel', 'y_vel', 'theta_vel']
-elif robot == "boxer":
-    label = ['r_vel', 'l_vel']
+    if robot == "point_robot" or robot == "heijn":
+        label = ['x_vel', 'y_vel', 'theta_vel']
+    elif robot == "boxer":
+        label = ['r_vel', 'l_vel']
+    elif robot == "panda":
+        label = ['joint1', 'joint2', 'joint3', 'joint4', 'joint5', 'joint6', 'joint7', 'left_f', 'right_f']
+    elif robot == "omni_panda":
+        label = ['x_vel', 'y_vel', 'theta_vel','joint1', 'joint2', 'joint3', 'joint4', 'joint5', 'joint6', 'joint7', 'left_f', 'right_f']
 
+    for j in range(num_dof):
+        ctrl_input[:,j] = action_seq[:,j].tolist()
+        axs[j].plot(sim_time, ctrl_input[:,j], color=plot_colors[1], marker=".")
+        axs[j].legend([label[j]])
+        axs[j].set(xlabel = 'Time [s]')
 
-for j in range(num_dof):
-    ctrl_input[:,j] = action_seq[:,j].tolist()
-    axs[j].plot(sim_time, ctrl_input[:,j], color=plot_colors[j], marker=".")
-    axs[j].legend([label[j]])
-    axs[j].set(xlabel = 'Time [s]')
-
-print("Avg. control frequency", len(action_seq)/sim_time[-1])
-plt.show()
+    print("Avg. control frequency", len(action_seq)/sim_time[-1])
+    plt.show()
 
 # Destroy the simulation
 sim_init.destroy_sim(gym, sim, viewer)

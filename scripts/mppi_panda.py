@@ -94,7 +94,7 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
             _root_states = data_transfer.bytes_to_torch(r).repeat(num_envs, 1)
 
             # Reset the simulator to requested state
-            s = _dof_states.view(-1, 4) # [x, v_x, y, v_y]
+            s = _dof_states.view(-1, 18) 
             gym.set_dof_state_tensor(sim, gymtorch.unwrap_tensor(s))
             gym.set_actor_root_state_tensor(sim, gymtorch.unwrap_tensor(_root_states))
             sim_init.refresh_states(gym, sim)
