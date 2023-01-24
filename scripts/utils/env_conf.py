@@ -63,10 +63,10 @@ table_pose.p = gymapi.Vec3(0.5, 0.0, 0.5 * table_dims.z)
 
 shelves_dims = gymapi.Vec3(0.6, 1.0, 1.5)
 shelf_pose = gymapi.Transform()
-shelf_pose.p = gymapi.Vec3(1, -0.5*shelves_dims.y, 0)
+shelf_pose.p = gymapi.Vec3(1.85, 3-0.5*shelves_dims.y, 0)
 
 
-box_size = 0.03
+box_size = 0.04
 box_pose = gymapi.Transform()
 box_pose.p.x = table_pose.p.x + np.random.uniform(-0.2, 0.1)
 box_pose.p.y = table_pose.p.y + np.random.uniform(-0.3, 0.3)
@@ -346,7 +346,7 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, e
             asset_options = gymapi.AssetOptions()
             asset_options.fix_base_link = True
             table_asset = gym.create_box(sim, table_dims.x, table_dims.y, table_dims.z, asset_options)
-            #table_handle = gym.create_actor(env, table_asset, table_pose, "table", i, 0)
+            table_handle = gym.create_actor(env, table_asset, table_pose, "table", i, 0)
             shelf_handle = gym.create_actor(env, shelf_asset, shelf_pose, "shelf", i, 0)
 
             # add box

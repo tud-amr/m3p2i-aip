@@ -77,15 +77,15 @@ class FUSION_MPPI(mppi.MPPI):
                 self.block_index = 1
                 self.ee_index = 10
             elif robot_type == 'omni_panda':
-                self.hand_index = 15 # Panda hand index in lab environment
-                self.block_index = 1
-                self.ee_index = 14
+                self.hand_index = 16 # Panda hand index in lab environment
+                self.block_index = 2
+                self.ee_index = 15
                 for i in range(self.num_envs):
                     self.hand_indexes[i] = self.hand_index + i*self.bodies_per_env
                     self.block_indexes[i] = self.block_index + i*self.bodies_per_env
                     self.ee_indexes[i] = self.ee_index + i*self.bodies_per_env
 
-        self.block_goal = torch.tensor([0.5, -0.3, 0.8], device="cuda:0")
+        self.block_goal = torch.tensor([1.5, 3, 0.6], device="cuda:0")
         self.block_not_goal = torch.tensor([-2, 1], device="cuda:0")
         self.nav_goal = torch.tensor([3, 3], device="cuda:0")
         self.panda_hand_goal = torch.tensor([0.5, 0, 0.7, 1, 0, 0, 0], device="cuda:0")
@@ -158,12 +158,12 @@ class FUSION_MPPI(mppi.MPPI):
         block_state = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))[self.block_indexes, 0:7]
         self.ee_state = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))[self.ee_indexes, 0:7]
         reach_cost = torch.linalg.norm(self.ee_state[:,0:3] - block_state[:,0:3], axis = 1) 
-        goal_cost = torch.linalg.norm(self.block_goal[0:3] - block_state[:,0:3], axis = 1) + 2*torch.abs(self.block_goal[2] - block_state[:,2])
+        goal_cost = torch.linalg.norm(self.block_goal[0:3] - block_state[:,0:3], axis = 1) #+ 2*torch.abs(self.block_goal[2] - block_state[:,2])
         # reach_cost[reach_cost<0.05] = 0*reach_cost[reach_cost<0.05]
 
         ee_roll, ee_pitch, _ = torch_utils.get_euler_xyz(self.ee_state[:,3:7])
         
-        align_cost = torch.abs(ee_roll) + torch.abs(ee_pitch)
+        #align_cost = torch.abs(ee_roll) + torch.abs(ee_pitch)
         
         return  reach_cost + goal_cost #+ align_cost # 
 
@@ -298,13 +298,20 @@ class FUSION_MPPI(mppi.MPPI):
         elif self.env_type == 'lab':
             obst_up_to = 4 
         elif self.env_type == 'table':
-            obst_up_to = 1
+            obst_up_to = 2
 
-        coll_cost = torch.sum(net_cf.reshape([self.num_envs, int(net_cf.size(dim=0)/self.num_envs)])[:,0:obst_up_to], 1)
+        coll_cost = 10*torch.sum(net_cf.reshape([self.num_envs, int(net_cf.size(dim=0)/self.num_envs)])[:,0:obst_up_to], 1)
+        # add collision cost fingers not ro
+        if self.robot == 'panda' or self.robot == 'omni_panda':
+            gripper_force_cost = torch.sum(0.01*net_cf.reshape([self.num_envs, int(net_cf.size(dim=0)/self.num_envs)])[:,self.bodies_per_env-2:-1],1)
+            coll_cost += gripper_force_cost
 
+        print(self.bodies_per_env)
+        
         w_c = 1000 # Weight for collisions
         # Binary check for collisions. So far checking all collision with unmovable obstacles. Movable obstacles touching unmovable ones are considered collisions       
-        coll_cost[coll_cost<=0.1] = 0
+        #coll_cost[coll_cost<=0.1] = 0
+        
         if self.robot == 'boxer':
             task_cost = self.get_navigation_cost(state[:, :2])
             #task_cost = self.get_push_cost(state[:, :2])

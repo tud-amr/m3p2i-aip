@@ -311,11 +311,14 @@ class MPPI():
         for t in range(T):
             u = self.u_scale * perturbed_actions[:, t].repeat(self.M, 1, 1)
             
-            # Last rollout is a breaking manover
+            # Last rollout is a braking manover
             if self.sample_null_action:
                 u[:, self.K -1, :] = torch.zeros_like(u[:, self.K -1, :])
                 # Update perturbed action sequence for later use in cost computation
                 self.perturbed_action[self.K - 1][t] = u[:, self.K -1, :]
+            
+            # Sample open and close fingers with panda
+            
 
             if self.use_priors:
                 u = self._priors_command(state, u, t, root_positions)
