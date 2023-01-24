@@ -62,6 +62,7 @@ class FUSION_MPPI(mppi.MPPI):
         self.env_type = env_type
         self.device = device
 
+        self.block_goal = torch.tensor([1.5, 3, 0.6], device="cuda:0")
 
         # Additional variables for the environment or robot
         if self.env_type == "normal":
@@ -69,23 +70,20 @@ class FUSION_MPPI(mppi.MPPI):
         if self.env_type == "lab":
             self.block_index = 4  
         if self.env_type == 'table':
-            self.hand_indexes = np.zeros(self.num_envs)
             self.block_indexes = np.zeros(self.num_envs)
             self.ee_indexes = np.zeros(self.num_envs)
             if robot_type == 'panda':
-                self.hand_index = 10 # Panda hand index in lab environment
-                self.block_index = 1
-                self.ee_index = 10
+                self.block_index = 2
+                self.ee_index = 11
+                self.block_goal = torch.tensor([0.5, 0, 0.8], device="cuda:0")
             elif robot_type == 'omni_panda':
-                self.hand_index = 16 # Panda hand index in lab environment
                 self.block_index = 2
                 self.ee_index = 15
-                for i in range(self.num_envs):
-                    self.hand_indexes[i] = self.hand_index + i*self.bodies_per_env
-                    self.block_indexes[i] = self.block_index + i*self.bodies_per_env
-                    self.ee_indexes[i] = self.ee_index + i*self.bodies_per_env
+                self.block_goal = torch.tensor([1.5, 3, 0.6], device="cuda:0")
+            for i in range(self.num_envs):
+                self.block_indexes[i] = self.block_index + i*self.bodies_per_env
+                self.ee_indexes[i] = self.ee_index + i*self.bodies_per_env
 
-        self.block_goal = torch.tensor([1.5, 3, 0.6], device="cuda:0")
         self.block_not_goal = torch.tensor([-2, 1], device="cuda:0")
         self.nav_goal = torch.tensor([3, 3], device="cuda:0")
         self.panda_hand_goal = torch.tensor([0.5, 0, 0.7, 1, 0, 0, 0], device="cuda:0")
@@ -154,14 +152,13 @@ class FUSION_MPPI(mppi.MPPI):
         return torch.linalg.norm(r_pos - block_pos, axis = 1) + non_goal_cost
 
     def get_panda_cost(self, joint_pos):
-        # hand_state = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))[self.hand_indexes, 0:7]
         block_state = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))[self.block_indexes, 0:7]
         self.ee_state = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))[self.ee_indexes, 0:7]
         reach_cost = torch.linalg.norm(self.ee_state[:,0:3] - block_state[:,0:3], axis = 1) 
         goal_cost = torch.linalg.norm(self.block_goal[0:3] - block_state[:,0:3], axis = 1) #+ 2*torch.abs(self.block_goal[2] - block_state[:,2])
         # reach_cost[reach_cost<0.05] = 0*reach_cost[reach_cost<0.05]
 
-        ee_roll, ee_pitch, _ = torch_utils.get_euler_xyz(self.ee_state[:,3:7])
+        #ee_roll, ee_pitch, _ = torch_utils.get_euler_xyz(self.ee_state[:,3:7])
         
         #align_cost = torch.abs(ee_roll) + torch.abs(ee_pitch)
         
@@ -305,8 +302,6 @@ class FUSION_MPPI(mppi.MPPI):
         if self.robot == 'panda' or self.robot == 'omni_panda':
             gripper_force_cost = torch.sum(0.01*net_cf.reshape([self.num_envs, int(net_cf.size(dim=0)/self.num_envs)])[:,self.bodies_per_env-2:-1],1)
             coll_cost += gripper_force_cost
-
-        print(self.bodies_per_env)
         
         w_c = 1000 # Weight for collisions
         # Binary check for collisions. So far checking all collision with unmovable obstacles. Movable obstacles touching unmovable ones are considered collisions       
