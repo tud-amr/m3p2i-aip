@@ -210,6 +210,12 @@ class MPPI():
             else:
                 self.sgf_window = 10
             self.sgf_order = 2
+        elif robot == "omni_panda":
+            if self.T < 20:
+                self.sgf_window = self.T
+            else:
+                self.sgf_window = 10
+            self.sgf_order = 2
 
 
         # Initialize fabrics prior

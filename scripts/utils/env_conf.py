@@ -121,6 +121,8 @@ def load_robot(robot, gym, sim):
         robot_asset = load_husky(gym, sim)
     elif robot == "heijn":
         robot_asset = load_heijn(gym, sim)
+    elif robot == "omni_panda":
+        robot_asset = load_omni_panda(gym, sim)
     else:
         print("Invalid robot type")
     return robot_asset
@@ -197,6 +199,25 @@ def load_panda(gym, sim):
     franka_dof_props["damping"][7:].fill(40.0)
 
     return franka_asset
+
+def load_omni_panda(gym, sim):
+    # Load asset
+    asset_root = "../assets"
+    omni_panda_asset_file = "urdf/omni_panda/omniPandaWithGripper.urdf"
+
+    asset_options = gymapi.AssetOptions()
+    asset_options.armature = 0.01
+    asset_options.fix_base_link = True
+    asset_options.disable_gravity = True
+    asset_options.flip_visual_attachments = True
+    omni_panda_asset = gym.load_asset(sim, asset_root, omni_panda_asset_file, asset_options)
+    # configure omni_panda dofs
+    omni_panda_dof_props = gym.get_asset_dof_properties(omni_panda_asset)
+    omni_panda_dof_props["driveMode"][10:].fill(gymapi.DOF_MODE_VEL)
+    omni_panda_dof_props["stiffness"][10:].fill(800.0)
+    omni_panda_dof_props["damping"][10:].fill(40.0)
+
+    return omni_panda_asset
 
 def load_husky(gym, sim):
     # Load asset
@@ -358,12 +379,10 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, e
             # default dof states and position targets
             franka_num_dofs = gym.get_asset_dof_count(robot_asset)
             default_dof_pos = np.zeros(franka_num_dofs, dtype=np.float32)
-            default_dof_pos[:7] = franka_mids[:7]
+            default_dof_pos[:10] = franka_mids[:10]
             # grippers open
-            default_dof_pos[7:] = franka_upper_limits[7:]
+            default_dof_pos[10:] = franka_upper_limits[10:]
 
-            default_dof_state = np.zeros(franka_num_dofs, gymapi.DofState.dtype)
-            default_dof_state["pos"] = default_dof_pos
             default_dof_state = np.zeros(franka_num_dofs, gymapi.DofState.dtype)
             default_dof_state["pos"] = default_dof_pos
 
