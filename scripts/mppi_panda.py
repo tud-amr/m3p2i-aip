@@ -16,7 +16,7 @@ visualize_rollouts = False
 num_envs = 1000
 spacing = 2.0
 robot = "panda"                     # choose from "point_robot", "boxer", "albert", "panda"
-environment_type = "store"          # choose from "normal", "battery", "store"
+environment_type = "store"          # choose from "arena", "battery", "store"
 control_type = "vel_control"        # choose from "vel_control", "pos_control", "force_control"
 gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, spacing, robot, environment_type, control_type)
 

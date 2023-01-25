@@ -83,7 +83,7 @@ class MPPI():
                  robot='point_robot',
                  noise_abs_cost=False,
                  actors_per_env=None,
-                 env_type='normal', 
+                 env_type='arena', 
                  bodies_per_env=None,
                  filter_u=True):
         """
@@ -255,6 +255,7 @@ class MPPI():
         
         for t in range(self.T):
             self.U[t] += torch.sum(self.omega.view(-1, 1) * self.noise[:, t], dim=0)
+
         action = self.U[:self.u_per_command]
         # reduce dimensionality if we only need the first command
         if self.u_per_command == 1:
@@ -269,6 +270,9 @@ class MPPI():
             u_filtered = signal.savgol_filter(u_, self.sgf_window, self.sgf_order, deriv=0, delta=1.0, axis=0, mode='interp', cval=0.0)
             action = torch.from_numpy(u_filtered).to('cuda')
 
+        # if self.robot == "panda" or self.robot == "omni_panda": # Force gripper actions ot be the same
+        #     action[:, self.nu - 2] = action[:,-1]
+        
         return action
 
     def reset(self):
@@ -300,11 +304,11 @@ class MPPI():
         actor_root_state = gymtorch.wrap_tensor(self.gym.acquire_actor_root_state_tensor(self.sim))
         self.gym.refresh_actor_root_state_tensor(self.sim)
         
-        if self.env_type == "normal":
+        if self.env_type == "arena":
             root_positions = actor_root_state[:, 0:3]
-            root_velocitys = actor_root_state[:, 7:10]
+            root_velocities = actor_root_state[:, 7:10]
             root_pos = torch.reshape(root_positions[:, 0:2], (self.num_envs, self.actors_per_env, 2))
-            root_vel = torch.reshape(root_velocitys[:, 0:2], (self.num_envs, self.actors_per_env, 2))
+            root_vel = torch.reshape(root_velocities[:, 0:2], (self.num_envs, self.actors_per_env, 2))
             dyn_obs_pos = root_pos[:, 5, :]
             dyn_obs_vel = root_vel[:, 5, :]
 
@@ -329,7 +333,7 @@ class MPPI():
             self.perturbed_action[:,t] = u
             cost_samples += c
             
-            if self.env_type == 'normal':
+            if self.env_type == 'arena':
                 # Add cost of the dynamic obstacle
                 penalty_factor = 2 # the larger the factor, the more penalty to geting close to the obs
                 dyn_obs_cost = self._predict_dyn_obs(penalty_factor, state[0], dyn_obs_pos, dyn_obs_vel, t+1)
@@ -429,8 +433,8 @@ class MPPI():
         # broadcast own control to noise over samples; now it's K x T x nu
         self.perturbed_action = self.U + self.noise
         
-        # if self.robot == "panda":
-        #     self.perturbed_action[:,-1] = - self.perturbed_action[:,self.nu - 2]
+        # if self.robot == "panda" or self.robot == "omni_panda":     # force gripper vel to be dependant on eachother
+        #     self.perturbed_action[:,:,self.nu - 2] = self.perturbed_action[:,:,-1]
 
         # naively bound control
         self.perturbed_action = self._bound_action(self.perturbed_action)

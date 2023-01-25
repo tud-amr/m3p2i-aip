@@ -1,0 +1,35 @@
+<?xml version="1.0" ?>
+<robot name="AH_hagelslag_aruco_0">
+  <link name="AH_hagelslag_aruco_0__link_0">
+    <inertial>
+      <mass value="0.3"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia ixx="1.4e-03" ixy="0" ixz="0" iyy="1.4e-03" iyz="0" izz="2.8e-03"/>
+    </inertial>
+    <collision name="AH_hagelslag_aruco_0__collision">
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="objects/AH_hagelslag_aruco_0/meshes/AH_hagelslag_puur_aruco_0.dae" scale="1 1 1"/>
+      </geometry>
+     <surface>
+        <friction>
+          <ode>
+            <mu>100000.0</mu>
+            <mu2>100000.0</mu2>
+          </ode>
+        </friction>
+        <contact>
+          <ode>
+            <min_depth>0.005</min_depth>
+          </ode>
+        </contact>
+      </surface>
+    </collision>
+    <visual name="AH_hagelslag_aruco_0__visual">
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="objects/AH_hagelslag_aruco_0/meshes/AH_hagelslag_puur_aruco_0.dae" scale="1 1 1"/>
+      </geometry>
+    </visual>
+  </link>
+</robot>

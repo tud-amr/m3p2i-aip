@@ -9,7 +9,7 @@ allow_viewer = True
 num_envs = 100
 spacing = 1.5
 robot = "omni_panda"                     # "point_robot", "boxer", "husky", "albert", and "heijn", "panda"
-environment_type = "table"            # choose from "normal", "battery"
+environment_type = "table"            # choose from "arena", "battery"
 control_type = "vel_control"        # choose from "vel_control", "pos_control", "force_control"
 
 # Time logging

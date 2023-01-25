@@ -25,7 +25,7 @@ class FUSION_MPPI(mppi.MPPI):
                     robot_type='point_robot',
                     noise_abs_cost=False,
                     actors_per_env=None, 
-                    env_type="normal",
+                    env_type="arena",
                     bodies_per_env=None,
                     filter_u=True):
         super().__init__(dynamics, running_cost, nx, noise_sigma, num_samples, horizon, device, 
@@ -65,7 +65,7 @@ class FUSION_MPPI(mppi.MPPI):
         self.block_goal = torch.tensor([1.5, 3, 0.6], device="cuda:0")
 
         # Additional variables for the environment or robot
-        if self.env_type == "normal":
+        if self.env_type == "arena":
             self.block_index = 7   # Pushing purple blox, index according to simulation
         if self.env_type == "lab":
             self.block_index = 4  
@@ -290,7 +290,7 @@ class FUSION_MPPI(mppi.MPPI):
         # Take only forces in x,y in modulus for each environment. Avoid all collisions
         net_cf = torch.sum(torch.abs(torch.cat((net_cf[:, 0].unsqueeze(1), net_cf[:, 1].unsqueeze(1)), 1)),1)
         # The last actors are allowed to collide with eachother (movabable obstacles and robot), check depending on the amount of actors
-        if self.env_type == 'normal':   
+        if self.env_type == 'arena':   
             obst_up_to = 6
         elif self.env_type == 'lab':
             obst_up_to = 4 

@@ -110,7 +110,7 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
             gym.apply_rigid_body_force_tensors(sim, gymtorch.unwrap_tensor(torch.reshape(suction_force, (num_envs*bodies_per_env, 3))), None, gymapi.ENV_SPACE)
 
         # Update movement of dynamic obstacle
-        if environment_type == 'normal':
+        if environment_type == 'arena':
             sim_init.update_dyn_obs(gym, sim, num_actors, num_envs, count)
             count += 1
 

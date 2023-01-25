@@ -72,6 +72,15 @@ box_pose.p.y = table_pose.p.y
 box_pose.p.z = table_dims.z + 0.5 * box_size
 box_pose.r = gymapi.Quat.from_axis_angle(gymapi.Vec3(0, 0, 1), np.random.uniform(-math.pi, math.pi))
 
+product_pose = gymapi.Transform()
+product_pose.p.x = table_pose.p.x 
+product_pose.p.y = table_pose.p.y 
+product_pose.p.z = table_dims.z + 0.08
+product_pose.r.x = 0.7068252
+product_pose.r.y = 0
+product_pose.r.z = 0
+product_pose.r.w = 0.7068252
+
 envs = []
 box_idxs = []
 hand_idxs = []
@@ -261,6 +270,17 @@ def load_mug(gym, sim):
     mug_asset = gym.load_asset(sim, "../assets", mug_asset_file, asset_options)
     return mug_asset
 
+def load_hageslag(gym, sim):
+    asset_options = gymapi.AssetOptions()
+    asset_options.fix_base_link = False
+    asset_options.vhacd_enabled = True
+    asset_options.vhacd_params = gymapi.VhacdParams()
+    asset_options.vhacd_params.resolution = 10
+
+    hageslag_asset_file = "urdf/objects/AH_hagelslag_aruco_0/hageslag_0.urdf"
+    hageslag_asset = gym.load_asset(sim, "../assets", hageslag_asset_file, asset_options)
+    return hageslag_asset
+
 def load_shelf(gym, sim):
     asset_options = gymapi.AssetOptions()
     asset_options.fix_base_link = True
@@ -273,7 +293,7 @@ def load_shelf(gym, sim):
     return shelf_asset
 
 def add_obstacles(sim, gym, env, environment_type, index):
-    if environment_type == "normal":
+    if environment_type == "arena":
         # add fixed obstacle
         obstacle_handle = add_box(sim, gym, env, 0.3, 0.4, 0.5, obstacle_pose, color_vec_fixed, True, "obstacle", index)
         dyn_obs_handle = add_box(sim, gym, env,0.4, 0.4, 0.1, dyn_obs_pose, color_vec_dyn_obs, False, "dyn_obs", index)
@@ -315,7 +335,7 @@ def add_obstacles(sim, gym, env, environment_type, index):
     else:
         print("Invalid environment type")
 
-def add_store(sim, gym, env, table_asset, shelf_asset, index):
+def add_store(sim, gym, env, table_asset, shelf_asset, product_asset, index):
 
     # add table and shelf
     table_handle = gym.create_actor(env, table_asset, table_pose, "table", index, 0)
@@ -324,6 +344,7 @@ def add_store(sim, gym, env, table_asset, shelf_asset, index):
     box_handle = add_box(sim, gym, env, box_size, box_size, box_size, box_pose, color_vec_crate, False, "product", index)
 
     # mug_handle = gym.create_actor(env, mug_asset, box_pose, "mug", i, 0)
+    #product_handle = gym.create_actor(env, product_asset, product_pose, "product", index, 0)
 
 def get_default_franka_state(gym, robot_asset):
 
@@ -353,15 +374,16 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, e
     gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(1.5, 6, 8), gymapi.Vec3(1.5, 0, 0))
     
     # Environment specific parameters and assets
-    if environment_type == "normal" or environment_type == "battery":
+    if environment_type == "arena" or environment_type == "battery":
         wall_size = 8
         wall_thickness = 0.1
-    if environment_type == "lab":
+    elif environment_type == "lab":
         wall_size = 5
         wall_thickness = 0.05
-    if environment_type == "store":
+    elif environment_type == "store":
         gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(0, 1, 1.5), gymapi.Vec3(0.5, 0., 0.5))
         mug_asset = load_mug(gym, sim)
+        hageslag_asset = load_hageslag(gym, sim)
         shelf_asset = load_shelf(gym, sim)
         asset_options = gymapi.AssetOptions()
         asset_options.fix_base_link = True
@@ -373,17 +395,12 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, e
         envs.append(env)
         
         if environment_type == "store":
-
-            add_store(sim, gym, env, table_asset, shelf_asset, i)
-            # add franka
+            add_store(sim, gym, env, table_asset, shelf_asset, hageslag_asset, i)
             robot_handle = gym.create_actor(env, robot_asset, franka_pose, "franka", i, 2)
-            
             # configure franka dofs
             if 'default_dof_state' not in locals():
                 default_dof_state = get_default_franka_state(gym, robot_asset)
-
             gym.set_actor_dof_states(env, robot_handle, default_dof_state, gymapi.STATE_ALL)
-
         else:
             add_arena(sim, gym, env, wall_size, wall_thickness, 0, 0, i) # Wall size, wall thickness, origin_x, origin_y, index
             # Add obstacles
