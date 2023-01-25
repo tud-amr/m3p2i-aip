@@ -69,7 +69,7 @@ class FUSION_MPPI(mppi.MPPI):
             self.block_index = 7   # Pushing purple blox, index according to simulation
         if self.env_type == "lab":
             self.block_index = 4  
-        if self.env_type == 'table':
+        if self.env_type == 'store':
             self.block_indexes = np.zeros(self.num_envs)
             self.ee_indexes = np.zeros(self.num_envs)
             if robot_type == 'panda':
@@ -294,7 +294,7 @@ class FUSION_MPPI(mppi.MPPI):
             obst_up_to = 6
         elif self.env_type == 'lab':
             obst_up_to = 4 
-        elif self.env_type == 'table':
+        elif self.env_type == 'store':
             obst_up_to = 2
 
         coll_cost = 10*torch.sum(net_cf.reshape([self.num_envs, int(net_cf.size(dim=0)/self.num_envs)])[:,0:obst_up_to], 1)

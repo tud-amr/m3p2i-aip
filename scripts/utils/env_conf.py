@@ -65,12 +65,11 @@ shelves_dims = gymapi.Vec3(0.6, 1.0, 1.5)
 shelf_pose = gymapi.Transform()
 shelf_pose.p = gymapi.Vec3(1.85, 3-0.5*shelves_dims.y, 0)
 
-
 box_size = 0.04
 box_pose = gymapi.Transform()
-box_pose.p.x = table_pose.p.x + np.random.uniform(-0.2, 0.1)
-box_pose.p.y = table_pose.p.y + np.random.uniform(-0.3, 0.3)
-box_pose.p.z = table_pose.p.z + 0.2
+box_pose.p.x = table_pose.p.x 
+box_pose.p.y = table_pose.p.y 
+box_pose.p.z = table_dims.z + 0.5 * box_size
 box_pose.r = gymapi.Quat.from_axis_angle(gymapi.Vec3(0, 0, 1), np.random.uniform(-math.pi, math.pi))
 
 envs = []
@@ -315,7 +314,36 @@ def add_obstacles(sim, gym, env, environment_type, index):
         gym.set_actor_rigid_body_properties(env, crate_handle, crate_props)      
     else:
         print("Invalid environment type")
-    
+
+def add_store(sim, gym, env, table_asset, shelf_asset, index):
+
+    # add table and shelf
+    table_handle = gym.create_actor(env, table_asset, table_pose, "table", index, 0)
+    shelf_handle = gym.create_actor(env, shelf_asset, shelf_pose, "shelf", index, 0)
+
+    box_handle = add_box(sim, gym, env, box_size, box_size, box_size, box_pose, color_vec_crate, False, "product", index)
+
+    # mug_handle = gym.create_actor(env, mug_asset, box_pose, "mug", i, 0)
+
+def get_default_franka_state(gym, robot_asset):
+
+    franka_dof_props = gym.get_asset_dof_properties(robot_asset)
+    franka_lower_limits = franka_dof_props["lower"]
+    franka_upper_limits = franka_dof_props["upper"]
+    franka_mids = 0.5 * (franka_upper_limits + franka_lower_limits)
+
+    # default dof states and position targets
+    franka_num_dofs = gym.get_asset_dof_count(robot_asset)
+    default_dof_pos = np.zeros(franka_num_dofs, dtype=np.float32)
+    default_dof_pos[:10] = franka_mids[:10]
+    # grippers open
+    default_dof_pos[10:] = franka_upper_limits[10:]
+
+    default_dof_state = np.zeros(franka_num_dofs, gymapi.DofState.dtype)
+    default_dof_state["pos"] = default_dof_pos
+
+    return default_dof_state
+
 def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, environment_type, control_type = "vel_control"):
     # Some common handles for later use
     envs = []
@@ -323,68 +351,36 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, e
     print("Creating %d environments" % num_envs)
     num_per_row = int(math.sqrt(num_envs))
     gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(1.5, 6, 8), gymapi.Vec3(1.5, 0, 0))
-
-    if environment_type == "table":
+    
+    # Environment specific parameters and assets
+    if environment_type == "normal" or environment_type == "battery":
+        wall_size = 8
+        wall_thickness = 0.1
+    if environment_type == "lab":
+        wall_size = 5
+        wall_thickness = 0.05
+    if environment_type == "store":
         gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(0, 1, 1.5), gymapi.Vec3(0.5, 0., 0.5))
         mug_asset = load_mug(gym, sim)
         shelf_asset = load_shelf(gym, sim)
+        asset_options = gymapi.AssetOptions()
+        asset_options.fix_base_link = True
+        table_asset = gym.create_box(sim, table_dims.x, table_dims.y, table_dims.z, asset_options)
 
     for i in range(num_envs):
         # Create env
         env = gym.create_env(sim, gymapi.Vec3(-spacing, 0.0, -spacing), gymapi.Vec3(spacing, spacing, spacing), num_per_row)
         envs.append(env)
         
-        if environment_type == "normal" or environment_type == "battery":
-            wall_size = 8
-            wall_thickness = 0.1
-        if environment_type == "lab":
-            wall_size = 5
-            wall_thickness = 0.05
+        if environment_type == "store":
 
-        if environment_type == "table":
-            # add table
-            asset_options = gymapi.AssetOptions()
-            asset_options.fix_base_link = True
-            table_asset = gym.create_box(sim, table_dims.x, table_dims.y, table_dims.z, asset_options)
-            table_handle = gym.create_actor(env, table_asset, table_pose, "table", i, 0)
-            shelf_handle = gym.create_actor(env, shelf_asset, shelf_pose, "shelf", i, 0)
-
-            # add box
-            asset_options = gymapi.AssetOptions()
-            box_asset = gym.create_box(sim, box_size, box_size, box_size, asset_options)
-
-            box_pose.p.x = table_pose.p.x #+ np.random.uniform(-0.2, 0.1)
-            box_pose.p.y = table_pose.p.y #+ np.random.uniform(-0.3, 0.3)
-            box_pose.p.z = table_dims.z + 0.5 * box_size
-            box_pose.r = gymapi.Quat.from_axis_angle(gymapi.Vec3(0, 0, 1), np.random.uniform(-math.pi, math.pi))
-            box_handle = gym.create_actor(env, box_asset, box_pose, "box", i, 0)
-            color = gymapi.Vec3(np.random.uniform(0, 1), np.random.uniform(0, 1), np.random.uniform(0, 1))
-            gym.set_rigid_body_color(env, box_handle, 0, gymapi.MESH_VISUAL_AND_COLLISION, color_vec_crate)
-
-            # get global index of box in rigid body state tensor
-            box_idx = gym.get_actor_rigid_body_index(env, box_handle, 0, gymapi.DOMAIN_SIM)
-            box_idxs.append(box_idx)
-
-            # mug_handle = gym.create_actor(env, mug_asset, box_pose, "mug", i, 0)
-
+            add_store(sim, gym, env, table_asset, shelf_asset, i)
             # add franka
             robot_handle = gym.create_actor(env, robot_asset, franka_pose, "franka", i, 2)
             
             # configure franka dofs
-            franka_dof_props = gym.get_asset_dof_properties(robot_asset)
-            franka_lower_limits = franka_dof_props["lower"]
-            franka_upper_limits = franka_dof_props["upper"]
-            franka_mids = 0.5 * (franka_upper_limits + franka_lower_limits)
-
-            # default dof states and position targets
-            franka_num_dofs = gym.get_asset_dof_count(robot_asset)
-            default_dof_pos = np.zeros(franka_num_dofs, dtype=np.float32)
-            default_dof_pos[:10] = franka_mids[:10]
-            # grippers open
-            default_dof_pos[10:] = franka_upper_limits[10:]
-
-            default_dof_state = np.zeros(franka_num_dofs, gymapi.DofState.dtype)
-            default_dof_state["pos"] = default_dof_pos
+            if 'default_dof_state' not in locals():
+                default_dof_state = get_default_franka_state(gym, robot_asset)
 
             gym.set_actor_dof_states(env, robot_handle, default_dof_state, gymapi.STATE_ALL)
 

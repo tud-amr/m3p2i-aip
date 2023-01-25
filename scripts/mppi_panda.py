@@ -16,7 +16,7 @@ visualize_rollouts = False
 num_envs = 1000
 spacing = 2.0
 robot = "panda"                     # choose from "point_robot", "boxer", "albert", "panda"
-environment_type = "table"          # choose from "normal", "battery", "table"
+environment_type = "store"          # choose from "normal", "battery", "store"
 control_type = "vel_control"        # choose from "vel_control", "pos_control", "force_control"
 gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, spacing, robot, environment_type, control_type)
 
@@ -38,14 +38,14 @@ mppi = fusion_mppi.FUSION_MPPI(
                                 [0, 0, 0, 0, sigma, 0, 0, 0, 0],
                                 [0, 0, 0, 0, 0, sigma, 0, 0, 0],
                                 [0, 0, 0, 0, 0, 0, sigma, 0, 0],
-                                [0, 0, 0, 0, 0, 0, 0, 0.2*sigma, 0],
-                                [0, 0, 0, 0, 0, 0, 0, 0, 0.2*sigma],], device="cuda:0", dtype=torch.float32),
+                                [0, 0, 0, 0, 0, 0, 0, 0.1*sigma, 0],
+                                [0, 0, 0, 0, 0, 0, 0, 0, 0.1*sigma],], device="cuda:0", dtype=torch.float32),
     num_samples=num_envs, 
     horizon=10,
     lambda_=0.1, 
     device="cuda:0", 
-    u_max=torch.tensor([max_vel, max_vel, max_vel, max_vel, max_vel, max_vel, max_vel, 0.5*max_vel, 0.5*max_vel]),
-    u_min=torch.tensor([-max_vel, -max_vel, -max_vel, -max_vel, -max_vel, -max_vel, -max_vel, -0.5*max_vel, -0.5*max_vel]),
+    u_max=torch.tensor([max_vel, max_vel, max_vel, max_vel, max_vel, max_vel, max_vel, 0.2*max_vel, 0.2*max_vel]),
+    u_min=torch.tensor([-max_vel, -max_vel, -max_vel, -max_vel, -max_vel, -max_vel, -max_vel, -0.2*max_vel, -0.2*max_vel]),
     step_dependent_dynamics=True,
     terminal_state_cost=None,
     sample_null_action=True,
