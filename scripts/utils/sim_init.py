@@ -72,6 +72,8 @@ def make(allow_viewer, num_envs, spacing, robot, obstacle_type, control_type = "
     # Set robot initial pose
     robot_init_pose = gymapi.Transform()
     robot_init_pose.p = gymapi.Vec3(0.0, 0.0, 0.05)
+    if robot == "shadow_hand":
+        robot_init_pose.p = gymapi.Vec3(0.0, 0.0, 1)
     # Load robot
     robot_asset = env_conf.load_robot(robot, gym, sim)
     # Create the arena(s) with robots

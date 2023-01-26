@@ -131,6 +131,8 @@ def load_robot(robot, gym, sim):
         robot_asset = load_heijn(gym, sim)
     elif robot == "omni_panda":
         robot_asset = load_omni_panda(gym, sim)
+    elif robot == "shadow_hand":
+        robot_asset = load_shadow(gym, sim)
     else:
         print("Invalid robot type")
     return robot_asset
@@ -292,6 +294,27 @@ def load_shelf(gym, sim):
 
     return shelf_asset
 
+def load_shadow(gym, sim):
+    asset_file = "mjcf/open_ai_assets/hand/shadow_hand.xml"
+
+    asset_options = gymapi.AssetOptions()
+    asset_options.fix_base_link = True
+    asset_options.flip_visual_attachments = False
+    asset_options.use_mesh_materials = True
+    shadow_asset = gym.load_asset(sim, "../assets", asset_file, asset_options)
+    return shadow_asset
+
+def load_colored_cube(gym, sim, isFixed):
+    asset_file = "urdf/objects/cube_multicolor.urdf"
+
+    asset_options = gymapi.AssetOptions()
+    asset_options.fix_base_link = isFixed
+    asset_options.flip_visual_attachments = True
+    asset_options.use_mesh_materials = True
+    colored_cube_asset = gym.load_asset(sim, "../assets", asset_file, asset_options)
+
+    return colored_cube_asset
+
 def add_obstacles(sim, gym, env, environment_type, index):
     if environment_type == "arena":
         # add fixed obstacle
@@ -388,6 +411,17 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, e
         asset_options = gymapi.AssetOptions()
         asset_options.fix_base_link = True
         table_asset = gym.create_box(sim, table_dims.x, table_dims.y, table_dims.z, asset_options)
+    elif environment_type == "shadow":
+        gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(1, -1, 1.5), gymapi.Vec3(0., -0.4, 1))
+        cube_asset = load_colored_cube(gym, sim, False)
+        cube_pose = gymapi.Transform()
+        cube_pose.p = gymapi.Vec3(0.0, -0.4, 1.)
+
+        cube_target_asset = load_colored_cube(gym, sim, True)
+        cube_target_pose = gymapi.Transform()
+        cube_target_pose.p = gymapi.Vec3(0.0, -0.4, 1.3)
+        cube_target_pose.r = gymapi.Quat.from_axis_angle(gymapi.Vec3(1, 1, 1), np.random.uniform(-math.pi, math.pi))
+
 
     for i in range(num_envs):
         # Create env
@@ -401,13 +435,20 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, e
             if 'default_dof_state' not in locals():
                 default_dof_state = get_default_franka_state(gym, robot_asset)
             gym.set_actor_dof_states(env, robot_handle, default_dof_state, gymapi.STATE_ALL)
-        else:
+        elif environment_type == "arena" or environment_type == "battery" or environment_type == "lab":
             add_arena(sim, gym, env, wall_size, wall_thickness, 0, 0, i) # Wall size, wall thickness, origin_x, origin_y, index
             # Add obstacles
             add_obstacles(sim, gym, env, environment_type, index = i)
             # Add robot
             robot_handle = gym.create_actor(env, robot_asset, pose, "robot", i, 1)
-        
+        elif environment_type == "shadow":
+            # Add cube 
+            cube_handle = gym.create_actor(env, cube_asset, cube_pose, "cube", i, 0)
+            # Add target reference
+            cube_target_handle = gym.create_actor(env, cube_target_asset, cube_target_pose, "cube", i, 0)
+            # Add hand
+            robot_handle = gym.create_actor(env, robot_asset, pose, "shadow_hand", i, 1)
+
         robot_handles.append(robot_handle)
         
         if environment_type == "battery":
