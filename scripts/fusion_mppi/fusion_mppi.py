@@ -174,13 +174,12 @@ class FUSION_MPPI(mppi.MPPI):
 
     def get_shadow_cost(self):
         cube_state = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))[self.cube_indexes, 0:7]
-        if self.cube_target_state == None:
-            self.cube_target_state = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))[self.cube_target_indexes, 0:7]
-            self.cube_target_state[:,2] = 1.
+        self.cube_target_state = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))[self.cube_target_indexes, 0:7]
+        # self.cube_target_state[:,2] = 0.9
         ort_cost = torch.linalg.norm(cube_state[:,3:7]-self.cube_target_state[:,3:7], axis = 1)
         pos_cost = torch.linalg.norm(cube_state[:,:2]-self.cube_target_state[:,:2],  axis = 1)
-        
-        return pos_cost + ort_cost
+        #  add fingers in contact
+        return 100*pos_cost + ort_cost
 
     @mppi.handle_batch_input
     def _ik(self, u):
@@ -369,4 +368,4 @@ class FUSION_MPPI(mppi.MPPI):
         past_u = torch.clone(u)
         
         
-        return  task_cost #+ coll_cost + acc_cost # + w_u*control_cost
+        return  task_cost + coll_cost #+ acc_cost # + w_u*control_cost

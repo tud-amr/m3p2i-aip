@@ -8,6 +8,7 @@ import time, numpy as np
 import socket
 torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 import matplotlib.pyplot as plt
+import math
 
 # Make the environment and simulation
 log_data = False                    # Set true for plots of control inputs and other stats
@@ -95,11 +96,28 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
             action_seq = torch.zeros_like(action)
 
         action_seq = torch.cat((action_seq, action), 0)
+
+       
         # Apply optimal action
         gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(action))
 
         actor_root_state = gymtorch.wrap_tensor(gym.acquire_actor_root_state_tensor(sim))
         
+        if robot == "shadow_hand":
+            ort_dist = torch.linalg.norm(actor_root_state[1,3:7]-actor_root_state[0,3:7])
+            # Randomize goal when reached
+            if ort_dist < 0.1:
+                print('goal reached')
+                new_goal = torch.clone(actor_root_state)
+                new_ort = gymapi.Quat.from_axis_angle(gymapi.Vec3(1, 1, 1), np.random.uniform(-math.pi, math.pi))
+                new_goal[1, 3] = new_ort.x
+                new_goal[1, 4] = new_ort.y
+                new_goal[1, 5] = new_ort.z
+                new_goal[1, 6] = new_ort.w
+
+                gym.set_actor_root_state_tensor_indexed(sim, gymtorch.unwrap_tensor(new_goal), gymtorch.unwrap_tensor(torch.tensor([1], dtype=torch.int32, device="cuda:0")), 1)
+
+
         if suction_active: 
             root_positions = torch.reshape(actor_root_state[:, 0:2], (num_envs, actors_per_env, 2)) 
             dof_pos = dof_states[:,0].reshape([num_envs, 2])

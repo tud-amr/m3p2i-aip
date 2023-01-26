@@ -415,13 +415,12 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, e
         gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(1, -1, 1.5), gymapi.Vec3(0., -0.4, 1))
         cube_asset = load_colored_cube(gym, sim, False)
         cube_pose = gymapi.Transform()
-        cube_pose.p = gymapi.Vec3(0.0, -0.4, 1.)
+        cube_pose.p = gymapi.Vec3(-0.025, -0.42, 1.)
 
         cube_target_asset = load_colored_cube(gym, sim, True)
         cube_target_pose = gymapi.Transform()
-        cube_target_pose.p = gymapi.Vec3(0.0, -0.4, 1.3)
+        cube_target_pose.p = gymapi.Vec3(-0.025, -0.42, 1.3)
         cube_target_pose.r = gymapi.Quat.from_axis_angle(gymapi.Vec3(1, 1, 1), np.random.uniform(-math.pi, math.pi))
-
 
     for i in range(num_envs):
         # Create env
@@ -440,14 +439,14 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, e
             # Add obstacles
             add_obstacles(sim, gym, env, environment_type, index = i)
             # Add robot
-            robot_handle = gym.create_actor(env, robot_asset, pose, "robot", i, 1)
+            robot_handle = gym.create_actor(env, robot_asset, pose, "robot", i, 0)
         elif environment_type == "shadow":
             # Add cube 
             cube_handle = gym.create_actor(env, cube_asset, cube_pose, "cube", i, 0)
             # Add target reference
             cube_target_handle = gym.create_actor(env, cube_target_asset, cube_target_pose, "cube", i, 0)
             # Add hand
-            robot_handle = gym.create_actor(env, robot_asset, pose, "shadow_hand", i, 1)
+            robot_handle = gym.create_actor(env, robot_asset, pose, "shadow_hand", i, 0)
 
         robot_handles.append(robot_handle)
         
