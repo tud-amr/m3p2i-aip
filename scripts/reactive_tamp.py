@@ -3,6 +3,8 @@ from isaacgym import gymutil
 from isaacgym import gymtorch
 import torch
 from fusion_mppi import mppi, fusion_mppi
+from active_inference import ai_agent, adaptive_action_selection
+from active_inference import isaac_int_req_templates, isaac_state_action_templates 
 from utils import env_conf, sim_init, data_transfer
 from params import params_utils
 import time
@@ -18,12 +20,56 @@ class PLANNER_PATROLLING:
         self.curr_goal = self.goals[self.goal_id]
         self.task = "navigation"
     
-    def update_goal(self):
-        self.goal_id += 1
-        if self.goal_id >= self.goals.size(0):
-            self.goal_id = 0
-        self.curr_goal = self.goals[self.goal_id]
+    def update_plan(self, robot_pos):
+        if torch.norm(robot_pos - self.curr_goal) < 0.1:
+            self.goal_id += 1
+            if self.goal_id >= self.goals.size(0):
+                self.goal_id = 0
+            self.curr_goal = self.goals[self.goal_id]
 
+class PLANNER_AIF:
+    def __init__(self) -> None:
+        # Define the required mdp structures 
+        mdp_battery = isaac_int_req_templates.MDPBattery() 
+        # Define ai agent with related mdp structure to reason about
+        self.ai_agent_internal = ai_agent.AiAgent(mdp_battery)
+        # Set the preference for the battery 
+        self.ai_agent_internal.set_preferences(np.array([[1.], [0], [0]])) # Fixed preference for battery ok, following ['ok', 'low', 'critcal'] 
+        self.battery_factor = 0.5
+        self.battery_level = 100
+        self.task = "None"
+        self.curr_goal = "None"
+
+    # Battery simulation
+    def battery_sim(self, robot_pos):
+        if torch.norm(robot_pos - env_conf.docking_station_loc) < 0.5:
+            self.battery_level += self.battery_factor
+        else:
+            self.battery_level -= self.battery_factor
+        self.battery_level = max(0, self.battery_level)
+        self.battery_level = min(100, self.battery_level)
+
+    # Battery observation
+    def get_battery_obs(self):
+        if self.battery_level > 55: 
+            obs_battery = 0  # Battery is ok
+        elif self.battery_level > 35:
+            obs_battery = 1  # Battery is low
+        else:
+            obs_battery = 2  # Battery is critical
+        return obs_battery
+
+    # Upadte the task planner
+    def update_plan(self, robot_pos):
+        self.battery_sim(robot_pos)
+        obs_battery = self.get_battery_obs()
+        outcome_internal, curr_action_internal = adaptive_action_selection.adapt_act_sel(self.ai_agent_internal, obs_battery)
+        print('Measured battery level', self.battery_level)
+        # print('The outcome from the internal requirements is', outcome_internal)
+        print('The selected action from the internal requirements is', curr_action_internal)
+        if curr_action_internal == 'go_recharge':
+            self.task = 'go_recharge'
+            self.curr_goal = env_conf.docking_station_loc
 
 class REACTIVE_TAMP:
     def __init__(self, params) -> None:
@@ -45,6 +91,10 @@ class REACTIVE_TAMP:
         self.task = params.task
         if self.task == "Patrolling":
             self.task_planner = PLANNER_PATROLLING(goals = torch.tensor([[-3, -3], [3, -3], [3, 3], [-3, 3]], device="cuda:0"))
+        elif self.task == "Reactive":
+            self.task_planner = PLANNER_AIF()
+        else:
+            self.task_planner = "None"
 
         # Choose the motion planner
         self.motion_planner = fusion_mppi.FUSION_MPPI(
@@ -75,13 +125,12 @@ class REACTIVE_TAMP:
         self.server_address = './uds_socket'
         data_transfer.check_server(self.server_address)
 
-    def tamp_interface(self, curr_pos):
+    def tamp_interface(self, robot_pos):
         # Update task planner goal
-        if torch.norm(curr_pos - self.task_planner.curr_goal) < 0.1:
-            self.task_planner.update_goal()
+        self.task_planner.update_plan(robot_pos)
         # Send task and goal to motion planner
-        self.motion_planner.update_task(self.task_planner.task)
-        self.motion_planner.update_nav_goal(self.task_planner.curr_goal)
+        print('task:', self.task_planner.task, 'goal:', self.task_planner.curr_goal)
+        self.motion_planner.update_task(self.task_planner.task, self.task_planner.curr_goal)
 
     def run(self):
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
@@ -106,7 +155,7 @@ class REACTIVE_TAMP:
                     _root_states = data_transfer.bytes_to_torch(r).repeat(self.num_envs, 1)
 
                     # Reset the simulator to requested state
-                    if self.robot == "point_robot" or "boxer":
+                    if self.robot == "point_robot" or self.robot == "boxer":
                         s = _dof_states.view(-1, 4) # [x, v_x, y, v_y]
                     elif self.robot == "heijn":
                         s = _dof_states.view(-1, 6) # [x, v_x, y, v_y, theta, v_theta]
@@ -117,16 +166,20 @@ class REACTIVE_TAMP:
                     # Update TAMP interface
                     if self.robot == "boxer":
                         robot_pos = _root_states[-1, :2]
-                    elif self.robot == "point_robot" or "heijn":
+                    elif self.robot == "point_robot" or self.robot == "heijn":
                         robot_pos = torch.tensor([s[0][0], s[0][2]], device="cuda:0")
-                    if self.task == "Patrolling":
+                    if self.task != "None":
                         self.tamp_interface(robot_pos)
 
                     # Update gym in mppi
                     self.motion_planner.update_gym(self.gym, self.sim, self.viewer)
 
+                    # Stay still if the task planner has no task
+                    if self.task_planner != "None" and self.task_planner.task == "None":
+                        actions = torch.zeros(self.motion_planner.u_per_command, self.motion_planner.nu, device="cuda:0")
                     # Compute optimal action and send to real simulator
-                    actions = self.motion_planner.command(s[0])
+                    else:
+                        actions = self.motion_planner.command(s[0])
                     conn.sendall(data_transfer.torch_to_bytes(actions))
 
                     # Visualize rollouts

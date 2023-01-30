@@ -78,11 +78,10 @@ class FUSION_MPPI(mppi.MPPI):
         self.sim = sim
         self.viewer = viewer
     
-    def update_task(self, task):
+    def update_task(self, task, goal):
         self.task = task
-    
-    def update_nav_goal(self, goal):
-        self.nav_goal = goal
+        if self.task == 'navigation' or self.task == 'go_recharge':
+            self.nav_goal = goal
 
     def get_navigation_cost(self, r_pos):
         return torch.clamp(torch.linalg.norm(r_pos - self.nav_goal, axis=1)-0.05, min=0, max=1999) 
@@ -264,13 +263,13 @@ class FUSION_MPPI(mppi.MPPI):
         else:
             state_pos = torch.cat((state[:, 0].unsqueeze(1), state[:, 2].unsqueeze(1)), 1)
 
-        if self.task == 'navigation':
+        if self.task == 'navigation' or self.task == 'go_recharge':
             task_cost = self.get_navigation_cost(state_pos)
         elif self.task == 'push':
             task_cost = self.get_push_cost(state_pos)
         elif self.task == 'pull':
             task_cost = self.get_pull_cost(state_pos)
-        elif self.robot == 'push_not_goal':
+        elif self.task == 'push_not_goal':
             task_cost = self.get_push_not_goal_cost(state_pos)
 
         total_cost = task_cost + self.get_motion_cost(state, u)
