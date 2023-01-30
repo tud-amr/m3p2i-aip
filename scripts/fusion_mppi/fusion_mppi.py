@@ -87,11 +87,17 @@ class FUSION_MPPI(mppi.MPPI):
         if self.env_type == 'shadow':
             self.cube_indexes = np.zeros(self.num_envs)
             self.cube_target_indexes = np.zeros(self.num_envs)
+            self.palm_indexes = np.zeros(self.num_envs)
+            self.thumb_indexes = np.zeros(self.num_envs)
             self.cube_index = 0
             self.cube_target_index = 1
+            self.palm_index = 11
+            self.thumb_index = 27
             for i in range(self.num_envs):
                 self.cube_indexes[i] = self.cube_index + i*self.bodies_per_env
                 self.cube_target_indexes[i] = self.cube_target_index + i*self.bodies_per_env
+                self.palm_indexes[i] = self.palm_index + i*self.bodies_per_env
+                self.thumb_indexes[i] = self.thumb_index + i*self.bodies_per_env
 
         self.block_not_goal = torch.tensor([-2, 1], device="cuda:0")
         self.nav_goal = torch.tensor([3, 3], device="cuda:0")
@@ -173,13 +179,27 @@ class FUSION_MPPI(mppi.MPPI):
         return  reach_cost + goal_cost #+ align_cost # 
 
     def get_shadow_cost(self):
-        cube_state = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))[self.cube_indexes, 0:7]
+        cube_pos = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))[self.cube_indexes, 0:7]
         self.cube_target_state = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))[self.cube_target_indexes, 0:7]
         # self.cube_target_state[:,2] = 0.9
-        ort_cost = torch.linalg.norm(cube_state[:,3:7]-self.cube_target_state[:,3:7], axis = 1)
-        pos_cost = torch.linalg.norm(cube_state[:,:2]-self.cube_target_state[:,:2],  axis = 1)
+        ort_cost = torch.linalg.norm(cube_pos[:,3:7]-self.cube_target_state[:,3:7], axis = 1)
+        pos_cost = torch.linalg.norm(cube_pos[:,:2]-self.cube_target_state[:,:2],  axis = 1)
         #  add fingers in contact
         return 100*pos_cost + ort_cost
+
+    def get_shadow_cost_2(self):
+        cube_pos = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))[self.cube_indexes, 0:7]
+        cube_vel = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))[self.cube_indexes, 7:10]
+        self.cube_target_state = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))[self.cube_target_indexes, 0:7]
+        palm_state = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))[self.palm_indexes, 0:3]
+        thumb_state = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))[self.thumb_indexes, 0:3]
+
+        # self.cube_target_state[:,2] = 0.9
+        ort_cost = torch.linalg.norm(cube_pos[:,3:7]-self.cube_target_state[:,3:7], axis = 1)
+        pos_cost = torch.linalg.norm(cube_pos[:,:3]-palm_state,  axis = 1)
+        vel_cost = torch.linalg.norm(cube_vel)
+        #  add fingers in contact
+        return 40*pos_cost + 3*ort_cost #+  10*vel_cost
 
     @mppi.handle_batch_input
     def _ik(self, u):
@@ -357,7 +377,7 @@ class FUSION_MPPI(mppi.MPPI):
         elif self.robot == 'omni_panda':
             task_cost = self.get_panda_cost(state_pos)
         elif self.robot == 'shadow_hand':
-            task_cost = self.get_shadow_cost()
+            task_cost = self.get_shadow_cost_2()
 
         # Acceleration cost
         acc_cost = 0.00001*torch.linalg.norm(torch.square((u[0:1]-past_u[0:1])/0.05), dim=1)

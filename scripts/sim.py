@@ -96,7 +96,6 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
             action_seq = torch.zeros_like(action)
 
         action_seq = torch.cat((action_seq, action), 0)
-
        
         # Apply optimal action
         gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(action))
@@ -106,7 +105,7 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
         if robot == "shadow_hand":
             ort_dist = torch.linalg.norm(actor_root_state[1,3:7]-actor_root_state[0,3:7])
             # Randomize goal when reached
-            if ort_dist < 0.1:
+            if ort_dist < 0.15:
                 print('goal reached')
                 new_goal = torch.clone(actor_root_state)
                 new_ort = gymapi.Quat.from_axis_angle(gymapi.Vec3(1, 1, 1), np.random.uniform(-math.pi, math.pi))

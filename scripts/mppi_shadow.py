@@ -13,7 +13,7 @@ torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 # Make the environment and simulation
 allow_viewer = False
 visualize_rollouts = False
-num_envs = 1000
+num_envs = 24
 spacing = 2.0
 robot = "shadow_hand"                     # choose from "point_robot", "boxer", "albert", "panda"
 environment_type = "shadow"          # choose from "arena", "battery", "store"
@@ -24,7 +24,7 @@ gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, sp
 dof_states, num_dofs, num_actors, root_states = sim_init.acquire_states(gym, sim, print_flag=False)
 actors_per_env = int(num_actors/num_envs)
 bodies_per_env = gym.get_env_rigid_body_count(envs[0])
-sigma = 3
+sigma = 1
 max_vel = 2
 noise = torch.zeros(24,24, device="cuda:0", dtype=torch.float32)
 noise.fill_diagonal_(sigma)
@@ -36,7 +36,7 @@ mppi = fusion_mppi.FUSION_MPPI(
     nx=48, 
     noise_sigma = noise,
     num_samples=num_envs, 
-    horizon=10,
+    horizon=8,
     lambda_=0.1, 
     device="cuda:0", 
     u_max= max_vel*torch.ones(24),
@@ -47,11 +47,11 @@ mppi = fusion_mppi.FUSION_MPPI(
     use_priors=False,
     use_vacuum = False,
     robot_type=robot,
-    u_per_command=10,
+    u_per_command=8,
     actors_per_env=actors_per_env,
     env_type=environment_type,
     bodies_per_env=bodies_per_env,
-    filter_u=True
+    filter_u=False
     )
 
 # Make sure the socket does not already exist

@@ -415,11 +415,11 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, e
         gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(1, -1, 1.5), gymapi.Vec3(0., -0.4, 1))
         cube_asset = load_colored_cube(gym, sim, False)
         cube_pose = gymapi.Transform()
-        cube_pose.p = gymapi.Vec3(-0.025, -0.42, 1.)
+        cube_pose.p = gymapi.Vec3(-0.01, -0.42, 1.)
 
         cube_target_asset = load_colored_cube(gym, sim, True)
         cube_target_pose = gymapi.Transform()
-        cube_target_pose.p = gymapi.Vec3(-0.025, -0.42, 1.3)
+        cube_target_pose.p = gymapi.Vec3(-0.01, -0.42, 1.3)
         cube_target_pose.r = gymapi.Quat.from_axis_angle(gymapi.Vec3(1, 1, 1), np.random.uniform(-math.pi, math.pi))
 
     for i in range(num_envs):
@@ -447,6 +447,18 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, e
             cube_target_handle = gym.create_actor(env, cube_target_asset, cube_target_pose, "cube", i, 0)
             # Add hand
             robot_handle = gym.create_actor(env, robot_asset, pose, "shadow_hand", i, 0)
+            # shadow_num_dofs = gym.get_asset_dof_count(robot_asset)
+            # default_dof_pos = np.zeros(shadow_num_dofs, dtype=np.float32)
+            # default_dof_pos[1] = -0.5   # Palm
+            # default_dof_pos[2] = 0.2   # Palm
+            # default_dof_pos[3] = 0.4   # Index
+            # default_dof_pos[4] = 0.6   # Index
+            # default_dof_pos[5] = 0.6   # Index
+
+            # # default_dof_pos[3] = 0
+            # default_dof_state = np.zeros(shadow_num_dofs, gymapi.DofState.dtype)
+            # default_dof_state["pos"] = default_dof_pos
+            # gym.set_actor_dof_states(env, robot_handle, default_dof_state, gymapi.STATE_ALL)
 
         robot_handles.append(robot_handle)
         
