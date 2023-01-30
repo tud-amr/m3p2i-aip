@@ -39,14 +39,14 @@ With this script you can drive the robot around with ASDW keys.
 
 If you want to test the MPPI, you will need two instances of Isaac Gym, one for the rollouts, and one for the "real system". Run the commands below in two terminals from the */scripts* folder: 
 ````
-python3 reactive_tamp.py --robot $(robot_type) 
+python3 reactive_tamp.py --robot $(robot_type) --task $(task_type)
 ````
 
 ````
-python3 sim.py --robot $(robot_type)
+python3 sim.py --robot $(robot_type) --task $(task_type)
 ````
 
-You can experiments with the arguments passed to the MPPI, such as sampling around prior controllers or null actions, as well as time horizon and number of samples. The arguments and parameters can be modified in the */params* folder. 
+You can specify `robot_type` as `point`, `boxer` or `heijn`, and specify `task_type` as `simple`, `patrolling` or `reactive`. You can also try experiments with the arguments passed to the MPPI, such as sampling around prior controllers or null actions, as well as time horizon and number of samples, which can be modified in the */params* folder. 
 
 ## Troubleshooting
 If you have an Nvidia card and after running the simulation you get a black screen, you might need to force the use of the GPU card through ``export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json``. Run this command from the same folder as the script to be launched
