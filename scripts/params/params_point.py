@@ -3,7 +3,7 @@ import torch
 # Paramters in the reactive_tamp file
 allow_viewer = False
 visualize_rollouts = False
-task = "Reactive"                   # "None", "Patrolling", "Reactive"
+task = "reactive"                   # "simple", "patrolling", "reactive"
 num_envs = 100
 nx = 4
 noise_sigma = torch.tensor([[1, 0], [0, 1]], device="cuda:0", dtype=torch.float32)

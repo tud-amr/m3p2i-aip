@@ -3,8 +3,7 @@ from isaacgym import gymutil
 from isaacgym import gymtorch
 import torch
 from fusion_mppi import mppi, fusion_mppi
-from active_inference import ai_agent, adaptive_action_selection
-from active_inference import isaac_int_req_templates, isaac_state_action_templates 
+from active_inference import task_planner
 from utils import env_conf, sim_init, data_transfer
 from params import params_utils
 import time
@@ -13,63 +12,6 @@ import socket, io
 import numpy as np
 torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 
-class PLANNER_PATROLLING:
-    def __init__(self, goals) -> None:
-        self.goals = goals
-        self.goal_id = 0
-        self.curr_goal = self.goals[self.goal_id]
-        self.task = "navigation"
-    
-    def update_plan(self, robot_pos):
-        if torch.norm(robot_pos - self.curr_goal) < 0.1:
-            self.goal_id += 1
-            if self.goal_id >= self.goals.size(0):
-                self.goal_id = 0
-            self.curr_goal = self.goals[self.goal_id]
-
-class PLANNER_AIF:
-    def __init__(self) -> None:
-        # Define the required mdp structures 
-        mdp_battery = isaac_int_req_templates.MDPBattery() 
-        # Define ai agent with related mdp structure to reason about
-        self.ai_agent_internal = ai_agent.AiAgent(mdp_battery)
-        # Set the preference for the battery 
-        self.ai_agent_internal.set_preferences(np.array([[1.], [0], [0]])) # Fixed preference for battery ok, following ['ok', 'low', 'critcal'] 
-        self.battery_factor = 0.5
-        self.battery_level = 100
-        self.task = "None"
-        self.curr_goal = "None"
-
-    # Battery simulation
-    def battery_sim(self, robot_pos):
-        if torch.norm(robot_pos - env_conf.docking_station_loc) < 0.5:
-            self.battery_level += self.battery_factor
-        else:
-            self.battery_level -= self.battery_factor
-        self.battery_level = max(0, self.battery_level)
-        self.battery_level = min(100, self.battery_level)
-
-    # Battery observation
-    def get_battery_obs(self):
-        if self.battery_level > 55: 
-            obs_battery = 0  # Battery is ok
-        elif self.battery_level > 35:
-            obs_battery = 1  # Battery is low
-        else:
-            obs_battery = 2  # Battery is critical
-        return obs_battery
-
-    # Upadte the task planner
-    def update_plan(self, robot_pos):
-        self.battery_sim(robot_pos)
-        obs_battery = self.get_battery_obs()
-        outcome_internal, curr_action_internal = adaptive_action_selection.adapt_act_sel(self.ai_agent_internal, obs_battery)
-        print('Measured battery level', self.battery_level)
-        # print('The outcome from the internal requirements is', outcome_internal)
-        print('The selected action from the internal requirements is', curr_action_internal)
-        if curr_action_internal == 'go_recharge':
-            self.task = 'go_recharge'
-            self.curr_goal = env_conf.docking_station_loc
 
 class REACTIVE_TAMP:
     def __init__(self, params) -> None:
@@ -89,12 +31,12 @@ class REACTIVE_TAMP:
 
         # Choose the task planner
         self.task = params.task
-        if self.task == "Patrolling":
-            self.task_planner = PLANNER_PATROLLING(goals = torch.tensor([[-3, -3], [3, -3], [3, 3], [-3, 3]], device="cuda:0"))
-        elif self.task == "Reactive":
-            self.task_planner = PLANNER_AIF()
-        else:
-            self.task_planner = "None"
+        if self.task == "patrolling":
+            self.task_planner = task_planner.PLANNER_PATROLLING(goals = torch.tensor([[-3, -3], [3, -3], [3, 3], [-3, 3]], device="cuda:0"))
+        elif self.task == "reactive":
+            self.task_planner = task_planner.PLANNER_AIF()
+        elif self.task == "simple":
+            self.task_planner = task_planner.PLANNER_SIMPLE()
 
         # Choose the motion planner
         self.motion_planner = fusion_mppi.FUSION_MPPI(
@@ -168,14 +110,13 @@ class REACTIVE_TAMP:
                         robot_pos = _root_states[-1, :2]
                     elif self.robot == "point_robot" or self.robot == "heijn":
                         robot_pos = torch.tensor([s[0][0], s[0][2]], device="cuda:0")
-                    if self.task != "None":
-                        self.tamp_interface(robot_pos)
+                    self.tamp_interface(robot_pos)
 
                     # Update gym in mppi
                     self.motion_planner.update_gym(self.gym, self.sim, self.viewer)
 
                     # Stay still if the task planner has no task
-                    if self.task_planner != "None" and self.task_planner.task == "None":
+                    if self.task_planner.task == "None":
                         actions = torch.zeros(self.motion_planner.u_per_command, self.motion_planner.nu, device="cuda:0")
                     # Compute optimal action and send to real simulator
                     else:
