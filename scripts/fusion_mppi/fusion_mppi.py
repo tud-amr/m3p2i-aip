@@ -79,7 +79,7 @@ class FUSION_MPPI(mppi.MPPI):
             elif robot_type == 'omni_panda':
                 self.block_index = 2
                 self.ee_index = 15
-                self.block_goal = torch.tensor([0.5, 0, 0.84], device=self.device)
+                self.block_goal = torch.tensor([1.5, 3, 0.5], device=self.device)
             for i in range(self.num_envs):
                 self.block_indexes[i] = self.block_index + i*self.bodies_per_env
                 self.ee_indexes[i] = self.ee_index + i*self.bodies_per_env

@@ -319,9 +319,9 @@ class MPPI():
             
             # Last rollout is a braking manover
             if self.sample_null_action:
-                #u[:, self.K -1, :] = torch.zeros_like(u[:, self.K -1, :])
-                u[:, self.K -1, 10] = 0
-                u[:, self.K -1, 11] = 0
+                u[:, self.K -1, :] = torch.zeros_like(u[:, self.K -1, :])
+                # u[:, self.K -1, 10] = 0
+                # u[:, self.K -1, 11] = 0
                 # Update perturbed action sequence for later use in cost computation
                 self.perturbed_action[self.K - 1][t] = u[:, self.K -1, :]
             
