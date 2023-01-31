@@ -9,14 +9,13 @@ import numpy as np
 # Parse arguments
 args = gymutil.parse_arguments(description="Experiments")
 args.use_gpu = True
-
 # Configure sim
 def configure_sim(dt=0.05):
     # Get default set of parameters
     sim_params = gymapi.SimParams()
     # Set common parameters
-    sim_params.dt = dt
-    sim_params.substeps = 2
+    sim_params.dt = 0.01
+    sim_params.substeps = 1
     sim_params.up_axis = gymapi.UP_AXIS_Z
     sim_params.gravity = gymapi.Vec3(0.0, 0.0, -9.8)
     # Set PhysX-specific parameters

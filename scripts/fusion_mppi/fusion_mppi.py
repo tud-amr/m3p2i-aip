@@ -62,7 +62,7 @@ class FUSION_MPPI(mppi.MPPI):
         self.env_type = env_type
         self.device = device
 
-        self.block_goal = torch.tensor([1.5, 3, 0.6], device="cuda:0")
+        self.block_goal = torch.tensor([1.5, 3, 0.6], device=self.device)
 
         # Additional variables for the environment or robot
         if self.env_type == "arena":
@@ -75,18 +75,18 @@ class FUSION_MPPI(mppi.MPPI):
             if robot_type == 'panda':
                 self.block_index = 2
                 self.ee_index = 11
-                self.block_goal = torch.tensor([0.5, 0, 0.8], device="cuda:0")
+                self.block_goal = torch.tensor([0.5, 0, 0.8], device=self.device)
             elif robot_type == 'omni_panda':
                 self.block_index = 2
                 self.ee_index = 15
-                self.block_goal = torch.tensor([1.5, 3, 0.6], device="cuda:0")
+                self.block_goal = torch.tensor([0.5, 0, 0.84], device=self.device)
             for i in range(self.num_envs):
                 self.block_indexes[i] = self.block_index + i*self.bodies_per_env
                 self.ee_indexes[i] = self.ee_index + i*self.bodies_per_env
 
-        self.block_not_goal = torch.tensor([-2, 1], device="cuda:0")
-        self.nav_goal = torch.tensor([3, 3], device="cuda:0")
-        self.panda_hand_goal = torch.tensor([0.5, 0, 0.7, 1, 0, 0, 0], device="cuda:0")
+        self.block_not_goal = torch.tensor([-2, 1], device=self.device)
+        self.nav_goal = torch.tensor([3, 3], device=self.device)
+        self.panda_hand_goal = torch.tensor([0.5, 0, 0.7, 1, 0, 0, 0], device=self.device)
 
     def update_gym(self, gym, sim, viewer=None):
         self.gym = gym
@@ -179,8 +179,8 @@ class FUSION_MPPI(mppi.MPPI):
     def _predict_dyn_obs(self, factor, robot_state, dyn_obs_pos, dyn_obs_vel, t):
         robot_pos = robot_state[:, [0, 2]] # K x 2
         # Obs boundary [-2.5, 1.5] <--> [-1.5, 2.5]
-        obs_lb = torch.tensor([-2.5, 1.5], dtype=torch.float32, device="cuda:0")
-        obs_ub = torch.tensor([-1.5, 2.5], dtype=torch.float32, device="cuda:0")
+        obs_lb = torch.tensor([-2.5, 1.5], dtype=torch.float32, device=self.device)
+        obs_ub = torch.tensor([-1.5, 2.5], dtype=torch.float32, device=self.device)
         dyn_obs_vel = torch.clamp(dyn_obs_vel, min = -0.001, max = 0.001)
         pred_pos = dyn_obs_pos + t * dyn_obs_vel * 10
         # Check the prec_pos and boundary
@@ -217,8 +217,8 @@ class FUSION_MPPI(mppi.MPPI):
             
             # Modify allowed velocities if suction is active, just to have a cone backwards
             rnd_theta = (torch.rand(self.num_envs)*2-1)*120*math.pi/180       # Random angles in a cone of 120 deg
-            rot_mat = torch.zeros(self.num_envs, 2, 2, device="cuda:0")
-            rnd_mag = torch.tensor(torch.rand(self.num_envs), device='cuda:0').reshape([self.num_envs, 1])*2
+            rot_mat = torch.zeros(self.num_envs, 2, 2, device=self.device)
+            rnd_mag = torch.tensor(torch.rand(self.num_envs), device=self.device).reshape([self.num_envs, 1])*2
 
             # Populate rot matrix
             rot_mat[:, 0, 0] = torch.cos(rnd_theta)
@@ -297,11 +297,11 @@ class FUSION_MPPI(mppi.MPPI):
         elif self.env_type == 'store':
             obst_up_to = 2
 
-        coll_cost = 10*torch.sum(net_cf.reshape([self.num_envs, int(net_cf.size(dim=0)/self.num_envs)])[:,0:obst_up_to], 1)
+        coll_cost =10000*torch.sum(net_cf.reshape([self.num_envs, int(net_cf.size(dim=0)/self.num_envs)])[:,0:obst_up_to], 1)
         # add collision cost fingers not ro
-        if self.robot == 'panda' or self.robot == 'omni_panda':
-            gripper_force_cost = torch.sum(0.01*net_cf.reshape([self.num_envs, int(net_cf.size(dim=0)/self.num_envs)])[:,self.bodies_per_env-2:-1],1)
-            coll_cost += gripper_force_cost
+        # if self.robot == 'panda' or self.robot == 'omni_panda':
+        #     gripper_force_cost = torch.sum(0.01*net_cf.reshape([self.num_envs, int(net_cf.size(dim=0)/self.num_envs)])[:,self.bodies_per_env-2:-1],1)
+        #     coll_cost += gripper_force_cost
         
         w_c = 1000 # Weight for collisions
         # Binary check for collisions. So far checking all collision with unmovable obstacles. Movable obstacles touching unmovable ones are considered collisions       
@@ -331,4 +331,4 @@ class FUSION_MPPI(mppi.MPPI):
         past_u = torch.clone(u)
         
         
-        return  task_cost + coll_cost + acc_cost # + w_u*control_cost
+        return  task_cost + coll_cost  #+ acc_cost # + w_u*control_cost

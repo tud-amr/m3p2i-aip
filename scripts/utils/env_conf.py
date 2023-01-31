@@ -381,7 +381,7 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, e
         wall_size = 5
         wall_thickness = 0.05
     elif environment_type == "store":
-        gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(0, 1, 1.5), gymapi.Vec3(0.5, 0., 0.5))
+        gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(1, 1, 1.5), gymapi.Vec3(-0.2, -0.2, 0.2))
         mug_asset = load_mug(gym, sim)
         hageslag_asset = load_hageslag(gym, sim)
         shelf_asset = load_shelf(gym, sim)

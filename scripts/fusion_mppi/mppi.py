@@ -267,7 +267,10 @@ class MPPI():
         if self.filter_u:
             u_ = action.cpu().numpy()
             u_filtered = signal.savgol_filter(u_, self.sgf_window, self.sgf_order, deriv=0, delta=1.0, axis=0, mode='interp', cval=0.0)
-            action = torch.from_numpy(u_filtered).to('cuda')
+            if self.d == "cpu":
+                action = torch.from_numpy(u_filtered).to('cpu')
+            else:
+                action = torch.from_numpy(u_filtered).to('cuda')
 
         # if self.robot == "panda" or self.robot == "omni_panda": # Force gripper actions ot be the same
         #     action[:, self.nu - 2] = action[:,-1]
@@ -316,7 +319,9 @@ class MPPI():
             
             # Last rollout is a braking manover
             if self.sample_null_action:
-                u[:, self.K -1, :] = torch.zeros_like(u[:, self.K -1, :])
+                #u[:, self.K -1, :] = torch.zeros_like(u[:, self.K -1, :])
+                u[:, self.K -1, 10] = 0
+                u[:, self.K -1, 11] = 0
                 # Update perturbed action sequence for later use in cost computation
                 self.perturbed_action[self.K - 1][t] = u[:, self.K -1, :]
             
@@ -371,7 +376,7 @@ class MPPI():
         )
         if any(np.isnan(acc_action)):
             acc_action = np.zeros_like(acc_action)
-        vel_action = torch.tensor(np.array(vel) + acc_action*0.05, dtype=torch.float32, device="cuda:0")
+        vel_action = torch.tensor(np.array(vel) + acc_action*0.05, dtype=torch.float32, device=self.d)
         return vel_action
 
     def _priors_command(self, state, u, t, root_positions):
