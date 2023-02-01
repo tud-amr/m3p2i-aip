@@ -16,8 +16,6 @@ allow_viewer = True
 num_envs = 1 
 spacing = 10.0
 control_type = "vel_control"        # choose from "vel_control", "pos_control", "force_control"
-dt = 0.05
-
 # Helper variables, same as in fusion_mppi
 suction_active = False      # Activate suction or not when close to purple box
 block_index = 7
@@ -41,8 +39,14 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
     robot = s.recv(1024).decode()
     s.sendall(b"Environment")
     environment_type = s.recv(1024).decode()
+    s.sendall(b"dt")
+    dt = s.recv(1024)
+    dt = float(data_transfer.bytes_to_numpy(dt))
+    s.sendall(b"substeps")
+    substeps = s.recv(1024)
+    substeps = int(data_transfer.bytes_to_numpy(substeps))
 
-    gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, spacing, robot, environment_type, control_type, dt=dt)
+    gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, spacing, robot, environment_type, control_type, dt=dt, substeps=substeps)
 
     # Acquire states
     dof_states, num_dofs, num_actors, root_states = sim_init.acquire_states(gym, sim, print_flag=False)

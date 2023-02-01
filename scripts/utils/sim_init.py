@@ -11,12 +11,12 @@ args = gymutil.parse_arguments(description="Experiments")
 args.use_gpu = True
 
 # Configure sim
-def configure_sim(dt=0.05):
+def configure_sim(dt=0.05, substeps=2):
     # Get default set of parameters
     sim_params = gymapi.SimParams()
     # Set common parameters
     sim_params.dt = dt
-    sim_params.substeps = 2
+    sim_params.substeps = substeps
     sim_params.up_axis = gymapi.UP_AXIS_Z
     sim_params.gravity = gymapi.Vec3(0.0, 0.0, -9.8)
     # Set PhysX-specific parameters
@@ -33,8 +33,8 @@ def configure_sim(dt=0.05):
     return sim_params
 
 # Creating gym
-def config_gym(viewer, dt):
-    params = configure_sim(dt)
+def config_gym(viewer, dt, substeps):
+    params = configure_sim(dt, substeps)
     gym = gymapi.acquire_gym()
     sim = gym.create_sim(args.compute_device_id, args.graphics_device_id, args.physics_engine, params)
     if viewer:
@@ -66,9 +66,9 @@ def config_gym(viewer, dt):
     return gym, sim, viewer
 
 # Make the environment and simulation
-def make(allow_viewer, num_envs, spacing, robot, obstacle_type, control_type = "vel_control", set_light = False, dt=0.05):
+def make(allow_viewer, num_envs, spacing, robot, obstacle_type, control_type = "vel_control", set_light = False, dt=0.05, substeps=2):
     # Configure gym
-    gym, sim, viewer = config_gym(allow_viewer, dt)
+    gym, sim, viewer = config_gym(allow_viewer, dt, substeps)
     # Set robot initial pose
     robot_init_pose = gymapi.Transform()
     robot_init_pose.p = gymapi.Vec3(0.0, 0.0, 0.05)
