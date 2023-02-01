@@ -11,6 +11,7 @@ import copy
 import socket, io
 import numpy as np
 torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
+from plot import plot_class
 
 
 class REACTIVE_TAMP:
@@ -138,6 +139,7 @@ class REACTIVE_TAMP:
                             conn.sendall(data_transfer.numpy_to_bytes(current_traj))
 
 if __name__== "__main__":
+    plot_class.start_dash_server()
     params = params_utils.load_params()
     reactive_tamp = REACTIVE_TAMP(params)
     reactive_tamp.run()

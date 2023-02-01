@@ -3,6 +3,10 @@ import numpy as np
 from utils import env_conf
 from active_inference import ai_agent, adaptive_action_selection
 from active_inference import isaac_int_req_templates, isaac_state_action_templates
+import sys
+import os
+sys.path.append('../')
+from utils import path_utils
 
 class PLANNER_SIMPLE:
     def __init__(self) -> None:
@@ -47,6 +51,10 @@ class PLANNER_AIF(PLANNER_SIMPLE):
             self.battery_level -= self.battery_factor
         self.battery_level = max(0, self.battery_level)
         self.battery_level = min(100, self.battery_level)
+
+        # save battery value to a csv file
+        file_path = path_utils.get_plot_path() +'/data_battery.csv'
+        np.savetxt(file_path, [self.battery_level], fmt='%.1f')
 
     # Battery observation
     def get_battery_obs(self):
