@@ -9,7 +9,7 @@ allow_viewer = True
 num_envs = 1
 spacing = 10.0
 robot = "point_robot"                     # "point_robot", "boxer", "husky", "albert", and heijn
-environment_type = "normal"            # choose from "normal", "battery"
+environment_type = "arena"            # choose from "arena", "battery"
 control_type = "vel_control"        # choose from "vel_control", "pos_control", "force_control"
 
 # Helper variables

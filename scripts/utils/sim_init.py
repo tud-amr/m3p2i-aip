@@ -9,14 +9,13 @@ import numpy as np
 # Parse arguments
 args = gymutil.parse_arguments(description="Experiments")
 args.use_gpu = True
-
 # Configure sim
-def configure_sim(dt=0.05):
+def configure_sim(dt=0.05, substeps=2):
     # Get default set of parameters
     sim_params = gymapi.SimParams()
     # Set common parameters
     sim_params.dt = dt
-    sim_params.substeps = 2
+    sim_params.substeps = substeps
     sim_params.up_axis = gymapi.UP_AXIS_Z
     sim_params.gravity = gymapi.Vec3(0.0, 0.0, -9.8)
     # Set PhysX-specific parameters
@@ -26,13 +25,15 @@ def configure_sim(dt=0.05):
     sim_params.physx.num_velocity_iterations = 1
     sim_params.physx.num_threads = args.num_threads
     sim_params.physx.use_gpu = args.use_gpu
-    sim_params.physx.contact_offset = 0.01
+    sim_params.physx.contact_offset = 0.001
     sim_params.physx.rest_offset = 0.0
+    sim_params.physx.friction_offset_threshold = 0.01
+    sim_params.physx.friction_correlation_distance = 0.001
     return sim_params
 
 # Creating gym
-def config_gym(viewer, dt):
-    params = configure_sim(dt)
+def config_gym(viewer, dt, substeps):
+    params = configure_sim(dt, substeps)
     gym = gymapi.acquire_gym()
     sim = gym.create_sim(args.compute_device_id, args.graphics_device_id, args.physics_engine, params)
     if viewer:
@@ -64,12 +65,14 @@ def config_gym(viewer, dt):
     return gym, sim, viewer
 
 # Make the environment and simulation
-def make(allow_viewer, num_envs, spacing, robot, obstacle_type, control_type = "vel_control", set_light = False, dt=0.05):
+def make(allow_viewer, num_envs, spacing, robot, obstacle_type, control_type = "vel_control", set_light = False, dt=0.05, substeps=2):
     # Configure gym
-    gym, sim, viewer = config_gym(allow_viewer, dt)
+    gym, sim, viewer = config_gym(allow_viewer, dt, substeps)
     # Set robot initial pose
     robot_init_pose = gymapi.Transform()
     robot_init_pose.p = gymapi.Vec3(0.0, 0.0, 0.05)
+    if robot == "shadow_hand":
+        robot_init_pose.p = gymapi.Vec3(0.0, 0.0, 1)
     # Load robot
     robot_asset = env_conf.load_robot(robot, gym, sim)
     # Create the arena(s) with robots

@@ -8,14 +8,14 @@ import time, numpy as np
 import socket
 torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 import matplotlib.pyplot as plt
+import math
 
 # Make the environment and simulation
+log_data = False                    # Set true for plots of control inputs and other stats
 allow_viewer = True
 num_envs = 1 
 spacing = 10.0
 control_type = "vel_control"        # choose from "vel_control", "pos_control", "force_control"
-dt = 0.05
-
 # Helper variables, same as in fusion_mppi
 suction_active = False      # Activate suction or not when close to purple box
 block_index = 7
@@ -39,12 +39,18 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
     robot = s.recv(1024).decode()
     s.sendall(b"Environment")
     environment_type = s.recv(1024).decode()
+    s.sendall(b"dt")
+    dt = s.recv(1024)
+    dt = float(data_transfer.bytes_to_numpy(dt))
+    s.sendall(b"substeps")
+    substeps = s.recv(1024)
+    substeps = int(data_transfer.bytes_to_numpy(substeps))
 
-    gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, spacing, robot, environment_type, control_type, dt=dt)
+    gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, spacing, robot, environment_type, control_type, dt=dt, substeps=substeps)
 
     # Acquire states
     dof_states, num_dofs, num_actors, root_states = sim_init.acquire_states(gym, sim, print_flag=False)
-    
+
     actors_per_env = int(num_actors/num_envs)
     bodies_per_env = gym.get_env_rigid_body_count(envs[0])
 
@@ -94,13 +100,29 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
             action_seq = torch.zeros_like(action)
 
         action_seq = torch.cat((action_seq, action), 0)
+       
         # Apply optimal action
         gym.set_dof_velocity_target_tensor(sim, gymtorch.unwrap_tensor(action))
 
         actor_root_state = gymtorch.wrap_tensor(gym.acquire_actor_root_state_tensor(sim))
-        root_positions = torch.reshape(actor_root_state[:, 0:2], (num_envs, actors_per_env, 2))
         
-        if suction_active:  
+        if robot == "shadow_hand":
+            ort_dist = torch.linalg.norm(actor_root_state[1,3:7]-actor_root_state[0,3:7])
+            # Randomize goal when reached
+            if ort_dist < 0.15:
+                print('goal reached')
+                new_goal = torch.clone(actor_root_state)
+                new_ort = gymapi.Quat.from_axis_angle(gymapi.Vec3(1, 1, 1), np.random.uniform(-math.pi, math.pi))
+                new_goal[1, 3] = new_ort.x
+                new_goal[1, 4] = new_ort.y
+                new_goal[1, 5] = new_ort.z
+                new_goal[1, 6] = new_ort.w
+
+                gym.set_actor_root_state_tensor_indexed(sim, gymtorch.unwrap_tensor(new_goal), gymtorch.unwrap_tensor(torch.tensor([1], dtype=torch.int32, device="cuda:0")), 1)
+
+
+        if suction_active: 
+            root_positions = torch.reshape(actor_root_state[:, 0:2], (num_envs, actors_per_env, 2)) 
             dof_pos = dof_states[:,0].reshape([num_envs, 2])
             # simulation of a magnetic/suction effect to attach to the box
             suction_force, _, _ = skill_utils.calculate_suction(root_positions[:, block_index, :], dof_pos, num_envs, kp_suction, block_index, bodies_per_env)
@@ -109,7 +131,7 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
             gym.apply_rigid_body_force_tensors(sim, gymtorch.unwrap_tensor(torch.reshape(suction_force, (num_envs*bodies_per_env, 3))), None, gymapi.ENV_SPACE)
 
         # Update movement of dynamic obstacle
-        if environment_type == 'normal':
+        if environment_type == 'arena':
             sim_init.update_dyn_obs(gym, sim, num_actors, num_envs, count)
             count += 1
 
@@ -129,31 +151,35 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
         next_fps_report, frame_count, t1 = sim_init.time_logging(gym, sim, next_fps_report, frame_count, t1, num_envs)
 
 # Saving and plotting
-sim_time-= sim_time[0]
-sim_time = np.append(0, sim_time)
+if log_data:
+    sim_time-= sim_time[0]
+    sim_time = np.append(0, sim_time)
 
-num_dof = int(list(action.size())[0])
-action_seq = action_seq.reshape(len(sim_time), num_dof)
-ctrl_input = np.zeros([len(sim_time), num_dof])
+    num_dof = int(list(action.size())[0])
+    action_seq = action_seq.reshape(len(sim_time), num_dof)
+    ctrl_input = np.zeros([len(sim_time), num_dof])
 
-fig, axs = plt.subplots(num_dof)
-fig.suptitle('Control Inputs')
-plot_colors = ['hotpink','darkviolet','mediumblue']
+    fig, axs = plt.subplots(num_dof)
+    fig.suptitle('Control Inputs')
+    plot_colors = ['hotpink','darkviolet','mediumblue']
 
-if robot == "point_robot" or robot == "heijn":
-    label = ['x_vel', 'y_vel', 'theta_vel']
-elif robot == "boxer":
-    label = ['r_vel', 'l_vel']
+    if robot == "point_robot" or robot == "heijn":
+        label = ['x_vel', 'y_vel', 'theta_vel']
+    elif robot == "boxer":
+        label = ['r_vel', 'l_vel']
+    elif robot == "panda":
+        label = ['joint1', 'joint2', 'joint3', 'joint4', 'joint5', 'joint6', 'joint7', 'left_f', 'right_f']
+    elif robot == "omni_panda":
+        label = ['x_vel', 'y_vel', 'theta_vel','joint1', 'joint2', 'joint3', 'joint4', 'joint5', 'joint6', 'joint7', 'left_f', 'right_f']
 
+    for j in range(num_dof):
+        ctrl_input[:,j] = action_seq[:,j].tolist()
+        axs[j].plot(sim_time, ctrl_input[:,j], color=plot_colors[1], marker=".")
+        axs[j].legend([label[j]])
+        axs[j].set(xlabel = 'Time [s]')
 
-for j in range(num_dof):
-    ctrl_input[:,j] = action_seq[:,j].tolist()
-    axs[j].plot(sim_time, ctrl_input[:,j], color=plot_colors[j], marker=".")
-    axs[j].legend([label[j]])
-    axs[j].set(xlabel = 'Time [s]')
-
-print("Avg. control frequency", len(action_seq)/sim_time[-1])
-plt.show()
+    print("Avg. control frequency", len(action_seq)/sim_time[-1])
+    plt.show()
 
 # Destroy the simulation
 sim_init.destroy_sim(gym, sim, viewer)

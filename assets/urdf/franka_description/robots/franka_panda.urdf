@@ -164,16 +164,15 @@
     <dynamics damping="10.0"/>
     <limit effort="12" lower="-2.8973" upper="2.8973" velocity="2.6100"/>
   </joint>
-  <!--
-  <link name="panda_link8"/>
-  <joint name="panda_joint8" type="fixed">
-    <origin rpy="0 0 0" xyz="0 0 0.107"/>
+
+  <link name="panda_ee_finger"/>
+  <joint name="panda_ee_finger" type="fixed">
+    <origin rpy="0 0 0" xyz="0 0 0.207"/>
     <parent link="panda_link7"/>
-    <child link="panda_link8"/>
+    <child link="panda_ee_finger"/>
     <axis xyz="0 0 0"/>
   </joint>
-  Removing this joint seems to help with some stability things
-  -->
+
   <joint name="panda_hand_joint" type="fixed">
     <!--
     <parent link="panda_link8"/>
@@ -207,6 +206,19 @@
       <geometry>
         <mesh filename="package://franka_description/meshes/collision/finger.obj"/>
       </geometry>
+      <surface>
+        <friction>
+          <ode>
+            <mu>100000.0</mu>
+            <mu2>100000.0</mu2>
+          </ode>
+        </friction>
+        <contact>
+          <ode>
+            <min_depth>0.005</min_depth>
+          </ode>
+        </contact>
+      </surface>
     </collision>
   </link>
   <link name="panda_rightfinger">
@@ -220,6 +232,19 @@
       <origin rpy="0 0 3.14159265359" xyz="0 0 0"/>
       <geometry>
         <mesh filename="package://franka_description/meshes/collision/finger.obj"/>
+        <surface>
+        <friction>
+          <ode>
+            <mu>100000.0</mu>
+            <mu2>100000.0</mu2>
+          </ode>
+        </friction>
+        <contact>
+          <ode>
+            <min_depth>0.005</min_depth>
+          </ode>
+        </contact>
+      </surface>
       </geometry>
     </collision>
   </link>

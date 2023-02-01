@@ -16,9 +16,12 @@ visualize_rollouts = False
 num_envs = 200
 spacing = 10.0
 robot = "boxer"               # choose from "point_robot", "boxer", "albert"
-environment_type = "normal"         # choose from "normal", "battery"
+environment_type = "arena"         # choose from "arena", "battery"
 control_type = "vel_control"        # choose from "vel_control", "pos_control", "force_control"
-gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, spacing, robot, environment_type, control_type, dt=0.05)
+dt = 0.01
+substeps = 1
+
+gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, spacing, robot, environment_type, control_type, dt=dt, substeps=substeps)
 
 # Acquire states
 dof_states, num_dofs, num_actors, root_states = sim_init.acquire_states(gym, sim, print_flag=False)
@@ -69,6 +72,12 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
         res = conn.recv(1024)
         conn.sendall(environment_type.encode())
 
+        res = conn.recv(1024)
+        conn.sendall(data_transfer.numpy_to_bytes(dt))
+
+        res = conn.recv(1024)
+        conn.sendall(data_transfer.numpy_to_bytes(substeps))
+        
         i=0
         while True:
             i+=1

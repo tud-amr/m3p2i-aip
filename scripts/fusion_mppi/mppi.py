@@ -6,7 +6,6 @@ from torch.distributions.multivariate_normal import MultivariateNormal
 import functools
 import numpy as np
 from scipy import signal
-from priors.fabrics_planner import fabrics_point
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +82,7 @@ class MPPI():
                  robot='point_robot',
                  noise_abs_cost=False,
                  actors_per_env=None,
-                 env_type='normal', 
+                 env_type='arena', 
                  bodies_per_env=None,
                  filter_u=True):
         """
@@ -111,6 +110,7 @@ class MPPI():
         :param noise_abs_cost: Whether to use the absolute value of the action noise to avoid bias when all states have the same cost
         """
         self.d = device
+        self.env_type = env_type
         self.dtype = noise_sigma.dtype
         self.K = num_samples  # N_SAMPLES
         self.T = horizon  # TIMESTEPS
@@ -166,6 +166,9 @@ class MPPI():
         self.terminal_state_cost = terminal_state_cost
         self.sample_null_action = sample_null_action
         self.use_priors = use_priors
+        if self.use_priors:
+            from priors.fabrics_planner import fabrics_point
+
         self.noise_abs_cost = noise_abs_cost
         self.state = None
 
@@ -203,8 +206,28 @@ class MPPI():
             else:
                 self.sgf_window = 10
             self.sgf_order = 3
-
-
+        elif robot == "panda":
+            if self.T < 20:
+                self.sgf_window = self.T
+            else:
+                self.sgf_window = 10
+            self.sgf_order = 2
+        elif robot == "omni_panda":
+            if self.T < 20:
+                self.sgf_window = self.T
+            else:
+                self.sgf_window = 10
+            self.sgf_order = 2
+        elif robot == "shadow_hand":
+            if self.T < 20:
+                self.sgf_window = self.T
+            else:
+                self.sgf_window = 10
+            self.sgf_order = 2
+        # Some versions of the sav-go filter require odd window size
+        if (self.sgf_window % 2) == 0:
+            self.sgf_window -=1
+        
         # Initialize fabrics prior
         if self.use_priors:
             # Create fabrics planner with single obstacle
@@ -240,8 +263,8 @@ class MPPI():
         eta = torch.sum(self.cost_total_non_zero)
         self.omega = (1. / eta) * self.cost_total_non_zero
         
-        for t in range(self.T):
-            self.U[t] += torch.sum(self.omega.view(-1, 1) * self.noise[:, t], dim=0)
+        self.U += torch.sum(self.omega.view(-1, 1, 1) * self.noise, dim=0)
+
         action = self.U[:self.u_per_command]
         # reduce dimensionality if we only need the first command
         if self.u_per_command == 1:
@@ -254,8 +277,14 @@ class MPPI():
         if self.filter_u:
             u_ = action.cpu().numpy()
             u_filtered = signal.savgol_filter(u_, self.sgf_window, self.sgf_order, deriv=0, delta=1.0, axis=0, mode='interp', cval=0.0)
-            action = torch.from_numpy(u_filtered).to('cuda')
+            if self.d == "cpu":
+                action = torch.from_numpy(u_filtered).to('cpu')
+            else:
+                action = torch.from_numpy(u_filtered).to('cuda')
 
+        # if self.robot == "panda" or self.robot == "omni_panda": # Force gripper actions ot be the same
+        #     action[:, self.nu - 2] = action[:,-1]
+        
         return action
 
     def reset(self):
@@ -286,20 +315,28 @@ class MPPI():
 
         actor_root_state = gymtorch.wrap_tensor(self.gym.acquire_actor_root_state_tensor(self.sim))
         self.gym.refresh_actor_root_state_tensor(self.sim)
-        root_positions = actor_root_state[:, 0:3]
-        root_velocitys = actor_root_state[:, 7:10]
-        root_pos = torch.reshape(root_positions[:, 0:2], (self.num_envs, self.actors_per_env, 2))
-        root_vel = torch.reshape(root_velocitys[:, 0:2], (self.num_envs, self.actors_per_env, 2))
-        dyn_obs_pos = root_pos[:, 5, :]
-        dyn_obs_vel = root_vel[:, 5, :]
+        
+        if self.env_type == "arena":
+            root_positions = actor_root_state[:, 0:3]
+            root_velocities = actor_root_state[:, 7:10]
+            root_pos = torch.reshape(root_positions[:, 0:2], (self.num_envs, self.actors_per_env, 2))
+            root_vel = torch.reshape(root_velocities[:, 0:2], (self.num_envs, self.actors_per_env, 2))
+            dyn_obs_pos = root_pos[:, 5, :]
+            dyn_obs_vel = root_vel[:, 5, :]
+
         for t in range(T):
             u = self.u_scale * perturbed_actions[:, t].repeat(self.M, 1, 1)
             
-            # Last rollout is a breaking manover
+            # Last rollout is a braking manover
             if self.sample_null_action:
                 u[:, self.K -1, :] = torch.zeros_like(u[:, self.K -1, :])
+                # u[:, self.K -1, 10] = 0
+                # u[:, self.K -1, 11] = 0
                 # Update perturbed action sequence for later use in cost computation
                 self.perturbed_action[self.K - 1][t] = u[:, self.K -1, :]
+            
+            # Sample open and close fingers with panda
+            
 
             if self.use_priors:
                 u = self._priors_command(state, u, t, root_positions)
@@ -310,10 +347,11 @@ class MPPI():
             self.perturbed_action[:,t] = u
             cost_samples += c
             
-            # Add cost of the dynamic obstacle
-            penalty_factor = 2 # the larger the factor, the more penalty to geting close to the obs
-            dyn_obs_cost = self._predict_dyn_obs(penalty_factor, state[0], dyn_obs_pos, dyn_obs_vel, t+1)
-            cost_samples += dyn_obs_cost
+            if self.env_type == 'arena':
+                # Add cost of the dynamic obstacle
+                penalty_factor = 2 # the larger the factor, the more penalty to geting close to the obs
+                dyn_obs_cost = self._predict_dyn_obs(penalty_factor, state[0], dyn_obs_pos, dyn_obs_vel, t+1)
+                cost_samples += dyn_obs_cost
 
             if self.M > 1:
                 cost_var += c.var(dim=0) * (self.rollout_var_discount ** t)
@@ -348,7 +386,7 @@ class MPPI():
         )
         if any(np.isnan(acc_action)):
             acc_action = np.zeros_like(acc_action)
-        vel_action = torch.tensor(np.array(vel) + acc_action*0.05, dtype=torch.float32, device="cuda:0")
+        vel_action = torch.tensor(np.array(vel) + acc_action*0.05, dtype=torch.float32, device=self.d)
         return vel_action
 
     def _priors_command(self, state, u, t, root_positions):
@@ -409,6 +447,9 @@ class MPPI():
         # broadcast own control to noise over samples; now it's K x T x nu
         self.perturbed_action = self.U + self.noise
         
+        # if self.robot == "panda" or self.robot == "omni_panda":     # force gripper vel to be dependant on eachother
+        #     self.perturbed_action[:,:,self.nu - 2] = self.perturbed_action[:,:,-1]
+
         # naively bound control
         self.perturbed_action = self._bound_action(self.perturbed_action)
 
@@ -435,47 +476,3 @@ class MPPI():
         if self.u_max is not None:
             action = torch.max(torch.min(action, self.u_max), self.u_min)
         return action
-
-    def get_rollouts(self, state, num_rollouts=1):
-        """
-            :param state: either (nx) vector or (num_rollouts x nx) for sampled initial states
-            :param num_rollouts: Number of rollouts with same action sequence - for generating samples with stochastic
-                                 dynamics
-            :returns states: num_rollouts x T x nx vector of trajectories
-
-        """
-        state = state.view(-1, self.nx)
-        if state.size(0) == 1:
-            state = state.repeat(num_rollouts, 1)
-
-        T = self.U.shape[0]
-        states = torch.zeros((num_rollouts, T + 1, self.nx), dtype=self.U.dtype, device=self.U.device)
-        states[:, 0] = state
-        for t in range(T):
-            states[:, t + 1] = self._dynamics(states[:, t].view(num_rollouts, -1),
-                                              self.u_scale * self.U[t].view(num_rollouts, -1), t)
-        return states[:, 1:]
-
-
-def run_mppi(mppi, env, retrain_dynamics, retrain_after_iter=50, iter=1000, render=True):
-    dataset = torch.zeros((retrain_after_iter, mppi.nx + mppi.nu), dtype=mppi.U.dtype, device=mppi.d)
-    total_reward = 0
-    for i in range(iter):
-        state = env.state.copy()
-        command_start = time.perf_counter()
-        action = mppi.command(state)
-        elapsed = time.perf_counter() - command_start
-        s, r, _, _ = env.step(action.cpu().numpy())
-        total_reward += r
-        logger.debug("action taken: %.4f cost received: %.4f time taken: %.5fs", action, -r, elapsed)
-        if render:
-            env.render()
-
-        di = i % retrain_after_iter
-        if di == 0 and i > 0:
-            retrain_dynamics(dataset)
-            # don't have to clear dataset since it'll be overridden, but useful for debugging
-            dataset.zero_()
-        dataset[di, :mppi.nx] = torch.tensor(state, dtype=mppi.U.dtype)
-        dataset[di, mppi.nx:] = action
-    return total_reward, dataset

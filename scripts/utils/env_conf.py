@@ -54,6 +54,41 @@ xaxis_pose.p = gymapi.Vec3(0.25, 0, 0)
 yaxis_pose = gymapi.Transform()
 yaxis_pose.p = gymapi.Vec3(0, 0.25, 0.01)
 
+franka_pose = gymapi.Transform()
+franka_pose.p = gymapi.Vec3(-0.2, 0, 0)
+
+table_dims = gymapi.Vec3(0.6, 1.0, 0.4)
+table_pose = gymapi.Transform()
+table_pose.p = gymapi.Vec3(0.5, 0.0, 0.5 * table_dims.z)
+
+shelves_dims = gymapi.Vec3(0.6, 1.0, 1.5)
+shelf_pose = gymapi.Transform()
+shelf_pose.p = gymapi.Vec3(1.85, 3-0.5*shelves_dims.y, 0)
+
+box_size = 0.04
+box_pose = gymapi.Transform()
+box_pose.p.x = table_pose.p.x 
+box_pose.p.y = table_pose.p.y 
+box_pose.p.z = table_dims.z + 0.5 * box_size
+box_pose.r = gymapi.Quat.from_axis_angle(gymapi.Vec3(0, 0, 1), np.random.uniform(-math.pi, math.pi))
+
+product_pose = gymapi.Transform()
+product_pose.p.x = table_pose.p.x 
+product_pose.p.y = table_pose.p.y 
+product_pose.p.z = table_dims.z + 0.08
+product_pose.r.x = 0.7068252
+product_pose.r.y = 0
+product_pose.r.z = 0
+product_pose.r.w = 0.7068252
+
+envs = []
+box_idxs = []
+hand_idxs = []
+init_pos_list = []
+init_rot_list = []
+
+mug_color = gymapi.Vec3(0.85, 0.88, 0.2)
+
 def add_box(sim, gym, env, width, height, depth, pose, color, isFixed, name, index):
     # Additional assets from API
     asset_options_objects = gymapi.AssetOptions()
@@ -88,12 +123,16 @@ def load_robot(robot, gym, sim):
         robot_asset = load_boxer(gym, sim)
     elif robot == "point_robot":
         robot_asset = load_point_robot(gym, sim)
-    elif robot == "franka":
-        robot_asset = load_franka(gym, sim)
+    elif robot == "panda":
+        robot_asset = load_panda(gym, sim)
     elif robot == "husky":
         robot_asset = load_husky(gym, sim)
     elif robot == "heijn":
         robot_asset = load_heijn(gym, sim)
+    elif robot == "omni_panda":
+        robot_asset = load_omni_panda(gym, sim)
+    elif robot == "shadow_hand":
+        robot_asset = load_shadow(gym, sim)
     else:
         print("Invalid robot type")
     return robot_asset
@@ -148,20 +187,47 @@ def load_heijn(gym, sim):
     robot_asset = gym.load_asset(sim, asset_root, asset_file, asset_options)
     return robot_asset
 
-def load_franka(gym, sim):
+def load_panda(gym, sim):
     # Load asset
     asset_root = "../assets"
     franka_asset_file = "urdf/franka_description/robots/franka_panda.urdf"
 
     asset_options = gymapi.AssetOptions()
-    asset_options.fix_base_link = True
-    asset_options.flip_visual_attachments = True
     asset_options.armature = 0.01
+    asset_options.fix_base_link = True
+    asset_options.disable_gravity = True
+    asset_options.flip_visual_attachments = True
+    franka_asset = gym.load_asset(sim, asset_root, franka_asset_file, asset_options)
+    # configure franka dofs
+    franka_dof_props = gym.get_asset_dof_properties(franka_asset)
+    franka_lower_limits = franka_dof_props["lower"]
+    franka_upper_limits = franka_dof_props["upper"]
+    franka_ranges = franka_upper_limits - franka_lower_limits
+    franka_mids = 0.3 * (franka_upper_limits + franka_lower_limits)
+    franka_dof_props["driveMode"][7:].fill(gymapi.DOF_MODE_VEL)
+    franka_dof_props["stiffness"][7:].fill(800.0)
+    franka_dof_props["damping"][7:].fill(40.0)
 
-    print("Loading asset '%s' from '%s'" % (franka_asset_file, asset_root))
-    franka_asset = gym.load_asset(
-        sim, asset_root, franka_asset_file, asset_options)
     return franka_asset
+
+def load_omni_panda(gym, sim):
+    # Load asset
+    asset_root = "../assets"
+    omni_panda_asset_file = "urdf/omni_panda/omniPandaWithGripper.urdf"
+
+    asset_options = gymapi.AssetOptions()
+    asset_options.armature = 0.01
+    asset_options.fix_base_link = True
+    asset_options.disable_gravity = True
+    asset_options.flip_visual_attachments = True
+    omni_panda_asset = gym.load_asset(sim, asset_root, omni_panda_asset_file, asset_options)
+    # configure omni_panda dofs
+    omni_panda_dof_props = gym.get_asset_dof_properties(omni_panda_asset)
+    omni_panda_dof_props["driveMode"][10:].fill(gymapi.DOF_MODE_VEL)
+    omni_panda_dof_props["stiffness"][10:].fill(800.0)
+    omni_panda_dof_props["damping"][10:].fill(40.0)
+
+    return omni_panda_asset
 
 def load_husky(gym, sim):
     # Load asset
@@ -195,8 +261,62 @@ def load_husky(gym, sim):
     pose.p = gymapi.Vec3(0.0, 0.0, 0.01)    
     return robot_asset
 
+def load_mug(gym, sim):
+    asset_options = gymapi.AssetOptions()
+    asset_options.fix_base_link = False
+    asset_options.vhacd_enabled = True
+    asset_options.vhacd_params = gymapi.VhacdParams()
+    asset_options.vhacd_params.resolution = 10
+
+    mug_asset_file = "urdf/objects/mug/mug.urdf"
+    mug_asset = gym.load_asset(sim, "../assets", mug_asset_file, asset_options)
+    return mug_asset
+
+def load_hageslag(gym, sim):
+    asset_options = gymapi.AssetOptions()
+    asset_options.fix_base_link = False
+    asset_options.vhacd_enabled = True
+    asset_options.vhacd_params = gymapi.VhacdParams()
+    asset_options.vhacd_params.resolution = 10
+
+    hageslag_asset_file = "urdf/objects/AH_hagelslag_aruco_0/hageslag_0.urdf"
+    hageslag_asset = gym.load_asset(sim, "../assets", hageslag_asset_file, asset_options)
+    return hageslag_asset
+
+def load_shelf(gym, sim):
+    asset_options = gymapi.AssetOptions()
+    asset_options.fix_base_link = True
+    asset_options.vhacd_enabled = True
+    asset_options.vhacd_params = gymapi.VhacdParams()
+    asset_options.vhacd_params.resolution = 10
+    shelf_asset_file = "urdf/AH_shelf/shelf.urdf"
+    shelf_asset = gym.load_asset(sim, "../assets", shelf_asset_file, asset_options)
+
+    return shelf_asset
+
+def load_shadow(gym, sim):
+    asset_file = "mjcf/open_ai_assets/hand/shadow_hand.xml"
+
+    asset_options = gymapi.AssetOptions()
+    asset_options.fix_base_link = True
+    asset_options.flip_visual_attachments = False
+    asset_options.use_mesh_materials = True
+    shadow_asset = gym.load_asset(sim, "../assets", asset_file, asset_options)
+    return shadow_asset
+
+def load_colored_cube(gym, sim, isFixed):
+    asset_file = "urdf/objects/cube_multicolor.urdf"
+
+    asset_options = gymapi.AssetOptions()
+    asset_options.fix_base_link = isFixed
+    asset_options.flip_visual_attachments = True
+    asset_options.use_mesh_materials = True
+    colored_cube_asset = gym.load_asset(sim, "../assets", asset_file, asset_options)
+
+    return colored_cube_asset
+
 def add_obstacles(sim, gym, env, environment_type, index):
-    if environment_type == "normal":
+    if environment_type == "arena":
         # add fixed obstacle
         obstacle_handle = add_box(sim, gym, env, 0.3, 0.4, 0.5, obstacle_pose, color_vec_fixed, True, "obstacle", index)
         dyn_obs_handle = add_box(sim, gym, env,0.4, 0.4, 0.1, dyn_obs_pose, color_vec_dyn_obs, False, "dyn_obs", index)
@@ -237,7 +357,37 @@ def add_obstacles(sim, gym, env, environment_type, index):
         gym.set_actor_rigid_body_properties(env, crate_handle, crate_props)      
     else:
         print("Invalid environment type")
-    
+
+def add_store(sim, gym, env, table_asset, shelf_asset, product_asset, index):
+
+    # add table and shelf
+    table_handle = gym.create_actor(env, table_asset, table_pose, "table", index, 0)
+    shelf_handle = gym.create_actor(env, shelf_asset, shelf_pose, "shelf", index, 0)
+
+    box_handle = add_box(sim, gym, env, box_size, box_size, box_size, box_pose, color_vec_crate, False, "product", index)
+
+    # mug_handle = gym.create_actor(env, mug_asset, box_pose, "mug", i, 0)
+    #product_handle = gym.create_actor(env, product_asset, product_pose, "product", index, 0)
+
+def get_default_franka_state(gym, robot_asset):
+
+    franka_dof_props = gym.get_asset_dof_properties(robot_asset)
+    franka_lower_limits = franka_dof_props["lower"]
+    franka_upper_limits = franka_dof_props["upper"]
+    franka_mids = 0.5 * (franka_upper_limits + franka_lower_limits)
+
+    # default dof states and position targets
+    franka_num_dofs = gym.get_asset_dof_count(robot_asset)
+    default_dof_pos = np.zeros(franka_num_dofs, dtype=np.float32)
+    default_dof_pos[:10] = franka_mids[:10]
+    # grippers open
+    default_dof_pos[10:] = franka_upper_limits[10:]
+
+    default_dof_state = np.zeros(franka_num_dofs, gymapi.DofState.dtype)
+    default_dof_state["pos"] = default_dof_pos
+
+    return default_dof_state
+
 def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, environment_type, control_type = "vel_control"):
     # Some common handles for later use
     envs = []
@@ -245,26 +395,73 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, e
     print("Creating %d environments" % num_envs)
     num_per_row = int(math.sqrt(num_envs))
     gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(1.5, 6, 8), gymapi.Vec3(1.5, 0, 0))
+    
+    # Environment specific parameters and assets
+    if environment_type == "arena" or environment_type == "battery":
+        wall_size = 8
+        wall_thickness = 0.1
+    elif environment_type == "lab":
+        wall_size = 5
+        wall_thickness = 0.05
+    elif environment_type == "store":
+        gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(1, 1, 1.5), gymapi.Vec3(-0.2, -0.2, 0.2))
+        mug_asset = load_mug(gym, sim)
+        hageslag_asset = load_hageslag(gym, sim)
+        shelf_asset = load_shelf(gym, sim)
+        asset_options = gymapi.AssetOptions()
+        asset_options.fix_base_link = True
+        table_asset = gym.create_box(sim, table_dims.x, table_dims.y, table_dims.z, asset_options)
+    elif environment_type == "shadow":
+        gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(1, -1, 1.5), gymapi.Vec3(0., -0.4, 1))
+        cube_asset = load_colored_cube(gym, sim, False)
+        cube_pose = gymapi.Transform()
+        cube_pose.p = gymapi.Vec3(-0.01, -0.42, 1.)
+
+        cube_target_asset = load_colored_cube(gym, sim, True)
+        cube_target_pose = gymapi.Transform()
+        cube_target_pose.p = gymapi.Vec3(-0.01, -0.42, 1.3)
+        cube_target_pose.r = gymapi.Quat.from_axis_angle(gymapi.Vec3(1, 1, 1), np.random.uniform(-math.pi, math.pi))
+
     for i in range(num_envs):
         # Create env
         env = gym.create_env(sim, gymapi.Vec3(-spacing, 0.0, -spacing), gymapi.Vec3(spacing, spacing, spacing), num_per_row)
         envs.append(env)
         
-        if environment_type == "normal" or environment_type == "battery":
-            wall_size = 8
-            wall_thickness = 0.1
-        if environment_type == "lab":
-            wall_size = 5
-            wall_thickness = 0.05
+        if environment_type == "store":
+            add_store(sim, gym, env, table_asset, shelf_asset, hageslag_asset, i)
+            robot_handle = gym.create_actor(env, robot_asset, franka_pose, "franka", i, 2)
+            # configure franka dofs
+            if 'default_dof_state' not in locals():
+                default_dof_state = get_default_franka_state(gym, robot_asset)
+            gym.set_actor_dof_states(env, robot_handle, default_dof_state, gymapi.STATE_ALL)
+        elif environment_type == "arena" or environment_type == "battery" or environment_type == "lab":
+            add_arena(sim, gym, env, wall_size, wall_thickness, 0, 0, i) # Wall size, wall thickness, origin_x, origin_y, index
+            # Add obstacles
+            add_obstacles(sim, gym, env, environment_type, index = i)
+            # Add robot
+            robot_handle = gym.create_actor(env, robot_asset, pose, "robot", i, 0)
+        elif environment_type == "shadow":
+            # Add cube 
+            cube_handle = gym.create_actor(env, cube_asset, cube_pose, "cube", i, 0)
+            # Add target reference
+            cube_target_handle = gym.create_actor(env, cube_target_asset, cube_target_pose, "cube", i, 0)
+            # Add hand
+            robot_handle = gym.create_actor(env, robot_asset, pose, "shadow_hand", i, 0)
+            # shadow_num_dofs = gym.get_asset_dof_count(robot_asset)
+            # default_dof_pos = np.zeros(shadow_num_dofs, dtype=np.float32)
+            # default_dof_pos[1] = -0.5   # Palm
+            # default_dof_pos[2] = 0.2   # Palm
+            # default_dof_pos[3] = 0.4   # Index
+            # default_dof_pos[4] = 0.6   # Index
+            # default_dof_pos[5] = 0.6   # Index
 
-        add_arena(sim, gym, env, wall_size, wall_thickness, 0, 0, i) # Wall size, wall thickness, origin_x, origin_y, index
-        
-        # Add obstacles
-        add_obstacles(sim, gym, env, environment_type, index = i)
+            # # default_dof_pos[3] = 0
+            # default_dof_state = np.zeros(shadow_num_dofs, gymapi.DofState.dtype)
+            # default_dof_state["pos"] = default_dof_pos
+            # gym.set_actor_dof_states(env, robot_handle, default_dof_state, gymapi.STATE_ALL)
 
-        # Add robot
-        robot_handle = gym.create_actor(env, robot_asset, pose, "robot", i, 1)
         robot_handles.append(robot_handle)
+        
         if environment_type == "battery":
             gym.set_rigid_body_color(env, robot_handle, -1, gymapi.MESH_VISUAL_AND_COLLISION, color_vec_battery_ok)
 
@@ -285,6 +482,7 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, e
         else:
             print("Invalid control type!")
         gym.set_actor_dof_properties(env, robot_handle, props)
+        
 
         # Set friction of rotacasters to zero for boxer
         boxer_rigid_body_names = ['base_link_ori', 'base_link', 'chassis_link', 'rotacastor_left_link', 'rotacastor_right_link', 'wheel_left_link', 'wheel_right_link', 'ee_link']
@@ -297,5 +495,5 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, e
             shape_props[2].torsion_friction = 0.
             shape_props[2].rolling_friction = 0.
             gym.set_actor_rigid_shape_properties(env, robot_handle, shape_props)
-
+    print('Ready to start')
     return envs, robot_handles
