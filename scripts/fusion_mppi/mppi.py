@@ -6,7 +6,6 @@ from torch.distributions.multivariate_normal import MultivariateNormal
 import functools
 import numpy as np
 from scipy import signal
-from priors.fabrics_planner import fabrics_point
 
 logger = logging.getLogger(__name__)
 
@@ -167,6 +166,9 @@ class MPPI():
         self.terminal_state_cost = terminal_state_cost
         self.sample_null_action = sample_null_action
         self.use_priors = use_priors
+        if self.use_priors:
+            from priors.fabrics_planner import fabrics_point
+
         self.noise_abs_cost = noise_abs_cost
         self.state = None
 
@@ -216,8 +218,16 @@ class MPPI():
             else:
                 self.sgf_window = 10
             self.sgf_order = 2
-
-
+        elif robot == "shadow_hand":
+            if self.T < 20:
+                self.sgf_window = self.T
+            else:
+                self.sgf_window = 10
+            self.sgf_order = 2
+        # Some versions of the sav-go filter require odd window size
+        if (self.sgf_window % 2) == 0:
+            self.sgf_window -=1
+        
         # Initialize fabrics prior
         if self.use_priors:
             # Create fabrics planner with single obstacle

@@ -18,8 +18,10 @@ spacing = 2.0
 robot = "panda"                     # choose from "point_robot", "boxer", "albert", "panda"
 environment_type = "store"          # choose from "arena", "battery", "store"
 control_type = "vel_control"        # choose from "vel_control", "pos_control", "force_control"
-gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, spacing, robot, environment_type, control_type)
+dt = 0.01
+substeps = 1
 
+gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, spacing, robot, environment_type, control_type, dt=dt, substeps=substeps)
 # Acquire states
 dof_states, num_dofs, num_actors, root_states = sim_init.acquire_states(gym, sim, print_flag=False)
 actors_per_env = int(num_actors/num_envs)
@@ -78,6 +80,12 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
 
         res = conn.recv(1024)
         conn.sendall(environment_type.encode())
+
+        res = conn.recv(1024)
+        conn.sendall(data_transfer.numpy_to_bytes(dt))
+
+        res = conn.recv(1024)
+        conn.sendall(data_transfer.numpy_to_bytes(substeps))
 
         i=0
         while True:
