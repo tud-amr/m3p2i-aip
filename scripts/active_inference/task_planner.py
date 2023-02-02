@@ -35,13 +35,15 @@ class PLANNER_AIF(PLANNER_SIMPLE):
     def __init__(self) -> None:
         PLANNER_SIMPLE.__init__(self)
         # Define the required mdp structures 
-        mdp_battery = isaac_int_req_templates.MDPBattery() 
+        mdp_isAt = isaac_state_action_templates.MDPIsAt()
+        mdp_battery = isaac_int_req_templates.MDPBattery()  
         # Define ai agent with related mdp structure to reason about
-        self.ai_agent_internal = ai_agent.AiAgent(mdp_battery)
+        self.ai_agent_task = [ai_agent.AiAgent(mdp_isAt), ai_agent.AiAgent(mdp_battery)]
         # Set the preference for the battery 
-        self.ai_agent_internal.set_preferences(np.array([[1.], [0], [0]])) # Fixed preference for battery ok, following ['ok', 'low', 'critcal'] 
+        self.ai_agent_task[0].set_preferences(np.array([[1.], [0]]))
         self.battery_factor = 0.5
         self.battery_level = 100
+        self.nav_goal = torch.tensor([3, -3], device="cuda:0")
 
     # Battery simulation
     def battery_sim(self, robot_pos):
@@ -65,15 +67,29 @@ class PLANNER_AIF(PLANNER_SIMPLE):
         else:
             obs_battery = 2  # Battery is critical
         return obs_battery
+    
+    # Task motion observation
+    def get_task_motion_obs(self, robot_pos):
+        if torch.norm(robot_pos - self.nav_goal) < 0.5:
+            obs_task = 0     # at_goal
+        else:
+            obs_task = 1     # not_at_goal
+        return obs_task
 
     # Upadte the task planner
     def update_plan(self, robot_pos):
         self.battery_sim(robot_pos)
         obs_battery = self.get_battery_obs()
-        outcome_internal, curr_action_internal = adaptive_action_selection.adapt_act_sel(self.ai_agent_internal, obs_battery)
-        print('Measured battery level', self.battery_level)
-        # print('The outcome from the internal requirements is', outcome_internal)
-        print('The selected action from the internal requirements is', curr_action_internal)
-        if curr_action_internal == 'go_recharge':
+        obs_task = self.get_task_motion_obs(robot_pos)
+        obs = [obs_task, obs_battery]
+        outcome, curr_action = adaptive_action_selection.adapt_act_sel(self.ai_agent_task, obs)
+        print('Measured battery level:', self.battery_level)
+        print('Status:', outcome)
+        print('Current action:', curr_action)
+
+        if curr_action == 'go_recharge':
             self.task = 'go_recharge'
             self.curr_goal = env_conf.docking_station_loc
+        if curr_action in ["move_to", "slow_down"]:
+            self.task = "navigation"
+            self.curr_goal = self.nav_goal

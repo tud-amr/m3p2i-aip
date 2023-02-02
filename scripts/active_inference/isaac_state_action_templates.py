@@ -20,7 +20,7 @@ class MDPIsAt:
 
         # Preconditions of the actions above
         # ----------------------------------------------------------
-        self.preconditions = [['none'], ['none']]    # No preconditions needed for Idle and move_to                       
+        self.preconditions = [['none'], ['battery_ok']]    # No preconditions needed for Idle and move_to                       
 
         # Likelihood matrix matrices
         # ----------------------------------------------------------
