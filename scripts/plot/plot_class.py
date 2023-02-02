@@ -8,6 +8,7 @@ sys.path.append('../')
 from utils import path_utils
 import multiprocessing
 import time
+import plotly.graph_objects as go
 
 def start_dash_server():
 
@@ -19,7 +20,7 @@ def start_dash_server():
     app.layout = html.Div([
         html.H1('Battery Level of Robot'),
         dcc.Interval(id="interval",
-                    interval=1000,
+                    interval=500, # increase the counter `n_intervals` every 0.5 seconds
                     n_intervals=0
                     ),
         dcc.Graph(id="graph"),
@@ -31,14 +32,18 @@ def start_dash_server():
     def display_graph(n_intervals):
         df1 = pd.read_csv(path_utils.get_plot_path() +'/data_battery.csv')
         # print(df1.columns[0])
-        df = pd.DataFrame({
-            "Robot": ["Base", "Real Robot"],
-            "Battery Level": [100, df1.columns[0]],
-            "Color": [100, df1.columns[0]]
-        })
-        fig = px.bar(df, x="Robot", y="Battery Level", color="Color", width=1200, height = 800) 
-        fig.update_traces(width=0.2)
-
+        fig = go.Figure()
+        fig.add_bar(y=[0, df1.columns[0], 0], width=0.5, name="Robot")
+        fig.update_traces(texttemplate = df1.columns[0], textposition = 'inside')
+        # fig.update_xaxes(showticklabels=False)
+        # fig.update_xaxes(type='category')
+        fig.update_xaxes(visible=False)
+        fig.update_yaxes(range=[0, 100])
+        fig.update_layout(title="",width=1200,
+                          height=800,
+                          xaxis_title="Robot",
+                          yaxis_title="Battery level",
+                          legend_title="", showlegend=True)
         return fig
 
     def run():
@@ -50,9 +55,9 @@ def start_dash_server():
 
 if __name__== "__main__":
     start_dash_server()
-    time.sleep(5)
     # plot the new updated data
     file_path = path_utils.get_plot_path() +'/data_battery.csv'
-    for i in range(10000):
-        np.savetxt(file_path, [100-i/100], fmt='%.1f')
+    for i in range(1000):
+        time.sleep(0.2)
+        np.savetxt(file_path, [100-i/10], fmt='%.1f')
         # print(i)
