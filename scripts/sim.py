@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import math
 
 # Make the environment and simulation
-log_data = False                    # Set true for plots of control inputs and other stats
+log_data = True                    # Set true for plots of control inputs and other stats
 allow_viewer = True
 num_envs = 1 
 spacing = 10.0
@@ -178,7 +178,7 @@ if log_data:
         axs[j].legend([label[j]])
         axs[j].set(xlabel = 'Time [s]')
 
-    print("Avg. control frequency", len(action_seq)/sim_time[-1])
+    # print("Avg. control frequency", (len(action_seq)+1)/sim_time[-1])
     plt.show()
 
 # Destroy the simulation
