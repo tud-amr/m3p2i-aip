@@ -31,9 +31,15 @@ def start_dash_server():
         Input("interval", "n_intervals"))
     def display_graph(n_intervals):
         df1 = pd.read_csv(path_utils.get_plot_path() +'/data_battery.csv')
-        # print(df1.columns[0])
+        bettery_level = float(df1.columns[0])
+        if bettery_level > 55:
+            color = "green"
+        elif bettery_level > 35:
+            color = "blue"
+        else:
+            color = "red"
         fig = go.Figure()
-        fig.add_bar(y=[0, df1.columns[0], 0], width=0.5, name="Robot")
+        fig.add_bar(y=[0, df1.columns[0], 0], width=0.5, name="Robot", marker_color=color)
         fig.update_traces(texttemplate = df1.columns[0], textposition = 'inside')
         # fig.update_xaxes(showticklabels=False)
         # fig.update_xaxes(type='category')
