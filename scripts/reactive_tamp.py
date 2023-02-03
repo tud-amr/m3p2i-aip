@@ -36,6 +36,8 @@ class REACTIVE_TAMP:
             self.task_planner = task_planner.PLANNER_PATROLLING(goals = torch.tensor([[-3, -3], [3, -3], [3, 3], [-3, 3]], device="cuda:0"))
         elif self.task == "reactive":
             self.task_planner = task_planner.PLANNER_AIF()
+            # start plotting battery level
+            plot_class.start_dash_server()
         elif self.task == "simple":
             self.task_planner = task_planner.PLANNER_SIMPLE()
 
@@ -139,7 +141,6 @@ class REACTIVE_TAMP:
                             conn.sendall(data_transfer.numpy_to_bytes(current_traj))
 
 if __name__== "__main__":
-    plot_class.start_dash_server()
     params = params_utils.load_params()
     reactive_tamp = REACTIVE_TAMP(params)
     reactive_tamp.run()
