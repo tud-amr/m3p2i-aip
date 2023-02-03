@@ -18,7 +18,7 @@ def start_dash_server():
     app = Dash(__name__)
 
     app.layout = html.Div([
-        html.H1('Battery Level of Robot'),
+        html.H1('Battery Level of Robot', style={'marginLeft':'430px'}),
         dcc.Interval(id="interval",
                     interval=500, # increase the counter `n_intervals` every 0.5 seconds
                     n_intervals=0
@@ -49,7 +49,8 @@ def start_dash_server():
                           height=800,
                           xaxis_title="Robot",
                           yaxis_title="Battery level",
-                          legend_title="", showlegend=True)
+                          legend_title="", showlegend=True,
+                          margin=dict(l=80, r=80, b=10, t=0, pad=0),)
         return fig
 
     def run():
