@@ -81,6 +81,11 @@ product_pose.r.y = 0
 product_pose.r.z = 0
 product_pose.r.w = 0.7068252
 
+box1_pose_storm = gymapi.Transform()
+box1_pose_storm.p = gymapi.Vec3(0.4, 0.2, 0.2)
+box2_pose_storm = gymapi.Transform()
+box2_pose_storm.p = gymapi.Vec3(0.4, -0.3, 0.25)
+
 envs = []
 box_idxs = []
 hand_idxs = []
@@ -95,7 +100,7 @@ def add_box(sim, gym, env, width, height, depth, pose, color, isFixed, name, ind
     asset_options_objects.fix_base_link = isFixed
     object_asset = gym.create_box(sim, width, height, depth, asset_options_objects)
     # Add obstacles
-    box_handle = gym.create_actor(env, object_asset, pose, name, index, -1)
+    box_handle = gym.create_actor(env, object_asset, pose, name, index, 0)
     gym.set_rigid_body_color(env, box_handle, 0, gymapi.MESH_VISUAL_AND_COLLISION, color)
     return box_handle
 
@@ -421,6 +426,8 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, e
         cube_target_pose = gymapi.Transform()
         cube_target_pose.p = gymapi.Vec3(-0.01, -0.42, 1.3)
         cube_target_pose.r = gymapi.Quat.from_axis_angle(gymapi.Vec3(1, 1, 1), np.random.uniform(-math.pi, math.pi))
+    elif environment_type == "storm":
+        gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(1.5, 0, 0.6), gymapi.Vec3(-1, 0, 0))
 
     for i in range(num_envs):
         # Create env
@@ -459,6 +466,33 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, e
             # default_dof_state = np.zeros(shadow_num_dofs, gymapi.DofState.dtype)
             # default_dof_state["pos"] = default_dof_pos
             # gym.set_actor_dof_states(env, robot_handle, default_dof_state, gymapi.STATE_ALL)
+        elif environment_type == "storm":
+            # Add boxes
+            #add_box(sim, gym, env, width, height, depth, pose, color, isFixed, name, index):
+
+            add_box(sim, gym, env, 0.3, 0.1, 0.4, box1_pose_storm, color_vec_box1, False, 'box1', i)
+            add_box(sim, gym, env, 0.3, 0.1, 0.5, box2_pose_storm, color_vec_box1, False, 'box2', i)
+
+            # Add sphere
+            # add sphere
+            pose = gymapi.Transform()
+            pose.p, pose.r = gymapi.Vec3(0.4, 0.4, 0.1), gymapi.Quat(0.0, 0.0, 0.0, 1.0)
+            gym.create_actor(env, gym.create_sphere(sim, 0.1, None), pose, "sphere", i, 0)
+
+            # add goal
+            pose = gymapi.Transform()
+            pose.p, pose.r = gymapi.Vec3(0.5, .4, 0.2), gymapi.Quat(0.0, 0.0, 0.0, 1.0)
+            asset_options_objects = gymapi.AssetOptions()
+            asset_options_objects.fix_base_link = True
+            goal_handle = gym.create_actor(env, gym.create_sphere(sim, 0.01, asset_options_objects), pose, "goal", -2, 0) # No collision with goal
+            gym.set_rigid_body_color(env, goal_handle, 0, gymapi.MESH_VISUAL_AND_COLLISION, color_vec_crate)
+
+            # Add Panda
+            robot_handle = gym.create_actor(env, robot_asset, franka_pose, "franka", i, 0)
+            # configure franka dofs
+            if 'default_dof_state' not in locals():
+                default_dof_state = get_default_franka_state(gym, robot_asset)
+            gym.set_actor_dof_states(env, robot_handle, default_dof_state, gymapi.STATE_ALL)
 
         robot_handles.append(robot_handle)
         

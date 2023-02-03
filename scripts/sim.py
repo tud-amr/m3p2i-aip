@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import math
 
 # Make the environment and simulation
-log_data = True                    # Set true for plots of control inputs and other stats
+log_data = False                    # Set true for plots of control inputs and other stats
 allow_viewer = True
 num_envs = 1 
 spacing = 10.0
@@ -47,7 +47,7 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
     substeps = int(data_transfer.bytes_to_numpy(substeps))
 
     gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, spacing, robot, environment_type, control_type, dt=dt, substeps=substeps)
-
+    
     # Acquire states
     dof_states, num_dofs, num_actors, root_states = sim_init.acquire_states(gym, sim, print_flag=False)
 
@@ -55,6 +55,10 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
     bodies_per_env = gym.get_env_rigid_body_count(envs[0])
 
     while viewer is None or not gym.query_viewer_has_closed(viewer):
+
+        if environment_type == 'storm':
+            sim_init.update_goal(gym, sim, num_actors, num_envs, viewer)
+
         # Send dof states to mppi and receive message
         s.sendall(data_transfer.torch_to_bytes(dof_states))
         message = s.recv(1024)

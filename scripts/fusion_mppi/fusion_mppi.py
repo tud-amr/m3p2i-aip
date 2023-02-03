@@ -64,7 +64,7 @@ class FUSION_MPPI(mppi.MPPI):
 
         self.block_goal = torch.tensor([1.5, 3, 0.6], device=self.device)
         self.cube_target_state = None
-        
+
         # Additional variables for the environment or robot
         if self.env_type == "arena":
             self.block_index = 7   # Pushing purple blox, index according to simulation
@@ -98,10 +98,18 @@ class FUSION_MPPI(mppi.MPPI):
                 self.cube_target_indexes[i] = self.cube_target_index + i*self.bodies_per_env
                 self.palm_indexes[i] = self.palm_index + i*self.bodies_per_env
                 self.thumb_indexes[i] = self.thumb_index + i*self.bodies_per_env
-
+        if self.env_type == 'storm':
+            self.ee_indexes = np.zeros(self.num_envs)
+            self.goal_indexes = np.zeros(self.num_envs)
+            self.ee_index = 12
+            self.goal_index = 3
+            for i in range(self.num_envs):
+                self.ee_indexes[i] = self.ee_index + i*self.bodies_per_env
+                self.goal_indexes[i] = self.goal_index + i*self.bodies_per_env
+               
         self.block_not_goal = torch.tensor([-2, 1], device=self.device)
         self.nav_goal = torch.tensor([3, 3], device=self.device)
-        self.panda_hand_goal = torch.tensor([0.5, 0, 0.7, 1, 0, 0, 0], device=self.device)
+        self.panda_hand_goal = torch.tensor([0.5, 0.4, 0.2, 1, 0, 0, 0], device=self.device)
 
     def update_gym(self, gym, sim, viewer=None):
         self.gym = gym
@@ -177,6 +185,14 @@ class FUSION_MPPI(mppi.MPPI):
         
         #align_cost = torch.abs(ee_roll) + torch.abs(ee_pitch)
         return  reach_cost + goal_cost #+ align_cost # 
+
+    def get_panda_reach_cost(self, joint_pos):
+        self.ee_state = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))[self.ee_indexes, 0:7]
+        goal_pos = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))[self.goal_indexes, 0:7]
+        goal_pos[:, 3:7] =  self.panda_hand_goal[3:7]
+        reach_cost = torch.linalg.norm(self.ee_state - goal_pos, axis = 1) 
+        
+        return  reach_cost
 
     def get_shadow_cost(self):
         cube_pos = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))[self.cube_indexes, 0:7]
@@ -346,9 +362,11 @@ class FUSION_MPPI(mppi.MPPI):
             obst_up_to = 2
         elif self.env_type == 'shadow':
             obst_up_to = -1
+        elif self.env_type == 'storm':
+            obst_up_to = 4
 
         if obst_up_to > 0:
-            coll_cost = 10000*torch.sum(net_cf.reshape([self.num_envs, int(net_cf.size(dim=0)/self.num_envs)])[:,0:obst_up_to], 1)
+            coll_cost = 1000*torch.sum(net_cf.reshape([self.num_envs, int(net_cf.size(dim=0)/self.num_envs)])[:,0:obst_up_to], 1)
         else:
             coll_cost = 0*torch.sum(net_cf.reshape([self.num_envs, int(net_cf.size(dim=0)/self.num_envs)])[:,0:obst_up_to], 1)
 
@@ -373,7 +391,8 @@ class FUSION_MPPI(mppi.MPPI):
             #task_cost = self.get_navigation_cost(state_pos)
             task_cost = self.get_push_cost(state_pos)
         elif self.robot == 'panda':
-            task_cost = self.get_panda_cost(state_pos)
+            # task_cost = self.get_panda_cost(state_pos)
+            task_cost = self.get_panda_reach_cost(state_pos)
         elif self.robot == 'omni_panda':
             task_cost = self.get_panda_cost(state_pos)
         elif self.robot == 'shadow_hand':
