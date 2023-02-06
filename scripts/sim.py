@@ -26,6 +26,8 @@ class SIM():
         self.dof_states, self.num_dofs, self.num_actors, self.root_states = sim_init.acquire_states(self.gym, self.sim, print_flag=False)
         self.actors_per_env = int(self.num_actors/self.num_envs)
         self.bodies_per_env = self.gym.get_env_rigid_body_count(self.envs[0])
+        self.initial_root_states = self.root_states.clone()
+        self.initial_dof_states = self.dof_states.clone()
 
         # Helper variables, same as in fusion_mppi
         self.suction_active = params.suction_active
@@ -41,13 +43,28 @@ class SIM():
 
         # Set server address
         self.server_address = './uds_socket'
-    
+
+    def reset(self):
+        # Press 'R' to reset the simulation
+        reset_flag = False
+        for evt in self.gym.query_viewer_action_events(self.viewer):
+            if evt.action == "reset" and evt.value > 0:
+                self.gym.set_actor_root_state_tensor(self.sim, gymtorch.unwrap_tensor(self.initial_root_states))
+                self.gym.set_dof_state_tensor(self.sim, gymtorch.unwrap_tensor(self.initial_dof_states))
+                reset_flag = True
+        return reset_flag
+
     def run(self):
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
             s.connect(self.server_address)
             t_prev = time.monotonic()
 
             while self.viewer is None or not self.gym.query_viewer_has_closed(self.viewer):
+                # Reset the simulation when pressing 'R'
+                reset_flag = self.reset()
+                s.sendall(data_transfer.numpy_to_bytes(int(reset_flag)))
+                message = s.recv(1024)
+
                 # Send dof states to mppi and receive message
                 s.sendall(data_transfer.torch_to_bytes(self.dof_states))
                 message = s.recv(1024)

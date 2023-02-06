@@ -76,6 +76,10 @@ class REACTIVE_TAMP:
         # Send task and goal to motion planner
         print('task:', self.task_planner.task, 'goal:', self.task_planner.curr_goal)
         self.motion_planner.update_task(self.task_planner.task, self.task_planner.curr_goal)
+    
+    def reset(self, reset_flag):
+        if reset_flag:
+            self.task_planner.reset_plan()
 
     def run(self):
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
@@ -88,6 +92,12 @@ class REACTIVE_TAMP:
                 i=0
                 while True:
                     i+=1
+                    # Reset the plan when receiving the flag
+                    res = conn.recv(1024)
+                    reset_flag = data_transfer.bytes_to_numpy(res)
+                    self.reset(reset_flag)
+                    conn.sendall(b"next please")
+
                     # Receive dof states
                     res = conn.recv(2**14)
                     r = copy.copy(res)
@@ -119,7 +129,7 @@ class REACTIVE_TAMP:
                     self.motion_planner.update_gym(self.gym, self.sim, self.viewer)
 
                     # Stay still if the task planner has no task
-                    if self.task_planner.task == "None":
+                    if self.task_planner.task == "None" or i < 10:
                         actions = torch.zeros(self.motion_planner.u_per_command, self.motion_planner.nu, device="cuda:0")
                     # Compute optimal action and send to real simulator
                     else:

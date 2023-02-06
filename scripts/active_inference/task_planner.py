@@ -16,13 +16,21 @@ class PLANNER_SIMPLE:
     def update_plan(self, robot_pos):
         self.task = "navigation"
         self.curr_goal = torch.tensor([3, 3], device="cuda:0")
+    
+    def reset_plan(self):
+        self.task = "None"
+        self.curr_goal = "None"     
 
 class PLANNER_PATROLLING(PLANNER_SIMPLE):
     def __init__(self, goals) -> None:
+        self.task = "navigation"
         self.goals = goals
         self.goal_id = 0
         self.curr_goal = self.goals[self.goal_id]
-        self.task = "navigation"
+    
+    def reset_plan(self):
+        self.goal_id = 0
+        self.curr_goal = self.goals[self.goal_id]
     
     def update_plan(self, robot_pos):
         if torch.norm(robot_pos - self.curr_goal) < 0.1:
@@ -41,7 +49,14 @@ class PLANNER_AIF(PLANNER_SIMPLE):
         self.ai_agent_task = [ai_agent.AiAgent(mdp_isAt), ai_agent.AiAgent(mdp_battery)]
         # Set the preference for the battery 
         self.ai_agent_task[0].set_preferences(np.array([[1.], [0]]))
-        self.battery_factor = 0.5
+        self.battery_factor = 2
+        self.battery_level = 100
+        self.nav_goal = torch.tensor([3, -3], device="cuda:0")
+    
+    # Reset
+    def reset_plan(self):
+        self.task = "None"
+        self.curr_goal = "None"
         self.battery_level = 100
         self.nav_goal = torch.tensor([3, -3], device="cuda:0")
 

@@ -57,6 +57,7 @@ def config_gym(viewer, dt):
         gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_7, "7")
         gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_8, "8")
         gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_9, "9")
+        gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_R, "reset")
     else:
         viewer = None
     # Add ground plane
