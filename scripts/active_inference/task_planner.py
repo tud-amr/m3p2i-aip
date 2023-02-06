@@ -13,7 +13,7 @@ class PLANNER_SIMPLE:
         self.task = "None"
         self.curr_goal = "None"
 
-    def update_plan(self, robot_pos):
+    def update_plan(self, robot_pos, stay_still):
         self.task = "navigation"
         self.curr_goal = torch.tensor([3, 3], device="cuda:0")
     
@@ -32,7 +32,7 @@ class PLANNER_PATROLLING(PLANNER_SIMPLE):
         self.goal_id = 0
         self.curr_goal = self.goals[self.goal_id]
     
-    def update_plan(self, robot_pos):
+    def update_plan(self, robot_pos, stay_still):
         if torch.norm(robot_pos - self.curr_goal) < 0.1:
             self.goal_id += 1
             if self.goal_id >= self.goals.size(0):
@@ -61,13 +61,14 @@ class PLANNER_AIF(PLANNER_SIMPLE):
         self.nav_goal = torch.tensor([3, -3], device="cuda:0")
 
     # Battery simulation
-    def battery_sim(self, robot_pos):
-        if torch.norm(robot_pos - env_conf.docking_station_loc) < 0.5:
-            self.battery_level += self.battery_factor
-        else:
-            self.battery_level -= self.battery_factor
-        self.battery_level = max(0, self.battery_level)
-        self.battery_level = min(100, self.battery_level)
+    def battery_sim(self, robot_pos, stay_still):
+        if not stay_still:
+            if torch.norm(robot_pos - env_conf.docking_station_loc) < 0.5:
+                self.battery_level += self.battery_factor
+            else:
+                self.battery_level -= self.battery_factor
+            self.battery_level = max(0, self.battery_level)
+            self.battery_level = min(100, self.battery_level)
 
         # save battery value to a csv file
         file_path = path_utils.get_plot_path() +'/data_battery.csv'
@@ -92,8 +93,8 @@ class PLANNER_AIF(PLANNER_SIMPLE):
         return obs_task
 
     # Upadte the task planner
-    def update_plan(self, robot_pos):
-        self.battery_sim(robot_pos)
+    def update_plan(self, robot_pos, stay_still):
+        self.battery_sim(robot_pos, stay_still)
         obs_battery = self.get_battery_obs()
         obs_task = self.get_task_motion_obs(robot_pos)
         obs = [obs_task, obs_battery]

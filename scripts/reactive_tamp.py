@@ -70,16 +70,18 @@ class REACTIVE_TAMP:
         self.server_address = './uds_socket'
         data_transfer.check_server(self.server_address)
 
-    def tamp_interface(self, robot_pos):
+    def tamp_interface(self, robot_pos, stay_still):
         # Update task planner goal
-        self.task_planner.update_plan(robot_pos)
+        self.task_planner.update_plan(robot_pos, stay_still)
         # Send task and goal to motion planner
         print('task:', self.task_planner.task, 'goal:', self.task_planner.curr_goal)
         self.motion_planner.update_task(self.task_planner.task, self.task_planner.curr_goal)
     
-    def reset(self, reset_flag):
+    def reset(self, i, reset_flag):
         if reset_flag:
             self.task_planner.reset_plan()
+            i = 0
+        return i
 
     def run(self):
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
@@ -95,7 +97,7 @@ class REACTIVE_TAMP:
                     # Reset the plan when receiving the flag
                     res = conn.recv(1024)
                     reset_flag = data_transfer.bytes_to_numpy(res)
-                    self.reset(reset_flag)
+                    i = self.reset(i, reset_flag)
                     conn.sendall(b"next please")
 
                     # Receive dof states
@@ -123,13 +125,14 @@ class REACTIVE_TAMP:
                         robot_pos = _root_states[-1, :2]
                     elif self.robot == "point_robot" or self.robot == "heijn":
                         robot_pos = torch.tensor([s[0][0], s[0][2]], device="cuda:0")
-                    self.tamp_interface(robot_pos)
+                    stay_still = True if i < 50 else False
+                    self.tamp_interface(robot_pos, stay_still)
 
                     # Update gym in mppi
                     self.motion_planner.update_gym(self.gym, self.sim, self.viewer)
 
                     # Stay still if the task planner has no task
-                    if self.task_planner.task == "None" or i < 10:
+                    if self.task_planner.task == "None" or stay_still:
                         actions = torch.zeros(self.motion_planner.u_per_command, self.motion_planner.nu, device="cuda:0")
                     # Compute optimal action and send to real simulator
                     else:
