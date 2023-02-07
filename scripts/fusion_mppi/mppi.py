@@ -109,6 +109,9 @@ class MPPI():
         :param use_priors: Wheher or not to use other prior controllers
         :param noise_abs_cost: Whether to use the absolute value of the action noise to avoid bias when all states have the same cost
         """
+
+        self.num_envs = num_samples
+        self.bodies_per_env = bodies_per_env
         self.d = device
         self.env_type = env_type
         self.dtype = noise_sigma.dtype
@@ -119,6 +122,11 @@ class MPPI():
         self.nx = nx
         self.nu = 1 if len(noise_sigma.shape) == 0 else noise_sigma.shape[0]
         self.lambda_ = lambda_
+
+        self.ee_indexes = np.zeros(self.num_envs)
+        self.ee_index = 11
+        for i in range(self.num_envs):
+            self.ee_indexes[i] = self.ee_index + i*self.bodies_per_env
 
         if noise_mu is None:
             noise_mu = torch.zeros(self.nu, dtype=self.dtype)
@@ -312,6 +320,7 @@ class MPPI():
 
         states = []
         actions = []
+        ee_states = []
 
         actor_root_state = gymtorch.wrap_tensor(self.gym.acquire_actor_root_state_tensor(self.sim))
         self.gym.refresh_actor_root_state_tensor(self.sim)
@@ -357,13 +366,20 @@ class MPPI():
                 cost_var += c.var(dim=0) * (self.rollout_var_discount ** t)
 
             # Save total states/actions
+            ee_state = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))[self.ee_indexes, 0:3]
             states.append(state)
             actions.append(u)
+            ee_states.append(ee_state)
+            
+
+
 
         # Actions is K x T x nu
         # States is K x T x nx
         actions = torch.stack(actions, dim=-2)
         states = torch.stack(states, dim=-2)
+        ee_states = torch.stack(ee_states, dim=-2)
+        print(ee_states.size())
 
         # action perturbation cost
         if self.terminal_state_cost:
@@ -371,7 +387,7 @@ class MPPI():
             cost_samples += c
         cost_total += cost_samples.mean(dim=0)
         cost_total += cost_var * self.rollout_var_cost
-        return cost_total, states, actions
+        return cost_total, states, actions, ee_states
 
     def _fabrics_prior_command(self, pos, vel, goal, obst):
         acc_action = self._fabrics_prior.compute_action(
@@ -453,7 +469,7 @@ class MPPI():
         # naively bound control
         self.perturbed_action = self._bound_action(self.perturbed_action)
 
-        self.cost_total, self.states, self.actions = self._compute_rollout_costs(self.perturbed_action)
+        self.cost_total, self.states, self.actions, self.ee_states = self._compute_rollout_costs(self.perturbed_action)
         self.actions /= self.u_scale
 
         # bounded noise after bounding (some got cut off, so we don't penalize that in action cost)

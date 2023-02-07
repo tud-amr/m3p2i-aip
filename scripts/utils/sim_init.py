@@ -145,7 +145,7 @@ def visualize_rollouts(gym, viewer, env, states):
     color_array = np.zeros((n_steps, 3), dtype=np.float32)
     color_array[:, 1] = 255     # green
     for i in range(n_steps):
-        pos = [states[i, 1], states[i, 0], 0.1, states[i+1, 1], states[i+1, 0], 0.1]
+        pos = [states[i, 0], states[i, 1], states[i, 2], states[i+1, 0], states[i+1, 1], states[i+1, 2]]
         line_array[i, :] = pos
 
     # Draw lines
