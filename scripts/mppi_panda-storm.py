@@ -13,7 +13,7 @@ torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 # Make the environment and simulation
 allow_viewer = False
 visualize_rollouts = True
-num_envs = 500
+num_envs = 50
 spacing = 2.0
 robot = "panda"                     # choose from "point_robot", "boxer", "albert", "panda"
 environment_type = "storm"          # choose from "arena", "battery", "store"
@@ -26,7 +26,7 @@ gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, sp
 dof_states, num_dofs, num_actors, root_states = sim_init.acquire_states(gym, sim, print_flag=False)
 actors_per_env = int(num_actors/num_envs)
 bodies_per_env = gym.get_env_rigid_body_count(envs[0])
-sigma = 20
+sigma = 10
 max_vel = 4
 max_vel_finger = 0.000001
 sigma_finger = 0.5
