@@ -421,7 +421,7 @@ class MPPI():
                                                                       self.nu)
         
         # First time mean is zero then it is updated in the doistribution
-        act_seq = self.mean_action.unsqueeze(0) + scaled_delta
+        act_seq = self.U + scaled_delta
         # mean should be updated after generating the rollouts and computing the optimal control
 
         #Scales action within bounds. act_seq is the same as perturbed actions
@@ -432,11 +432,11 @@ class MPPI():
         # See mppi.py line 111 in storm, there they update the best trajectory and then append to current samples
         
         # resample noise each time we take an action
-        self.noise = self.noise_dist.sample((self.K, self.T))
+        self.noise = scaled_delta
         # broadcast own control to noise over samples; now it's K x T x nu
-        self.perturbed_action = self.U + self.noise
+        self.perturbed_action = torch.clone(act_seq)
         # naively bound control
-        self.perturbed_action = self._bound_action(self.perturbed_action)
+        # self.perturbed_action = self._bound_action(self.perturbed_action)
 
         self.cost_total, self.states, self.actions, self.ee_states = self._compute_rollout_costs(self.perturbed_action)
        
