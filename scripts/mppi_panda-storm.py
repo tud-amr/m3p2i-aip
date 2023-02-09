@@ -27,7 +27,7 @@ dof_states, num_dofs, num_actors, root_states = sim_init.acquire_states(gym, sim
 actors_per_env = int(num_actors/num_envs)
 bodies_per_env = gym.get_env_rigid_body_count(envs[0])
 sigma = 10
-max_vel = 4
+max_vel = 1
 max_vel_finger = 0.000001
 sigma_finger = 0.5
 
@@ -42,12 +42,12 @@ mppi = fusion_mppi.FUSION_MPPI(
                                 [0, 0, 0, sigma, 0, 0, 0, 0, 0],
                                 [0, 0, 0, 0, sigma, 0, 0, 0, 0],
                                 [0, 0, 0, 0, 0, sigma, 0, 0, 0],
-                                [0, 0, 0, 0, 0, 0, sigma, 0, 0],
+                                [0, 0, 0, 0, 0, 0, 3*sigma, 0, 0],
                                 [0, 0, 0, 0, 0, 0, 0, sigma_finger, 0],
                                 [0, 0, 0, 0, 0, 0, 0, 0, sigma_finger],], device="cuda:0", dtype=torch.float32),
     num_samples=num_envs, 
-    horizon=20,
-    lambda_=0.05, 
+    horizon=15,
+    lambda_=0.001, 
     device="cuda:0", 
     u_max=torch.tensor([max_vel, max_vel, max_vel, max_vel, max_vel, max_vel, max_vel, max_vel_finger, max_vel_finger]),
     u_min=torch.tensor([-max_vel, -max_vel, -max_vel, -max_vel, -max_vel, -max_vel, -max_vel, -max_vel_finger, -max_vel_finger]),
@@ -57,7 +57,7 @@ mppi = fusion_mppi.FUSION_MPPI(
     use_priors=False,
     use_vacuum = False,
     robot_type=robot,
-    u_per_command=20,
+    u_per_command=15,
     actors_per_env=actors_per_env,
     env_type=environment_type,
     bodies_per_env=bodies_per_env,

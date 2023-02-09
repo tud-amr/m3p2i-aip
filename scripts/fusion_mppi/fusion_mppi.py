@@ -192,7 +192,7 @@ class FUSION_MPPI(mppi.MPPI):
         goal_pos[:, 3:7] =  self.panda_hand_goal[3:7]
         reach_cost = torch.linalg.norm(self.ee_state - goal_pos, axis = 1) 
         
-        return  reach_cost
+        return  10*reach_cost 
 
     def get_shadow_cost(self):
         cube_pos = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))[self.cube_indexes, 0:7]
@@ -402,7 +402,7 @@ class FUSION_MPPI(mppi.MPPI):
         acc_cost = 0.00001*torch.linalg.norm(torch.square((u[0:1]-past_u[0:1])/0.05), dim=1)
         
         if self.robot == 'panda' or 'omni_panda':
-            acc_cost = 0.0001*torch.linalg.norm(torch.square((u-past_u)/0.05), dim=1)
+            acc_cost = 0.01*torch.linalg.norm(torch.square((u-past_u)/0.05), dim=1)
         
         past_u = torch.clone(u)
         

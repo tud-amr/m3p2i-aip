@@ -307,12 +307,14 @@ class MPPI():
 
         action = torch.clone(self.U)
 
-        # Lambda update
-        if eta > self.eta_max*self.K:
+        # # Lambda update
+        self.lambda_mult = 0.01
+        if eta > 5:
             self.lambda_ = (1-self.lambda_mult)*self.lambda_
-        elif eta < self.eta_min*self.K:
+        elif eta < 2:
             self.lambda_ = (1+self.lambda_mult)*self.lambda_
-        
+        print(self.lambda_)
+        print(eta)
         # Smoothing with Savitzky-Golay filter
         if self.filter_u:
             u_ = action.cpu().numpy()
@@ -432,7 +434,7 @@ class MPPI():
         # See mppi.py line 111 in storm, there they update the best trajectory and then append to current samples
         
         # resample noise each time we take an action
-        self.noise = scaled_delta
+        # self.noise = self.noise_dist.sample((self.K, self.T))
         # broadcast own control to noise over samples; now it's K x T x nu
         self.perturbed_action = torch.clone(act_seq)
         # naively bound control
@@ -441,7 +443,7 @@ class MPPI():
         self.cost_total, self.states, self.actions, self.ee_states = self._compute_rollout_costs(self.perturbed_action)
        
         #Update distributions here, line 105 mppi storm
-        # noise_delta = self._update_distribution(self.cost_total, self.actions)
+        #noise_delta = self._update_distribution(self.cost_total, self.actions)
 
         # costs [ns, T], actions [ns, T, nu]
 
@@ -453,9 +455,9 @@ class MPPI():
 
         if self.noise_abs_cost:
             action_cost = self.lambda_ * torch.abs(self.noise) @ self.noise_sigma_inv
-            # NOTE: The original paper does self.lambda_ * torch.abs(self.noise) @ self.noise_sigma_inv, but this biases
-            # the actions with low noise if all states have the same cost. With abs(noise) we prefer actions close to the
-            # nomial trajectory.
+            #NOTE: The original paper does self.lambda_ * torch.abs(self.noise) @ self.noise_sigma_inv, but this biases
+            #the actions with low noise if all states have the same cost. With abs(noise) we prefer actions close to the
+            #nomial trajectory.
         else:
             action_cost = self.lambda_ * self.noise @ self.noise_sigma_inv # Like original paper
 

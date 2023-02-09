@@ -5,7 +5,7 @@ from utils import env_conf, sim_init
 import numpy as np 
 
 # Decide if you want a viewer or headless
-allow_viewer = True
+allow_viewer = False
 
 ## Adding Point robot
 num_envs = 1
