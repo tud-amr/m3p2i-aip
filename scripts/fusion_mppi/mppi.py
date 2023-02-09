@@ -138,6 +138,7 @@ class MPPI():
         self.lambda_ = lambda_
         self.tensor_args={'device':self.d, 'dtype':torch.float32} 
         self.delta = None
+        self.sample_null_action = sample_null_action
 
         # dimensions of state and control
         self.nx = nx
@@ -166,7 +167,7 @@ class MPPI():
         self.u_min = u_min
         self.u_max = u_max
         self.u_scale = u_scale
-        self.u_per_command = u_per_command
+
         # make sure if any of them is specified, both are specified
         if self.u_max is not None and self.u_min is None:
             if not torch.is_tensor(self.u_max):
@@ -201,11 +202,6 @@ class MPPI():
         self.noise_abs_cost = noise_abs_cost
         self.state = None
 
-        # handling dynamics models that output a distribution (take multiple trajectory samples)
-        self.M = rollout_samples
-        self.rollout_var_cost = rollout_var_cost
-        self.rollout_var_discount = rollout_var_discount
-
         # sampled results from last command
         self.cost_total = None
         self.cost_total_non_zero = None
@@ -232,7 +228,10 @@ class MPPI():
         if (self.sgf_window % 2) == 0:
             self.sgf_window -=1       # Some versions of the sav-go filter require odd window size
 
-        
+        # Lambda update
+        self.eta_max = 0.1      # 10%
+        self.eta_min = 0.01     # 1%
+        self.lambda_mult = 0.1  # Update rate
 
     @handle_batch_input
     def _dynamics(self, state, u, t):
@@ -306,19 +305,13 @@ class MPPI():
         
         self.U += torch.sum(self.omega.view(-1, 1, 1) * self.noise, dim=0)
 
-        action = self.U[:self.u_per_command]
-        # reduce dimensionality if we only need the first command
-        if self.u_per_command == 1:
-            action = action[0]
+        action = torch.clone(self.U)
 
         # Lambda update
-        eta_max = 0.1
-        eta_min = 0.01
-        lambda_mult = 0.1
-        if eta > eta_max*self.K:
-            self.lambda_ = (1-lambda_mult)*self.lambda_
-        elif eta < eta_min*self.K:
-            self.lambda_ = (1+lambda_mult)*self.lambda_
+        if eta > self.eta_max*self.K:
+            self.lambda_ = (1-self.lambda_mult)*self.lambda_
+        elif eta < self.eta_min*self.K:
+            self.lambda_ = (1+self.lambda_mult)*self.lambda_
         
         # Smoothing with Savitzky-Golay filter
         if self.filter_u:
@@ -331,18 +324,12 @@ class MPPI():
         
         return action
 
-    def reset(self):
-        """
-        Clear controller state after finishing a trial
-        """
-        self.U = self.noise_dist.sample((self.T,))
-
     def _compute_rollout_costs(self, perturbed_actions):
         K, T, nu = perturbed_actions.shape
         assert nu == self.nu
 
         cost_total = torch.zeros(K, device=self.d, dtype=self.dtype)
-        cost_samples = cost_total.repeat(self.M, 1)
+        cost_samples = cost_total
         cost_var = torch.zeros_like(cost_total)
 
         # allow propagation of a sample of states (ex. to carry a distribution), or to start with a single state
@@ -351,23 +338,24 @@ class MPPI():
         else:
             state = self.state.view(1, -1).repeat(K, 1)
 
-        # rollout action trajectory M times to estimate expected cost
-        state = state.repeat(self.M, 1, 1)
-
         states = []
         actions = []
         ee_states = []
 
         for t in range(T):
-            u = self.u_scale * perturbed_actions[:, t].repeat(self.M, 1, 1)
+            u = self.u_scale * perturbed_actions[:, t]
+
+            # Last rollout is a braking manover
+            if self.sample_null_action:
+                u[self.K -1, :] = torch.zeros_like(u[self.K -1, :])
+                self.perturbed_action[self.K - 1][t] = u[self.K -1, :]
+
+
             state, u = self._dynamics(state, u, t)
             c = self._running_cost(state, u)
             # Update action if there were changes in fusion mppi due for instance to suction constraints
             self.perturbed_action[:,t] = u
             cost_samples += c
-
-            if self.M > 1:
-                cost_var += c.var(dim=0) * (self.rollout_var_discount ** t)
 
             # Save total states/actions
             ee_state = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))[self.ee_indexes, 0:3]
@@ -386,7 +374,7 @@ class MPPI():
             c = self.terminal_state_cost(states, actions)
             cost_samples += c
         cost_total += cost_samples.mean(dim=0)
-        cost_total += cost_var * self.rollout_var_cost
+
         return cost_total, states, actions, ee_states
  
     def _update_distribution(self, costs, actions):
@@ -415,7 +403,6 @@ class MPPI():
             self.step_size_mean * new_mean # eq. 4
        
         delta = actions - self.mean_action.unsqueeze(0)
-        
         return delta
 
     def _compute_total_cost_batch(self):
@@ -453,8 +440,8 @@ class MPPI():
 
         self.cost_total, self.states, self.actions, self.ee_states = self._compute_rollout_costs(self.perturbed_action)
        
-        # Update distributions here, line 105 mppi storm
-        #delta = self._update_distribution(self.cost_total, self.actions)
+        #Update distributions here, line 105 mppi storm
+        # noise_delta = self._update_distribution(self.cost_total, self.actions)
 
         # costs [ns, T], actions [ns, T, nu]
 
