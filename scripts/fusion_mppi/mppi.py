@@ -308,13 +308,11 @@ class MPPI():
         action = torch.clone(self.U)
 
         # # Lambda update
-        self.lambda_mult = 0.01
-        if eta > 5:
-            self.lambda_ = (1-self.lambda_mult)*self.lambda_
-        elif eta < 2:
-            self.lambda_ = (1+self.lambda_mult)*self.lambda_
-        print(self.lambda_)
-        print(eta)
+        # if eta > 5:
+        #     self.lambda_ = (1-self.lambda_mult)*self.lambda_
+        # elif eta < 2:
+        #     self.lambda_ = (1+self.lambda_mult)*self.lambda_
+
         # Smoothing with Savitzky-Golay filter
         if self.filter_u:
             u_ = action.cpu().numpy()
