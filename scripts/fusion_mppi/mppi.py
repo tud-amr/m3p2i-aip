@@ -1,9 +1,8 @@
 import torch
-import time
 import logging
 from isaacgym import gymtorch
 from torch.distributions.multivariate_normal import MultivariateNormal
-from utils.control_utils import generate_gaussian_halton_samples
+from utils.control_utils import generate_gaussian_halton_samples, scale_ctrl
 import functools
 import numpy as np
 from scipy import signal
@@ -133,14 +132,18 @@ class MPPI():
         self.d = device
         self.env_type = env_type
         self.dtype = noise_sigma.dtype
-        self.K = num_samples  # N_SAMPLES
-        self.T = horizon  # TIMESTEPS
+        self.K = num_samples 
+        self.T = horizon  
         self.filter_u = filter_u
+        self.lambda_ = lambda_
+        self.tensor_args={'device':self.d, 'dtype':torch.float32} 
+        self.delta = None
+
         # dimensions of state and control
         self.nx = nx
         self.nu = 1 if len(noise_sigma.shape) == 0 else noise_sigma.shape[0]
-        self.lambda_ = lambda_
 
+        # Temp. visualization
         self.ee_indexes = np.zeros(self.num_envs)
         self.ee_index = 11
         for i in range(self.num_envs):
@@ -151,6 +154,8 @@ class MPPI():
 
         if u_init is None:
             u_init = torch.zeros_like(noise_mu)
+            self.mean_action = torch.zeros(self.nu, device=self.d, dtype=self.dtype)
+            self.best_traj = self.mean_action.clone()
 
         # handle 1D edge case
         if self.nu == 1:
@@ -178,7 +183,9 @@ class MPPI():
         self.noise_mu = noise_mu.to(self.d)
         self.noise_sigma = noise_sigma.to(self.d)
         self.noise_sigma_inv = torch.inverse(self.noise_sigma)
+        # Random noise dist, to be used if not Halton
         self.noise_dist = MultivariateNormal(self.noise_mu, covariance_matrix=self.noise_sigma)
+        
         # T x nu control sequence
         self.U = U_init
         self.u_init = u_init.to(self.d)
@@ -190,10 +197,6 @@ class MPPI():
         self.F = dynamics
         self.running_cost = running_cost
         self.terminal_state_cost = terminal_state_cost
-        self.sample_null_action = sample_null_action
-        self.use_priors = use_priors
-        if self.use_priors:
-            from priors.fabrics_planner import fabrics_point
 
         self.noise_abs_cost = noise_abs_cost
         self.state = None
@@ -210,64 +213,26 @@ class MPPI():
         self.states = None
         self.actions = None
 
-        # Halton sampling
+        # Halton sampling, from storm
         self.knot_scale = 4     # From mppi config storm
         self.sample_method = 'halton'
         self.seed_val = 0       # From mppi config storm
         self.n_knots = self.T//self.knot_scale
         self.ndims = self.n_knots * self.nu
-        self.tensor_args={'device':"cpu", 'dtype':torch.float32} 
         self.degree = 2       # hardcoded value in sample_lib storm
-        # Priors parameters
-        self.kp = 0.5
+        self.Z_seq = torch.zeros(1, self.T, self.nu, **self.tensor_args)
+        self.cov_action = torch.diagonal(noise_sigma, 0)
+        self.scale_tril = torch.sqrt(self.cov_action)
+        self.squash_fn = 'clamp'
+        self.step_size_mean = 0.98
 
         # filtering
-        if robot == "point_robot":
-            if self.T < 20:
-                self.sgf_window = self.T
-            else:
-                self.sgf_window = 10
-            self.sgf_order = 2
-        elif robot == "heijn":
-            if self.T < 20:
-                self.sgf_window = self.T
-            else:
-                self.sgf_window = 20
-            self.sgf_order = 1
-        elif robot == "boxer":
-            if self.T < 20:
-                self.sgf_window = self.T
-            else:
-                self.sgf_window = 10
-            self.sgf_order = 3
-        elif robot == "panda":
-            if self.T < 20:
-                self.sgf_window = self.T
-            else:
-                self.sgf_window = 10
-            self.sgf_order = 2
-        elif robot == "omni_panda":
-            if self.T < 20:
-                self.sgf_window = self.T
-            else:
-                self.sgf_window = 10
-            self.sgf_order = 2
-        elif robot == "shadow_hand":
-            if self.T < 20:
-                self.sgf_window = self.T
-            else:
-                self.sgf_window = 10
-            self.sgf_order = 2
-        # Some versions of the sav-go filter require odd window size
+        self.sgf_window = 9
+        self.sgf_order = 2
         if (self.sgf_window % 2) == 0:
-            self.sgf_window -=1
+            self.sgf_window -=1       # Some versions of the sav-go filter require odd window size
+
         
-        # Initialize fabrics prior
-        if self.use_priors:
-            # Create fabrics planner with single obstacle
-            goal = [3.0, 3.0]
-            weight = 1.0
-            self._fabrics_prior = fabrics_point(goal, weight)
 
     @handle_batch_input
     def _dynamics(self, state, u, t):
@@ -276,6 +241,23 @@ class MPPI():
     @handle_batch_input
     def _running_cost(self, state, u):
         return self.running_cost(state, u)
+
+    def _exp_util(self, costs, actions):
+        """
+            storm Calculate weights using exponential utility
+        """
+        traj_costs = cost_to_go(costs, self.gamma_seq)
+        # if not self.time_based_weights: traj_costs = traj_costs[:,0]
+        traj_costs = traj_costs[:,0]
+        #control_costs = self._control_costs(actions)
+
+        total_costs = traj_costs #+ self.beta * control_costs
+        
+        
+        # #calculate soft-max
+        w = torch.softmax((-1.0/self.beta) * total_costs, dim=0)
+        self.total_costs = total_costs
+        return w
 
     def get_samples(self, sample_shape, **kwargs):      # sample shape is the number of rollouts
     #Looks like the halton samples are only generated once
@@ -289,7 +271,7 @@ class MPPI():
                 device=self.tensor_args['device'],
                 float_dtype=self.tensor_args['dtype'])
         elif(self.sample_method == 'random'):
-            print('NOT implemented yet')
+            print('NOT implemented yet')    # TODO add from previousl sampling method in this script
             
         # Sample splines from knot points:
         # iteratre over action dimension:
@@ -308,6 +290,7 @@ class MPPI():
         """
         # shift command 1 time step
         self.U = torch.roll(self.U, -1, dims=0)
+        # TODO shift the best policy as well
 
         if not torch.is_tensor(state):
             state = torch.tensor(state)
@@ -328,9 +311,6 @@ class MPPI():
         if self.u_per_command == 1:
             action = action[0]
 
-        if self.sample_null_action and cost_total[-1] <= 0.01:
-            action = torch.zeros_like(action)
-
         # Lambda update
         eta_max = 0.1
         eta_min = 0.01
@@ -339,8 +319,7 @@ class MPPI():
             self.lambda_ = (1-lambda_mult)*self.lambda_
         elif eta < eta_min*self.K:
             self.lambda_ = (1+lambda_mult)*self.lambda_
-        print('eta:', eta)
-        print('lambda:', self.lambda_)
+        
         # Smoothing with Savitzky-Golay filter
         if self.filter_u:
             u_ = action.cpu().numpy()
@@ -349,9 +328,6 @@ class MPPI():
                 action = torch.from_numpy(u_filtered).to('cpu')
             else:
                 action = torch.from_numpy(u_filtered).to('cuda')
-
-        # if self.robot == "panda" or self.robot == "omni_panda": # Force gripper actions ot be the same
-        #     action[:, self.nu - 2] = action[:,-1]
         
         return action
 
@@ -382,45 +358,13 @@ class MPPI():
         actions = []
         ee_states = []
 
-        actor_root_state = gymtorch.wrap_tensor(self.gym.acquire_actor_root_state_tensor(self.sim))
-        self.gym.refresh_actor_root_state_tensor(self.sim)
-        
-        if self.env_type == "arena":
-            root_positions = actor_root_state[:, 0:3]
-            root_velocities = actor_root_state[:, 7:10]
-            root_pos = torch.reshape(root_positions[:, 0:2], (self.num_envs, self.actors_per_env, 2))
-            root_vel = torch.reshape(root_velocities[:, 0:2], (self.num_envs, self.actors_per_env, 2))
-            dyn_obs_pos = root_pos[:, 5, :]
-            dyn_obs_vel = root_vel[:, 5, :]
-
         for t in range(T):
             u = self.u_scale * perturbed_actions[:, t].repeat(self.M, 1, 1)
-            
-            # Last rollout is a braking manover
-            if self.sample_null_action:
-                u[:, self.K -1, :] = torch.zeros_like(u[:, self.K -1, :])
-                # u[:, self.K -1, 10] = 0
-                # u[:, self.K -1, 11] = 0
-                # Update perturbed action sequence for later use in cost computation
-                self.perturbed_action[self.K - 1][t] = u[:, self.K -1, :]
-            
-            # Sample open and close fingers with panda
-            
-
-            if self.use_priors:
-                u = self._priors_command(state, u, t, root_positions)
-
             state, u = self._dynamics(state, u, t)
             c = self._running_cost(state, u)
             # Update action if there were changes in fusion mppi due for instance to suction constraints
             self.perturbed_action[:,t] = u
             cost_samples += c
-            
-            if self.env_type == 'arena':
-                # Add cost of the dynamic obstacle
-                penalty_factor = 2 # the larger the factor, the more penalty to geting close to the obs
-                dyn_obs_cost = self._predict_dyn_obs(penalty_factor, state[0], dyn_obs_pos, dyn_obs_vel, t+1)
-                cost_samples += dyn_obs_cost
 
             if self.M > 1:
                 cost_var += c.var(dim=0) * (self.rollout_var_discount ** t)
@@ -431,9 +375,6 @@ class MPPI():
             actions.append(u)
             ee_states.append(ee_state)
             
-
-
-
         # Actions is K x T x nu
         # States is K x T x nx
         actions = torch.stack(actions, dim=-2)
@@ -447,89 +388,77 @@ class MPPI():
         cost_total += cost_samples.mean(dim=0)
         cost_total += cost_var * self.rollout_var_cost
         return cost_total, states, actions, ee_states
+ 
+    def _update_distribution(self, costs, actions):
+        """
+           Storm: Update moments in the direction using sampled
+           trajectories
 
-    def _fabrics_prior_command(self, pos, vel, goal, obst):
-        acc_action = self._fabrics_prior.compute_action(
-            q=pos,
-            qdot=vel,
-            x_goal_0=goal,
-            weight_goal_0=2.,
-            x_obst_0=obst,
-            weight_obst_0=0.1,
-            radius_obst_0=np.array([0.4]),
-            radius_body_1=np.array([0.2])
-        )
-        if any(np.isnan(acc_action)):
-            acc_action = np.zeros_like(acc_action)
-        vel_action = torch.tensor(np.array(vel) + acc_action*0.05, dtype=torch.float32, device=self.d)
-        return vel_action
+            So far only mean is updated, they do not update the covariance in storm franka example
+        """
 
-    def _priors_command(self, state, u, t, root_positions):
-        nav_goal = self.nav_goal.cpu().numpy()
-        u[:, self.K - 2, :] = -self.kp*torch.tensor([[state[0, -2][0] - nav_goal[0], state[0, -2][2] - nav_goal[1]]])    # Proportional controller to the goal
-        # Clamp control input
-        u[:, self.K - 2, :][0] = torch.clamp(u[:, self.K - 2, :][0], min=self.u_min, max=self.u_max)
-        self.perturbed_action[self.K - 2][t] = u[:, self.K -2, :]
+        # TODO compute also top n best actions to plot
+        w = self._exp_util(costs, actions) # eq 6
+        
+        #Update best action
+        best_idx = torch.argmax(w)
+        self.best_idx = best_idx
+        self.best_traj = torch.index_select(actions, 0, best_idx).squeeze(0)
+       
+        weighted_seq = w.T * actions.T
 
-        # fabrics priors 
-        # TODO: make fabrics prior computation parallel instead of sequential for speedups.
-        # specify fabrics goals as list of tuples: (frame_id, position)
-        fabrics_goals = [
-            ("world", nav_goal)
-        ] + [("robot", np.random.uniform(low=-2, high=2, size=(2,))) for _ in range(10)]
+        sum_seq = torch.sum(weighted_seq.T, dim=0)   # Sum of weigths is 1, softmax
 
-        fabrics_obsts = [
-            ("world", [20, 20])
-        ] + [("world", [20, 20])]*10
-
-        assert len(fabrics_goals) == len(fabrics_obsts)
-
-        for i, (goal, obst) in enumerate(zip(fabrics_goals, fabrics_obsts)):
-            dof_state_np = state[0, i].cpu().numpy()
-            pos = np.array([dof_state_np[0], dof_state_np[2]])
-            vel = np.array([dof_state_np[1], dof_state_np[3]])
-
-            if goal[0] == 'world':
-                goal_pos = goal[1]
-            elif goal[0] == 'robot':
-                goal_pos = goal[1] + pos
-            elif goal[0] == 'block':
-                block_pos = torch.cat((torch.split(torch.clone(root_positions[:,0:2]), int(torch.clone(root_positions[:,0:2]).size(dim=0)/self.num_envs))),1)[self.block_index,:].reshape(self.num_envs,2)[i]
-                goal_pos = goal[1] + block_pos.cpu().numpy()
-            else:
-                raise NotImplementedError()
-
-            if obst[0] == 'world':
-                obst_pos = obst[1]
-            elif obst[0] == 'robot':
-                obst_pos = obst[1] + pos
-            elif obst[0] == 'block':
-                block_pos = torch.cat((torch.split(torch.clone(root_positions[:,0:2]), int(torch.clone(root_positions[:,0:2]).size(dim=0)/self.num_envs))),1)[self.block_index,:].reshape(self.num_envs,2)[i]
-                obst_pos = obst[1] + block_pos.cpu().numpy()
-            else:
-                raise NotImplementedError()
-
-            u[:, i, :] = self._fabrics_prior_command(pos, vel, np.array(goal_pos), np.array(obst_pos))
-            u[:, i, :] = torch.clamp(u[:, i, :], min=self.u_min, max=self.u_max)
-            self.perturbed_action[i][t] = u[:, i, :]
-
-        return u
+        new_mean = sum_seq
+      
+        self.mean_action = (1.0 - self.step_size_mean) * self.mean_action +\
+            self.step_size_mean * new_mean # eq. 4
+       
+        delta = actions - self.mean_action.unsqueeze(0)
+        
+        return delta
 
     def _compute_total_cost_batch(self):
         # parallelize sampling across trajectories
 
-        # Sample halton
-        delta = self.get_samples(self.K, base_seed=0)
+        # (Storm) Sample halton. Samples are done once at the beginning and then shifted considering
+        # the mean and covariance of the gaussian policy 
+        if self.delta == None:
+            self.delta = self.get_samples(self.K, base_seed=0)
+            #add zero-noise seq so mean is always a part of samples
+            self.delta[-1,:,:] = self.Z_seq
 
+        #keeps the size but scales values
+        scaled_delta = torch.matmul(self.delta, torch.diag(self.scale_tril)).view(self.delta.shape[0],
+                                                                      self.T,
+                                                                      self.nu)
+        
+        # First time mean is zero then it is updated in the doistribution
+        act_seq = self.mean_action.unsqueeze(0) + scaled_delta
+        # mean should be updated after generating the rollouts and computing the optimal control
+
+        #Scales action within bounds. act_seq is the same as perturbed actions
+        act_seq = scale_ctrl(act_seq, self.u_min, self.u_max, squash_fn=self.squash_fn)
+        
+
+        # TODO: Append best past trajectory (not necessary now) self.best_traj = self.mean_action.clone()
+        # See mppi.py line 111 in storm, there they update the best trajectory and then append to current samples
+        
         # resample noise each time we take an action
         self.noise = self.noise_dist.sample((self.K, self.T))
         # broadcast own control to noise over samples; now it's K x T x nu
         self.perturbed_action = self.U + self.noise
-        print(self.noise.size())
         # naively bound control
         self.perturbed_action = self._bound_action(self.perturbed_action)
 
         self.cost_total, self.states, self.actions, self.ee_states = self._compute_rollout_costs(self.perturbed_action)
+       
+        # Update distributions here, line 105 mppi storm
+        #delta = self._update_distribution(self.cost_total, self.actions)
+
+        # costs [ns, T], actions [ns, T, nu]
+
+
         self.actions /= self.u_scale
 
         # bounded noise after bounding (some got cut off, so we don't penalize that in action cost)
