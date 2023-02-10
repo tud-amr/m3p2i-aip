@@ -190,9 +190,9 @@ class FUSION_MPPI(mppi.MPPI):
         self.ee_state = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))[self.ee_indexes, 0:7]
         goal_pos = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))[self.goal_indexes, 0:7]
         goal_pos[:, 3:7] =  self.panda_hand_goal[3:7]
-        reach_cost = torch.linalg.norm(self.ee_state - goal_pos, axis = 1) 
-        
-        return  10*reach_cost 
+        reach_cost = torch.linalg.norm(self.ee_state[:,:3] - goal_pos[:,:3], axis = 1) 
+        align_cost = torch.linalg.norm(self.ee_state[:,3:7] - goal_pos[:,3:7], axis = 1) 
+        return  10*reach_cost + align_cost
 
     def get_shadow_cost(self):
         cube_pos = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))[self.cube_indexes, 0:7]

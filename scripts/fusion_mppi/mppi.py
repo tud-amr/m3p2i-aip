@@ -2,7 +2,7 @@ import torch
 import logging
 from isaacgym import gymtorch
 from torch.distributions.multivariate_normal import MultivariateNormal
-from utils.control_utils import generate_gaussian_halton_samples, scale_ctrl
+from utils.control_utils import generate_gaussian_halton_samples, scale_ctrl, cost_to_go
 import functools
 import numpy as np
 from scipy import signal
@@ -188,11 +188,11 @@ class MPPI():
         self.noise_dist = MultivariateNormal(self.noise_mu, covariance_matrix=self.noise_sigma)
         
         # T x nu control sequence
-        self.U = U_init
+        # self.U = U_init
         self.u_init = u_init.to(self.d)
 
-        if self.U is None:
-            self.U = self.noise_dist.sample((self.T,))
+        # if self.U is None:
+        #     self.U = self.noise_dist.sample((self.T,))
 
         self.step_dependency = step_dependent_dynamics
         self.F = dynamics
@@ -226,6 +226,12 @@ class MPPI():
         # self.Z = torch.zeros(self.ndims, **self.tensor_args)
         # self.scale = torch.linalg.cholesky(self.noise_sigma.to(dtype=torch.float32)).to(**self.tensor_args)
         # self.mvn = MultivariateNormal(loc=self.Z, scale_tril=self.scale, )
+
+        # Discount
+        self.gamma = 0.95 # Param storm
+        self.gamma_seq = torch.cumprod(torch.tensor([1.0] + [self.gamma] * (self.T - 1)),dim=0).reshape(1, self.T)
+        self.gamma_seq = self.gamma_seq.to(**self.tensor_args)
+        self.beta = 1 # param storm
 
         # filtering
         self.sgf_window = 9
@@ -294,7 +300,10 @@ class MPPI():
         :returns action: (nu) best action
         """
         # shift command 1 time step
-        self.U = torch.roll(self.U, -1, dims=0)
+        self.mean_action = torch.roll(self.mean_action, -1, dims=0)
+        # Set first sequence to zero, otherwise it takes the last of the sequence
+        self.mean_action[0].zero_()
+
         # TODO shift the best policy as well
 
         if not torch.is_tensor(state):
@@ -309,9 +318,9 @@ class MPPI():
         eta = torch.sum(self.cost_total_non_zero)
         self.omega = (1. / eta) * self.cost_total_non_zero
         
-        self.U += torch.sum(self.omega.view(-1, 1, 1) * self.noise, dim=0)
-
-        action = torch.clone(self.U)
+        # self.U += torch.sum(self.omega.view(-1, 1, 1) * self.noise, dim=0)
+        
+        action = torch.clone(self.mean_action)
 
         # # Lambda update
         # if eta > 5:
@@ -335,6 +344,7 @@ class MPPI():
         assert nu == self.nu
 
         cost_total = torch.zeros(K, device=self.d, dtype=self.dtype)
+        cost_horizon = torch.zeros([K, T], device=self.d, dtype=self.dtype)
         cost_samples = cost_total
         cost_var = torch.zeros_like(cost_total)
 
@@ -356,12 +366,12 @@ class MPPI():
                 u[self.K -1, :] = torch.zeros_like(u[self.K -1, :])
                 self.perturbed_action[self.K - 1][t] = u[self.K -1, :]
 
-
             state, u = self._dynamics(state, u, t)
-            c = self._running_cost(state, u)
+            c = self._running_cost(state, u) # every time stes you get nsamples cost, we need that as output for the discount factor
             # Update action if there were changes in fusion mppi due for instance to suction constraints
             self.perturbed_action[:,t] = u
             cost_samples += c
+            cost_horizon[:, t] = c 
 
             # Save total states/actions
             ee_state = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))[self.ee_indexes, 0:3]
@@ -380,6 +390,9 @@ class MPPI():
             c = self.terminal_state_cost(states, actions)
             cost_samples += c
         cost_total += cost_samples.mean(dim=0)
+        
+        #Update distributions here, line 105 mppi storm
+        self.noise = self._update_distribution(cost_horizon, actions)
 
         return cost_total, states, actions, ee_states
  
@@ -429,8 +442,10 @@ class MPPI():
                                                                       self.T,
                                                                       self.nu)
         
+        # For us the action sequence is self.U, for storm instead it is the mean
+
         # First time mean is zero then it is updated in the doistribution
-        act_seq = self.U + scaled_delta
+        act_seq = self.mean_action + scaled_delta
         # mean should be updated after generating the rollouts and computing the optimal control
 
         #Scales action within bounds. act_seq is the same as perturbed actions
@@ -448,9 +463,6 @@ class MPPI():
         # self.perturbed_action = self._bound_action(self.perturbed_action)
 
         self.cost_total, self.states, self.actions, self.ee_states = self._compute_rollout_costs(self.perturbed_action)
-       
-        #Update distributions here, line 105 mppi storm
-        #noise_delta = self._update_distribution(self.cost_total, self.actions)
 
         # costs [ns, T], actions [ns, T, nu]
 
@@ -458,7 +470,7 @@ class MPPI():
         self.actions /= self.u_scale
 
         # bounded noise after bounding (some got cut off, so we don't penalize that in action cost)
-        self.noise = self.perturbed_action - self.U
+        #self.noise = self.perturbed_action - self.U
 
         if self.noise_abs_cost:
             action_cost = self.lambda_ * torch.abs(self.noise) @ self.noise_sigma_inv
@@ -469,7 +481,7 @@ class MPPI():
             action_cost = self.lambda_ * self.noise @ self.noise_sigma_inv # Like original paper
 
         # action perturbation cost
-        perturbation_cost = torch.sum(self.U * action_cost, dim=(1, 2))
+        perturbation_cost = torch.sum(self.mean_action * action_cost, dim=(1, 2))
         self.cost_total += perturbation_cost
         return self.cost_total
 

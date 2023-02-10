@@ -42,7 +42,7 @@ mppi = fusion_mppi.FUSION_MPPI(
                                 [0, 0, 0, sigma, 0, 0, 0, 0, 0],
                                 [0, 0, 0, 0, sigma, 0, 0, 0, 0],
                                 [0, 0, 0, 0, 0, sigma, 0, 0, 0],
-                                [0, 0, 0, 0, 0, 0, 3*sigma, 0, 0],
+                                [0, 0, 0, 0, 0, 0, sigma, 0, 0],
                                 [0, 0, 0, 0, 0, 0, 0, sigma_finger, 0],
                                 [0, 0, 0, 0, 0, 0, 0, 0, sigma_finger],], device="cuda:0", dtype=torch.float32),
     num_samples=num_envs, 
