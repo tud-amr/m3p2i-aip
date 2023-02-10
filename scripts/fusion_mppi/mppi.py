@@ -211,7 +211,7 @@ class MPPI():
 
         # Halton sampling, from storm
         self.knot_scale = 4     # From mppi config storm
-        self.sample_method = 'halton'
+        self.sample_method = 'halton-spline'
         self.seed_val = 0       # From mppi config storm
         self.n_knots = self.T//self.knot_scale
         self.ndims = self.n_knots * self.nu
@@ -221,6 +221,11 @@ class MPPI():
         self.scale_tril = torch.sqrt(self.cov_action)
         self.squash_fn = 'clamp'
         self.step_size_mean = 0.98
+
+        # # Random
+        # self.Z = torch.zeros(self.ndims, **self.tensor_args)
+        # self.scale = torch.linalg.cholesky(self.noise_sigma.to(dtype=torch.float32)).to(**self.tensor_args)
+        # self.mvn = MultivariateNormal(loc=self.Z, scale_tril=self.scale, )
 
         # filtering
         self.sgf_window = 9
@@ -261,7 +266,7 @@ class MPPI():
     def get_samples(self, sample_shape, **kwargs):      # sample shape is the number of rollouts
     #Looks like the halton samples are only generated once
     # sample shape is the number of particles to sample
-        if(self.sample_method=='halton'):
+        if(self.sample_method=='halton-spline'):
             self.knot_points = generate_gaussian_halton_samples(
                 sample_shape,               # This is the number of samples
                 self.ndims,                 # n_knots * nu (knots per number of actions)
@@ -269,16 +274,17 @@ class MPPI():
                 seed_val=self.seed_val,     # seed val is 0 hardcoded
                 device=self.tensor_args['device'],
                 float_dtype=self.tensor_args['dtype'])
-        elif(self.sample_method == 'random'):
-            print('NOT implemented yet')    # TODO add from previousl sampling method in this script
             
-        # Sample splines from knot points:
-        # iteratre over action dimension:
-        knot_samples = self.knot_points.view(sample_shape, self.nu, self.n_knots) # n knots is T/knot_scale (30/4 = 7)
-        self.samples = torch.zeros((sample_shape, self.T, self.nu), **self.tensor_args)
-        for i in range(sample_shape):
-            for j in range(self.nu):
-                self.samples[i,:,j] = bspline(knot_samples[i,j,:], n=self.T, degree=self.degree)
+            # Sample splines from knot points:
+            # iteratre over action dimension:
+            knot_samples = self.knot_points.view(sample_shape, self.nu, self.n_knots) # n knots is T/knot_scale (30/4 = 7)
+            self.samples = torch.zeros((sample_shape, self.T, self.nu), **self.tensor_args)
+            for i in range(sample_shape):
+                for j in range(self.nu):
+                    self.samples[i,:,j] = bspline(knot_samples[i,j,:], n=self.T, degree=self.degree)
+
+        elif(self.sample_method == 'random'):
+            self.samples = self.noise_dist.sample((self.K, self.T))
         
         return self.samples
 
@@ -408,13 +414,16 @@ class MPPI():
     def _compute_total_cost_batch(self):
         # parallelize sampling across trajectories
 
+        if self.sample_method == 'random':
+            self.delta = self.get_samples(self.K, base_seed=0)
         # (Storm) Sample halton. Samples are done once at the beginning and then shifted considering
         # the mean and covariance of the gaussian policy 
-        if self.delta == None:
+        elif self.delta == None and self.sample_method == 'halton-spline':
             self.delta = self.get_samples(self.K, base_seed=0)
             #add zero-noise seq so mean is always a part of samples
-            self.delta[-1,:,:] = self.Z_seq
 
+        #add zero-noise seq so mean is always a part of samples
+        self.delta[-1,:,:] = self.Z_seq
         #keeps the size but scales values
         scaled_delta = torch.matmul(self.delta, torch.diag(self.scale_tril)).view(self.delta.shape[0],
                                                                       self.T,
