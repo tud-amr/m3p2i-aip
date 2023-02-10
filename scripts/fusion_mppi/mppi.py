@@ -412,7 +412,7 @@ class MPPI():
         self.best_idx = best_idx
         self.best_traj = torch.index_select(actions, 0, best_idx).squeeze(0)
        
-        weighted_seq = w.T * actions.T
+        weighted_seq = w * actions.T
 
         sum_seq = torch.sum(weighted_seq.T, dim=0)   # Sum of weigths is 1, softmax
 
@@ -450,7 +450,7 @@ class MPPI():
 
         #Scales action within bounds. act_seq is the same as perturbed actions
         act_seq = scale_ctrl(act_seq, self.u_min, self.u_max, squash_fn=self.squash_fn)
-        
+        act_seq[self.nu, :, :] = self.best_traj
 
         # TODO: Append best past trajectory (not necessary now) self.best_traj = self.mean_action.clone()
         # See mppi.py line 111 in storm, there they update the best trajectory and then append to current samples
