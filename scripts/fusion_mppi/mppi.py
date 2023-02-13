@@ -10,10 +10,8 @@ import scipy.interpolate as si
 
 logger = logging.getLogger(__name__)
 
-
 def _ensure_non_zero(cost, beta, factor):
     return torch.exp(-factor * (cost - beta))
-
 
 def is_tensor_like(x):
     return torch.is_tensor(x) or type(x) is np.ndarray
@@ -22,20 +20,17 @@ def bspline(c_arr, t_arr=None, n=100, degree=3):
     sample_device = c_arr.device
     sample_dtype = c_arr.dtype
     cv = c_arr.cpu().numpy()
-    count = len(cv)
 
     if(t_arr is None):
         t_arr = np.linspace(0, cv.shape[0], cv.shape[0])
     else:
         t_arr = t_arr.cpu().numpy()
     spl = si.splrep(t_arr, cv, k=degree, s=0.5)
-    # #spl = BSpline(t, c, k, extrapolate=False)
     xx = np.linspace(0, cv.shape[0], n)
     samples = si.splev(xx, spl, ext=3)
     samples = torch.as_tensor(samples, device=sample_device, dtype=sample_dtype)
     return samples
 
-# from arm_pytorch_utilities, standalone since that package is not on pypi yet
 def handle_batch_input(func):
     """For func that expect 2D input, handle input that have more than 2 dimensions by flattening them temporarily"""
 
@@ -68,15 +63,25 @@ def handle_batch_input(func):
 
     return wrapper
 
-
 class MPPI():
     """
     Model Predictive Path Integral control
-    This implementation batch samples the trajectories and so scales well with the number of samples K.
+    This implementation batch samples the trajectories thus it scales with the number of samples K. 
 
     Implemented according to algorithm 2 in Williams et al., 2017
-    'Information Theoretic MPC for Model-Based Reinforcement Learning',
-    based off of https://github.com/ferreirafabio/mppi_pendulum
+    'Information Theoretic MPC for Model-Based Reinforcement Learning'  
+    and 'STORM: An Integrated Framework for Fast Joint-Space Model-Predictive Control for Reactive Manipulation'
+
+    Code based off and https://github.com/NVlabs/storm
+
+    This mppi can run in two modes: 'simple' and a 'halton-spline':
+        - simple:           random sampling at each MPPI iteration from normal distribution with simple mean update. To use this set 
+                            mppi_mode = 'simple_mean'
+        - halton-spline:    samples only at the start a halton-spline which is then shifted according to the current moments of the control distribution. 
+                            Moments are updated using gradient. To use this set
+                            mppi_mode = 'halton-spline', sample_mode = 'halton'
+                            Alternatively, one can also sample random trajectories at each iteration using gradient mean update by setting
+                            mppi_mode = 'halton-spline', sample_mode = 'random'
     """
 
     def __init__(self, dynamics, running_cost, nx, noise_sigma, num_samples=100, horizon=15, device="cpu",
@@ -127,11 +132,13 @@ class MPPI():
         :param noise_abs_cost: Whether to use the absolute value of the action noise to avoid bias when all states have the same cost
         """
 
+        self.mppi_mode = 'halton-spline'   # halton-spline, simple
+        self.sample_method = 'halton'
+
         self.num_envs = num_samples
         self.robot = robot
         self.bodies_per_env = bodies_per_env
         self.d = device
-        self.env_type = env_type
         self.dtype = noise_sigma.dtype
         self.K = num_samples 
         self.T = horizon  
@@ -140,15 +147,14 @@ class MPPI():
         self.tensor_args={'device':self.d, 'dtype':torch.float32} 
         self.delta = None
         self.sample_null_action = sample_null_action
-
+        self.u_per_command = u_per_command
         # dimensions of state and control
         self.nx = nx
         self.nu = 1 if len(noise_sigma.shape) == 0 else noise_sigma.shape[0]
 
-        # Temp. visualization
+        # Visualization trajectories
         self.ee_indexes = np.zeros(self.num_envs)
         self.ee_index = -1
-
         for i in range(self.num_envs):
             self.ee_indexes[i] = self.ee_index + i*self.bodies_per_env
 
@@ -160,17 +166,17 @@ class MPPI():
             self.mean_action = torch.zeros(self.nu, device=self.d, dtype=self.dtype)
             self.best_traj = self.mean_action.clone()
 
-        # handle 1D edge case
+        # Handle 1D edge case
         if self.nu == 1:
             noise_mu = noise_mu.view(-1)
             noise_sigma = noise_sigma.view(-1, 1)
 
-        # bounds
+        # Bounds
         self.u_min = u_min
         self.u_max = u_max
         self.u_scale = u_scale
 
-        # make sure if any of them is specified, both are specified
+        # Make sure if any of them is specified, both are specified
         if self.u_max is not None and self.u_min is None:
             if not torch.is_tensor(self.u_max):
                 self.u_max = torch.tensor(self.u_max)
@@ -186,15 +192,15 @@ class MPPI():
         self.noise_mu = noise_mu.to(self.d)
         self.noise_sigma = noise_sigma.to(self.d)
         self.noise_sigma_inv = torch.inverse(self.noise_sigma)
-        # Random noise dist, to be used if not Halton
+        # Random noise dist
         self.noise_dist = MultivariateNormal(self.noise_mu, covariance_matrix=self.noise_sigma)
         
         # T x nu control sequence
-        # self.U = U_init
+        self.U = U_init
         self.u_init = u_init.to(self.d)
 
-        # if self.U is None:
-        #     self.U = self.noise_dist.sample((self.T,))
+        if self.U is None:
+            self.U = self.noise_dist.sample((self.T,))
 
         self.step_dependency = step_dependent_dynamics
         self.F = dynamics
@@ -204,44 +210,38 @@ class MPPI():
         self.noise_abs_cost = noise_abs_cost
         self.state = None
 
-        # sampled results from last command
+        # Sampled results from last command
         self.cost_total = None
         self.cost_total_non_zero = None
         self.omega = None
         self.states = None
         self.actions = None
 
-        # Halton sampling, from storm
-        self.knot_scale = 4     # From mppi config storm
-        self.sample_method = 'halton-spline'
-        self.seed_val = 0       # From mppi config storm
+        # Halton sampling 
+        self.knot_scale = 4             # From mppi config storm
+        self.seed_val = 0               # From mppi config storm
         self.n_knots = self.T//self.knot_scale
         self.ndims = self.n_knots * self.nu
-        self.degree = 2       # hardcoded value in sample_lib storm
+        self.degree = 2                 # From sample_lib storm
         self.Z_seq = torch.zeros(1, self.T, self.nu, **self.tensor_args)
         self.cov_action = torch.diagonal(noise_sigma, 0)
         self.scale_tril = torch.sqrt(self.cov_action)
         self.squash_fn = 'clamp'
-        self.step_size_mean = 0.98
-
-        # # Random
-        # self.Z = torch.zeros(self.ndims, **self.tensor_args)
-        # self.scale = torch.linalg.cholesky(self.noise_sigma.to(dtype=torch.float32)).to(**self.tensor_args)
-        # self.mvn = MultivariateNormal(loc=self.Z, scale_tril=self.scale, )
+        self.step_size_mean = 0.98      # rom storm
 
         # Discount
-        self.gamma = 0.95 # Param storm
+        self.gamma = rollout_var_discount 
         self.gamma_seq = torch.cumprod(torch.tensor([1.0] + [self.gamma] * (self.T - 1)),dim=0).reshape(1, self.T)
         self.gamma_seq = self.gamma_seq.to(**self.tensor_args)
         self.beta = 1 # param storm
 
-        # filtering
+        # Filtering
         self.sgf_window = 9
         self.sgf_order = 2
         if (self.sgf_window % 2) == 0:
             self.sgf_window -=1       # Some versions of the sav-go filter require odd window size
 
-        # Lambda update
+        # Lambda update, for now the update of lambda is not performed
         self.eta_max = 0.1      # 10%
         self.eta_min = 0.01     # 1%
         self.lambda_mult = 0.1  # Update rate
@@ -259,27 +259,26 @@ class MPPI():
             storm Calculate weights using exponential utility
         """
         traj_costs = cost_to_go(costs, self.gamma_seq)
-        # if not self.time_based_weights: traj_costs = traj_costs[:,0]
+
         traj_costs = traj_costs[:,0]
+
         #control_costs = self._control_costs(actions)
 
         total_costs = traj_costs #+ self.beta * control_costs
-        
-        
-        # #calculate soft-max
+
+        # Calculate soft-max
         w = torch.softmax((-1.0/self.beta) * total_costs, dim=0)
         self.total_costs = total_costs
         return w
 
-    def get_samples(self, sample_shape, **kwargs):      # sample shape is the number of rollouts
-    #Looks like the halton samples are only generated once
-    # sample shape is the number of particles to sample
-        if(self.sample_method=='halton-spline'):
+    def get_samples(self, sample_shape, **kwargs): 
+    
+        if(self.sample_method=='halton'):
             self.knot_points = generate_gaussian_halton_samples(
-                sample_shape,               # This is the number of samples
+                sample_shape,               # Number of samples
                 self.ndims,                 # n_knots * nu (knots per number of actions)
                 use_ghalton=True,
-                seed_val=self.seed_val,     # seed val is 0 hardcoded
+                seed_val=self.seed_val,     # seed val is 0 
                 device=self.tensor_args['device'],
                 float_dtype=self.tensor_args['dtype'])
             
@@ -301,34 +300,53 @@ class MPPI():
         :param state: (nx) or (K x nx) current state, or samples of states (for propagating a distribution of states)
         :returns action: (nu) best action
         """
-        # shift command 1 time step
-        self.mean_action = torch.roll(self.mean_action, -1, dims=0)
-        # Set first sequence to zero, otherwise it takes the last of the sequence
-        self.mean_action[0].zero_()
-
-        # TODO shift the best policy as well
-
+        
         if not torch.is_tensor(state):
             state = torch.tensor(state)
         self.state = state.to(dtype=self.dtype, device=self.d)
 
-        cost_total = self._compute_total_cost_batch()
+        if self.mppi_mode == 'simple':
+            self.U = torch.roll(self.U, -1, dims=0)
 
-        beta = torch.min(cost_total)
-        self.cost_total_non_zero = _ensure_non_zero(cost_total, beta, 1 / self.lambda_)
+            cost_total = self._compute_total_cost_batch_simple()
 
-        eta = torch.sum(self.cost_total_non_zero)
-        self.omega = (1. / eta) * self.cost_total_non_zero
-        
-        # self.U += torch.sum(self.omega.view(-1, 1, 1) * self.noise, dim=0)
-        
-        action = torch.clone(self.mean_action)
+            beta = torch.min(cost_total)
+            self.cost_total_non_zero = _ensure_non_zero(cost_total, beta, 1 / self.lambda_)
 
-        # # Lambda update
-        # if eta > 5:
-        #     self.lambda_ = (1-self.lambda_mult)*self.lambda_
-        # elif eta < 2:
-        #     self.lambda_ = (1+self.lambda_mult)*self.lambda_
+            eta = torch.sum(self.cost_total_non_zero)
+            self.omega = (1. / eta) * self.cost_total_non_zero
+            
+            self.U += torch.sum(self.omega.view(-1, 1, 1) * self.noise, dim=0)
+
+            action = self.U[:self.u_per_command]
+
+            # Reduce dimensionality if we only need the first command
+            if self.u_per_command == 1:
+                action = action[0]
+
+            # Lambda update
+            # eta_max = 10
+            # eta_min = 1
+            # lambda_mult = 0.1
+            # if eta > eta_max*self.K:
+            #     self.lambda_ = (1+lambda_mult)*self.lambda_
+            # elif eta < eta_min*self.K:
+            #     self.lambda_ = (1-lambda_mult)*self.lambda_
+
+        elif self.mppi_mode == 'halton-spline':
+            # shift command 1 time step
+            self.mean_action = torch.roll(self.mean_action, -1, dims=0)
+            # Set first sequence to zero, otherwise it takes the last of the sequence
+            self.mean_action[0].zero_()
+
+            cost_total = self._compute_total_cost_batch_halton()
+              
+            action = torch.clone(self.mean_action)
+
+        # Stopping citeria
+        if self.sample_null_action and cost_total[-1] <= 0.01:
+                action = torch.zeros_like(action)
+        print(cost_total[-1])
 
         # Smoothing with Savitzky-Golay filter
         if self.filter_u:
@@ -348,7 +366,6 @@ class MPPI():
         cost_total = torch.zeros(K, device=self.d, dtype=self.dtype)
         cost_horizon = torch.zeros([K, T], device=self.d, dtype=self.dtype)
         cost_samples = cost_total
-        cost_var = torch.zeros_like(cost_total)
 
         # allow propagation of a sample of states (ex. to carry a distribution), or to start with a single state
         if self.state.shape == (K, self.nx):
@@ -393,96 +410,104 @@ class MPPI():
             cost_samples += c
         cost_total += cost_samples.mean(dim=0)
         
-        #Update distributions here, line 105 mppi storm
-        self.noise = self._update_distribution(cost_horizon, actions)
+        if self.mppi_mode == 'halton-spline':
+            self.noise = self._update_distribution(cost_horizon, actions)
 
         return cost_total, states, actions, ee_states
  
     def _update_distribution(self, costs, actions):
         """
-           Storm: Update moments in the direction using sampled
-           trajectories
+           Update moments using sample trajectories.
 
-            So far only mean is updated, they do not update the covariance in storm franka example
+            So far only mean is updated, eventually one could also update the covariance
         """
 
-        # TODO compute also top n best actions to plot
         w = self._exp_util(costs, actions) # eq 6
         
-        #Update best action
+        # Compute also top n best actions to plot
+        # top_values, top_idx = torch.topk(self.total_costs, 10)
+        # self.top_values = top_values
+        # self.top_idx = top_idx
+        # self.top_trajs = torch.index_select(actions, 0, top_idx).squeeze(0)
+
+        # Update best action
         best_idx = torch.argmax(w)
         self.best_idx = best_idx
         self.best_traj = torch.index_select(actions, 0, best_idx).squeeze(0)
        
         weighted_seq = w * actions.T
 
-        sum_seq = torch.sum(weighted_seq.T, dim=0)   # Sum of weigths is 1, softmax
+        sum_seq = torch.sum(weighted_seq.T, dim=0)
 
         new_mean = sum_seq
-      
+
+        # Gradient update for the mean
         self.mean_action = (1.0 - self.step_size_mean) * self.mean_action +\
-            self.step_size_mean * new_mean # eq. 4
+            self.step_size_mean * new_mean 
        
         delta = actions - self.mean_action.unsqueeze(0)
         return delta
 
-    def _compute_total_cost_batch(self):
-        # parallelize sampling across trajectories
+    def get_action_cost(self):
+        if self.noise_abs_cost:
+            action_cost = self.lambda_ * torch.abs(self.noise) @ self.noise_sigma_inv
+            # NOTE: The original paper does self.lambda_ * torch.abs(self.noise) @ self.noise_sigma_inv, but this biases
+            # the actions with low noise if all states have the same cost. With abs(noise) we prefer actions close to the
+            # nomial trajectory.
+        else:
+            action_cost = self.lambda_ * self.noise @ self.noise_sigma_inv # Like original paper
+        return action_cost
 
+    def _compute_total_cost_batch_simple(self):
+        # Resample noise each time we take an action
+        self.noise = self.noise_dist.sample((self.K, self.T))
+        # Broadcast own control to noise over samples; now it's K x T x nu
+        self.perturbed_action = self.U + self.noise
+        
+        # Naively bound control
+        self.perturbed_action = self._bound_action(self.perturbed_action)
+
+        self.cost_total, self.states, self.actions, self.ee_states = self._compute_rollout_costs(self.perturbed_action)
+        self.actions /= self.u_scale
+
+        # Bounded noise after bounding (some got cut off, so we don't penalize that in action cost)
+        self.noise = self.perturbed_action - self.U
+
+        action_cost = self.get_action_cost()
+
+        # Action perturbation cost
+        perturbation_cost = torch.sum(self.U * action_cost, dim=(1, 2))
+        self.cost_total += perturbation_cost
+        return self.cost_total
+
+    def _compute_total_cost_batch_halton(self):
         if self.sample_method == 'random':
             self.delta = self.get_samples(self.K, base_seed=0)
-        # (Storm) Sample halton. Samples are done once at the beginning and then shifted considering
-        # the mean and covariance of the gaussian policy 
-        elif self.delta == None and self.sample_method == 'halton-spline':
+        elif self.delta == None and self.sample_method == 'halton':
             self.delta = self.get_samples(self.K, base_seed=0)
             #add zero-noise seq so mean is always a part of samples
 
-        #add zero-noise seq so mean is always a part of samples
+        # Add zero-noise seq so mean is always a part of samples
         self.delta[-1,:,:] = self.Z_seq
-        #keeps the size but scales values
-        scaled_delta = torch.matmul(self.delta, torch.diag(self.scale_tril)).view(self.delta.shape[0],
-                                                                      self.T,
-                                                                      self.nu)
+        # Keeps the size but scales values
+        scaled_delta = torch.matmul(self.delta, torch.diag(self.scale_tril)).view(self.delta.shape[0], self.T, self.nu)
         
-        # For us the action sequence is self.U, for storm instead it is the mean
-
-        # First time mean is zero then it is updated in the doistribution
+        # First time mean is zero then it is updated in the distribution
         act_seq = self.mean_action + scaled_delta
-        # mean should be updated after generating the rollouts and computing the optimal control
 
-        #Scales action within bounds. act_seq is the same as perturbed actions
+        # Scales action within bounds. act_seq is the same as perturbed actions
         act_seq = scale_ctrl(act_seq, self.u_min, self.u_max, squash_fn=self.squash_fn)
         act_seq[self.nu, :, :] = self.best_traj
-
-        # TODO: Append best past trajectory (not necessary now) self.best_traj = self.mean_action.clone()
-        # See mppi.py line 111 in storm, there they update the best trajectory and then append to current samples
         
-        # resample noise each time we take an action
-        # self.noise = self.noise_dist.sample((self.K, self.T))
-        # broadcast own control to noise over samples; now it's K x T x nu
         self.perturbed_action = torch.clone(act_seq)
-        # naively bound control
-        # self.perturbed_action = self._bound_action(self.perturbed_action)
 
         self.cost_total, self.states, self.actions, self.ee_states = self._compute_rollout_costs(self.perturbed_action)
 
-        # costs [ns, T], actions [ns, T, nu]
-
-
         self.actions /= self.u_scale
 
-        # bounded noise after bounding (some got cut off, so we don't penalize that in action cost)
-        #self.noise = self.perturbed_action - self.U
+        action_cost = self.get_action_cost()
 
-        if self.noise_abs_cost:
-            action_cost = self.lambda_ * torch.abs(self.noise) @ self.noise_sigma_inv
-            #NOTE: The original paper does self.lambda_ * torch.abs(self.noise) @ self.noise_sigma_inv, but this biases
-            #the actions with low noise if all states have the same cost. With abs(noise) we prefer actions close to the
-            #nomial trajectory.
-        else:
-            action_cost = self.lambda_ * self.noise @ self.noise_sigma_inv # Like original paper
-
-        # action perturbation cost
+        # Action perturbation cost
         perturbation_cost = torch.sum(self.mean_action * action_cost, dim=(1, 2))
         self.cost_total += perturbation_cost
         return self.cost_total

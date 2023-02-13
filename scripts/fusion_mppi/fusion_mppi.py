@@ -187,7 +187,7 @@ class FUSION_MPPI(mppi.MPPI):
         #ee_roll, ee_pitch, _ = torch_utils.get_euler_xyz(self.ee_state[:,3:7])
         
         #align_cost = torch.abs(ee_roll) + torch.abs(ee_pitch)
-        return  10*reach_cost + goal_cost #+ align_cost # 
+        return  10*reach_cost + goal_cost # multiply 10*reach_cost when using mppi_mode == storm
 
     def get_panda_reach_cost(self, joint_pos):
         self.ee_state = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))[self.ee_indexes, 0:7]
@@ -369,7 +369,7 @@ class FUSION_MPPI(mppi.MPPI):
             obst_up_to = 4
 
         if obst_up_to > 0:
-            coll_cost = 10000*torch.sum(net_cf.reshape([self.num_envs, int(net_cf.size(dim=0)/self.num_envs)])[:,0:obst_up_to], 1)
+            coll_cost = 100000*torch.sum(net_cf.reshape([self.num_envs, int(net_cf.size(dim=0)/self.num_envs)])[:,0:obst_up_to], 1)
         else:
             coll_cost = 0*torch.sum(net_cf.reshape([self.num_envs, int(net_cf.size(dim=0)/self.num_envs)])[:,0:obst_up_to], 1)
 
@@ -405,7 +405,7 @@ class FUSION_MPPI(mppi.MPPI):
         acc_cost = 0.00001*torch.linalg.norm(torch.square((u[0:1]-past_u[0:1])/0.05), dim=1)
         
         if self.robot == 'panda' or 'omni_panda':
-            acc_cost = 0.01*torch.linalg.norm(torch.square((u-past_u)/0.05), dim=1)
+            acc_cost = 0.001*torch.linalg.norm(torch.square((u-past_u)/0.05), dim=1)
         
         past_u = torch.clone(u)
         

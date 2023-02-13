@@ -14,7 +14,7 @@ torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 allow_viewer = False
 visualize_rollouts = False
 device = "cuda:0"
-num_envs = 400  # 50 isborderline acceptable behavior
+num_envs = 400  # 50 is borderline acceptable behavior
 spacing = 2.0
 robot = "omni_panda"                     # choose from "point_robot", "boxer", "albert", "panda"
 environment_type = "store"          # choose from "arena", "battery", "store"
@@ -27,12 +27,23 @@ gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, sp
 dof_states, num_dofs, num_actors, root_states = sim_init.acquire_states(gym, sim, print_flag=False)
 actors_per_env = int(num_actors/num_envs)
 bodies_per_env = gym.get_env_rigid_body_count(envs[0])
+
+# For storm mppi mode
 sigma = 1
 sigma_base = 10
 max_vel = 6
 max_vel_base = 10
 max_vel_finger = 0.3
 sigma_finger = 0.5
+inv_temp = 0.01
+
+# For pure-randm mppi
+# sigma = 1
+# sigma_base = 7
+# max_vel = 1
+# max_vel_base = 2
+# inv_temp = 0.05
+
 # Creater mppi object
 mppi = fusion_mppi.FUSION_MPPI(
     dynamics=None, 
@@ -52,7 +63,7 @@ mppi = fusion_mppi.FUSION_MPPI(
                                 [0, 0, 0,0, 0, 0, 0, 0, 0, 0, 0, sigma_finger],], device=device, dtype=torch.float32),
     num_samples=num_envs, 
     horizon=12,
-    lambda_=0.01, 
+    lambda_=inv_temp, 
     device=device, 
     u_max=torch.tensor([max_vel_base, max_vel_base, max_vel_base, max_vel, max_vel, max_vel, max_vel, max_vel, max_vel, max_vel, max_vel_finger, max_vel_finger]),
     u_min=torch.tensor([-max_vel_base, -max_vel_base, -max_vel_base, -max_vel, -max_vel, -max_vel, -max_vel, -max_vel, -max_vel, -max_vel, -max_vel_finger, -max_vel_finger]),

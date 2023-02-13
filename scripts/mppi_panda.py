@@ -26,10 +26,18 @@ gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, sp
 dof_states, num_dofs, num_actors, root_states = sim_init.acquire_states(gym, sim, print_flag=False)
 actors_per_env = int(num_actors/num_envs)
 bodies_per_env = gym.get_env_rigid_body_count(envs[0])
+
+# For storm mppi mode
 sigma = 6
 max_vel = 3
 max_vel_finger = 1
 sigma_finger = 0.8
+
+# For pure random
+sigma = 1
+max_vel = 1
+max_vel_finger = 0.3
+sigma_finger = 0.5
 
 # Creater mppi object
 mppi = fusion_mppi.FUSION_MPPI(
@@ -127,7 +135,7 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
                 K = mppi.K
                 res = conn.recv(1024)
                 conn.sendall(data_transfer.numpy_to_bytes(mppi.K))
-                for i in range(K):
+                for i in range(len(rollouts)):
                     res4 = conn.recv(1024)
                     current_traj[:, 0] = rollouts[i][:, 0]     # x pos
                     current_traj[:, 1] = rollouts[i][:, 1]     # y pos
