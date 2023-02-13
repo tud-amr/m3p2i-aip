@@ -127,13 +127,14 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
             conn.sendall(data_transfer.torch_to_bytes(int(visualize_rollouts)))
             if visualize_rollouts:
                 # Get the rollouts trajectory
-                rollouts = mppi.states[0, :, :, :].cpu().clone().numpy()
-                current_traj = np.zeros((mppi.T, 2))
+                rollouts = mppi.ee_states[:, :, :].cpu().clone().numpy()
+                current_traj = np.zeros((mppi.T, 3))
                 K = mppi.K
                 res = conn.recv(1024)
                 conn.sendall(data_transfer.numpy_to_bytes(mppi.K))
                 for i in range(K):
                     res4 = conn.recv(1024)
-                    current_traj[:, 1] = rollouts[i][:, 0]     # x pos
-                    current_traj[:, 0] = rollouts[i][:, 2]     # y pos
+                    current_traj[:, 0] = rollouts[i][:, 0]     # x pos
+                    current_traj[:, 1] = rollouts[i][:, 1]     # y pos
+                    current_traj[:, 2] = rollouts[i][:, 2]     # z pos
                     conn.sendall(data_transfer.numpy_to_bytes(current_traj))
