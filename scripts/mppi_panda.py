@@ -27,7 +27,7 @@ dof_states, num_dofs, num_actors, root_states = sim_init.acquire_states(gym, sim
 actors_per_env = int(num_actors/num_envs)
 bodies_per_env = gym.get_env_rigid_body_count(envs[0])
 sigma = 6
-max_vel = 5
+max_vel = 3
 max_vel_finger = 1
 sigma_finger = 0.8
 

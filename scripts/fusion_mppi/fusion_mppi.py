@@ -62,7 +62,7 @@ class FUSION_MPPI(mppi.MPPI):
         self.env_type = env_type
         self.device = device
 
-        self.block_goal = torch.tensor([1.5, 3, 0.6], device=self.device)
+        self.block_goal = torch.tensor([0.5, 0, 0.8], device=self.device)
         self.cube_target_state = None
 
         # Additional variables for the environment or robot
@@ -187,7 +187,7 @@ class FUSION_MPPI(mppi.MPPI):
         #ee_roll, ee_pitch, _ = torch_utils.get_euler_xyz(self.ee_state[:,3:7])
         
         #align_cost = torch.abs(ee_roll) + torch.abs(ee_pitch)
-        return  reach_cost + goal_cost #+ align_cost # 
+        return  10*reach_cost + goal_cost #+ align_cost # 
 
     def get_panda_reach_cost(self, joint_pos):
         self.ee_state = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))[self.ee_indexes, 0:7]

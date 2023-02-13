@@ -28,9 +28,9 @@ dof_states, num_dofs, num_actors, root_states = sim_init.acquire_states(gym, sim
 actors_per_env = int(num_actors/num_envs)
 bodies_per_env = gym.get_env_rigid_body_count(envs[0])
 sigma = 1
-sigma_base = 7
-max_vel = 1
-max_vel_base = 2
+sigma_base = 10
+max_vel = 6
+max_vel_base = 10
 max_vel_finger = 0.3
 sigma_finger = 0.5
 # Creater mppi object
@@ -51,8 +51,8 @@ mppi = fusion_mppi.FUSION_MPPI(
                                 [0, 0, 0,0, 0, 0, 0, 0, 0, 0, sigma_finger, 0],
                                 [0, 0, 0,0, 0, 0, 0, 0, 0, 0, 0, sigma_finger],], device=device, dtype=torch.float32),
     num_samples=num_envs, 
-    horizon=10,
-    lambda_=0.05, 
+    horizon=12,
+    lambda_=0.01, 
     device=device, 
     u_max=torch.tensor([max_vel_base, max_vel_base, max_vel_base, max_vel, max_vel, max_vel, max_vel, max_vel, max_vel, max_vel, max_vel_finger, max_vel_finger]),
     u_min=torch.tensor([-max_vel_base, -max_vel_base, -max_vel_base, -max_vel, -max_vel, -max_vel, -max_vel, -max_vel, -max_vel, -max_vel, -max_vel_finger, -max_vel_finger]),
