@@ -128,6 +128,7 @@ class MPPI():
         """
 
         self.num_envs = num_samples
+        self.robot = robot
         self.bodies_per_env = bodies_per_env
         self.d = device
         self.env_type = env_type
@@ -146,7 +147,8 @@ class MPPI():
 
         # Temp. visualization
         self.ee_indexes = np.zeros(self.num_envs)
-        self.ee_index = 11
+        self.ee_index = -1
+
         for i in range(self.num_envs):
             self.ee_indexes[i] = self.ee_index + i*self.bodies_per_env
 

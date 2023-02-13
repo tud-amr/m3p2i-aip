@@ -12,13 +12,13 @@ torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 
 # Make the environment and simulation
 allow_viewer = False
-visualize_rollouts = False
+visualize_rollouts = True
 num_envs = 200
 spacing = 10.0
 robot = "boxer"               # choose from "point_robot", "boxer", "albert"
 environment_type = "arena"         # choose from "arena", "battery"
 control_type = "vel_control"        # choose from "vel_control", "pos_control", "force_control"
-dt = 0.01
+dt = 0.02
 substeps = 1
 
 gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, spacing, robot, environment_type, control_type, dt=dt, substeps=substeps)
@@ -33,13 +33,13 @@ mppi = fusion_mppi.FUSION_MPPI(
     dynamics=None, 
     running_cost=None, 
     nx=4, 
-    noise_sigma = torch.tensor([[15, 0], [0, 15]], device="cuda:0", dtype=torch.float32),
+    noise_sigma = torch.tensor([[4, 0], [0, 65]], device="cuda:0", dtype=torch.float32),
     num_samples=num_envs, 
     horizon=15,
-    lambda_=0.1, 
+    lambda_=0.01, 
     device="cuda:0", 
-    u_max=torch.tensor([1.5, 5.5]),
-    u_min=torch.tensor([-1.5, -5.5]),
+    u_max=torch.tensor([3.5, 35.5]),
+    u_min=torch.tensor([-3.5, -35.5]),
     step_dependent_dynamics=True,
     terminal_state_cost=None,
     sample_null_action=True,
@@ -107,17 +107,17 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
             # Send rollouts data
             res = conn.recv(1024)
             conn.sendall(data_transfer.torch_to_bytes(int(visualize_rollouts)))
-            # from point robto
-            # if visualize_rollouts:
-            #     # Get the rollouts trajectory
-            #     rollouts = mppi.states[0, :, :, :].cpu().clone().numpy()
-            #     current_traj = np.zeros((mppi.T, 2))
-            #     K = mppi.K
-            #     res = conn.recv(1024)
-            #     conn.sendall(data_transfer.numpy_to_bytes(mppi.K))
-            #     for i in range(K):
-            #         res4 = conn.recv(1024)
-            #         current_traj[:, 1] = rollouts[i][:, 0]     # x pos
-            #         current_traj[:, 0] = rollouts[i][:, 2]     # y pos
-            #         conn.sendall(data_transfer.numpy_to_bytes(current_traj))
+            if visualize_rollouts:
+                # Get the rollouts trajectory
+                rollouts = mppi.ee_states[:, :, :].cpu().clone().numpy()
+                current_traj = np.zeros((mppi.T, 3))
+                K = mppi.K
+                res = conn.recv(1024)
+                conn.sendall(data_transfer.numpy_to_bytes(mppi.K))
+                for i in range(K):
+                    res4 = conn.recv(1024)
+                    current_traj[:, 0] = rollouts[i][:, 0]     # x pos
+                    current_traj[:, 1] = rollouts[i][:, 1]     # y pos
+                    current_traj[:, 2] = 0.1
+                    conn.sendall(data_transfer.numpy_to_bytes(current_traj))
 

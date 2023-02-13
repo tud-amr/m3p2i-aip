@@ -68,6 +68,7 @@ class FUSION_MPPI(mppi.MPPI):
         # Additional variables for the environment or robot
         if self.env_type == "arena":
             self.block_index = 7   # Pushing purple blox, index according to simulation
+            self.block_goal = torch.tensor([3, -3, 0.6], device=self.device)
         if self.env_type == "lab":
             self.block_index = 4  
         if self.env_type == 'store':
@@ -84,6 +85,8 @@ class FUSION_MPPI(mppi.MPPI):
             for i in range(self.num_envs):
                 self.block_indexes[i] = self.block_index + i*self.bodies_per_env
                 self.ee_indexes[i] = self.ee_index + i*self.bodies_per_env
+        elif self.env_type == 'lab':
+            self.block_goal = torch.tensor([0., 0, 0.],device=self.device)
         if self.env_type == 'shadow':
             self.cube_indexes = np.zeros(self.num_envs)
             self.cube_target_indexes = np.zeros(self.num_envs)
@@ -148,7 +151,7 @@ class FUSION_MPPI(mppi.MPPI):
         if self.robot != 'boxer':
             align_cost += torch.abs(torch.linalg.norm(r_pos- self.block_goal[:2], axis = 1) - (torch.linalg.norm(block_pos - self.block_goal[:2], axis = 1) + align_offset))
 
-        cost = dist_cost + align_cost
+        cost = dist_cost + 2*align_cost
 
         return cost
     
@@ -366,7 +369,7 @@ class FUSION_MPPI(mppi.MPPI):
             obst_up_to = 4
 
         if obst_up_to > 0:
-            coll_cost = 1000*torch.sum(net_cf.reshape([self.num_envs, int(net_cf.size(dim=0)/self.num_envs)])[:,0:obst_up_to], 1)
+            coll_cost = 10000*torch.sum(net_cf.reshape([self.num_envs, int(net_cf.size(dim=0)/self.num_envs)])[:,0:obst_up_to], 1)
         else:
             coll_cost = 0*torch.sum(net_cf.reshape([self.num_envs, int(net_cf.size(dim=0)/self.num_envs)])[:,0:obst_up_to], 1)
 
@@ -380,8 +383,8 @@ class FUSION_MPPI(mppi.MPPI):
         #coll_cost[coll_cost<=0.1] = 0
         
         if self.robot == 'boxer':
-            task_cost = self.get_navigation_cost(state[:, :2])
-            #task_cost = self.get_push_cost(state[:, :2])
+            #task_cost = self.get_navigation_cost(state[:, :2])
+            task_cost = self.get_push_cost(state[:, :2])
         elif self.robot == 'point_robot':
             #task_cost = self.get_push_cost(state_pos)
             #task_cost = self.get_push_not_goal_cost(state_pos)

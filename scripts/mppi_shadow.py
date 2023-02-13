@@ -13,7 +13,7 @@ torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 # Make the environment and simulation
 allow_viewer = False
 visualize_rollouts = False
-num_envs = 500
+num_envs = 200
 dt = 0.01
 substeps = 1
 spacing = 2.0
@@ -38,8 +38,8 @@ mppi = fusion_mppi.FUSION_MPPI(
     nx=48, 
     noise_sigma = noise,
     num_samples=num_envs, 
-    horizon=25,
-    lambda_=0.1, 
+    horizon=15,
+    lambda_=0.01, 
     device="cuda:0", 
     u_max= max_vel*torch.ones(24),
     u_min=-max_vel*torch.ones(24),
