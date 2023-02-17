@@ -14,7 +14,7 @@ torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 allow_viewer = False
 visualize_rollouts = False
 device = "cuda:0"
-num_envs = 200  # 50 is borderline acceptable behavior
+num_envs = 500  # 50 is borderline acceptable behavior
 spacing = 2.0
 robot = "omni_panda"                     # choose from "point_robot", "boxer", "albert", "panda"
 environment_type = "store"          # choose from "arena", "battery", "store"
