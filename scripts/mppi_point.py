@@ -105,7 +105,6 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
             # Compute optimal action and send to real simulator
             actions = mppi.command(s[0])
             conn.sendall(data_transfer.torch_to_bytes(actions))
-            print(mppi.states.size())
             # Send rollouts data
             res = conn.recv(1024)
             conn.sendall(data_transfer.torch_to_bytes(int(visualize_rollouts)))

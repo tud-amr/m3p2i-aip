@@ -293,10 +293,11 @@ def load_shelf(gym, sim):
     asset_options.fix_base_link = True
     asset_options.vhacd_enabled = True
     asset_options.vhacd_params = gymapi.VhacdParams()
-    asset_options.vhacd_params.resolution = 10
-    shelf_asset_file = "urdf/AH_shelf/shelf.urdf"
+    asset_options.vhacd_params.resolution = 300000
+    asset_options.vhacd_params.max_convex_hulls = 1000
+    asset_options.vhacd_params.max_num_vertices_per_ch = 64
+    shelf_asset_file = "urdf/store/store.urdf"
     shelf_asset = gym.load_asset(sim, "../assets", shelf_asset_file, asset_options)
-
     return shelf_asset
 
 def load_shadow(gym, sim):

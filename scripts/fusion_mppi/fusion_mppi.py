@@ -81,7 +81,7 @@ class FUSION_MPPI(mppi.MPPI):
             elif robot_type == 'omni_panda':
                 self.block_index = 2
                 self.ee_index = 15
-                self.block_goal = torch.tensor([1.5, 3, 0.5], device=self.device)
+                self.block_goal = torch.tensor([0.1, 6., 1.05], device=self.device)
             for i in range(self.num_envs):
                 self.block_indexes[i] = self.block_index + i*self.bodies_per_env
                 self.ee_indexes[i] = self.ee_index + i*self.bodies_per_env
@@ -113,7 +113,7 @@ class FUSION_MPPI(mppi.MPPI):
         self.block_not_goal = torch.tensor([-2, 1], device=self.device)
         self.nav_goal = torch.tensor([3, 3], device=self.device)
         self.panda_hand_goal = torch.tensor([0.5, 0.4, 0.2, 1, 0, 0, 0], device=self.device)
-
+        self.joint_comfy = torch.tensor([0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1.58, 0., 1.86, 0.], device=self.device)
     def update_gym(self, gym, sim, viewer=None):
         self.gym = gym
         self.sim = sim
@@ -124,7 +124,7 @@ class FUSION_MPPI(mppi.MPPI):
 
     def get_push_cost(self, r_pos):
         block_pos = torch.cat((torch.split(torch.clone(self.root_positions[:,0:2]), int(torch.clone(self.root_positions[:,0:2]).size(dim=0)/self.num_envs))),1)[self.block_index,:].reshape(self.num_envs,2)
-
+    
         robot_to_block = r_pos - block_pos
         block_to_goal = self.block_goal[0:2] - block_pos
 
@@ -184,10 +184,22 @@ class FUSION_MPPI(mppi.MPPI):
         goal_cost = torch.linalg.norm(self.block_goal[0:3] - block_state[:,0:3], axis = 1) #+ 2*torch.abs(self.block_goal[2] - block_state[:,2])
         # reach_cost[reach_cost<0.05] = 0*reach_cost[reach_cost<0.05]
 
-        #ee_roll, ee_pitch, _ = torch_utils.get_euler_xyz(self.ee_state[:,3:7])
-        
-        #align_cost = torch.abs(ee_roll) + torch.abs(ee_pitch)
-        return  10*reach_cost + goal_cost # multiply 10*reach_cost when using mppi_mode == storm
+        ee_roll, ee_pitch, _ = torch_utils.get_euler_xyz(self.ee_state[:,3:7])
+        # get jacobian tensor
+        self.gym.refresh_jacobian_tensors(self.sim)
+        # for fixed-base franka, tensor has shape (num envs, 10, 6, 9)
+        _jacobian = self.gym.acquire_jacobian_tensor(self.sim, "franka")
+        jacobian = gymtorch.wrap_tensor(_jacobian)
+
+        # jacobian entries corresponding to franka hand 
+        j_eef = jacobian[:, 11, :, 3:10]
+        A = torch.bmm(j_eef, torch.transpose(j_eef, 1,2))
+        eig = torch.real(torch.linalg.eigvals(A))
+        manip_cost = torch.sqrt(torch.max(eig, dim = 1)[0]/torch.min(eig, dim = 1)[0])
+        manip_cost = torch.nan_to_num(manip_cost, nan=500)
+        # print(ee_pitch[-1])
+        align_cost = torch.abs(ee_pitch) + torch.abs(ee_roll-3.14)
+        return align_cost + 0.2*manip_cost + 10*reach_cost + 5*goal_cost # multiply 10*reach_cost when using mppi_mode == storm
 
     def get_panda_reach_cost(self, joint_pos):
         self.ee_state = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))[self.ee_indexes, 0:7]
@@ -308,6 +320,7 @@ class FUSION_MPPI(mppi.MPPI):
             res = torch.clone(dof_states).view(-1, 18)
         elif self.robot == 'omni_panda':
             res = torch.clone(dof_states).view(-1, 24)
+            self.omni_dofs = torch.clone(res)
         elif self.robot == 'shadow_hand':
             res = torch.clone(dof_states).view(-1, 48)
 

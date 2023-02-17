@@ -12,15 +12,15 @@ torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 
 # Make the environment and simulation
 allow_viewer = False
-visualize_rollouts = True
-num_envs = 200
+visualize_rollouts = False
+num_envs = 30
 spacing = 10.0
 robot = "boxer"               # choose from "point_robot", "boxer", "albert"
 environment_type = "arena"         # choose from "arena", "battery"
 control_type = "vel_control"        # choose from "vel_control", "pos_control", "force_control"
 dt = 0.02
 substeps = 1
-
+device = "cuda:0"
 gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, spacing, robot, environment_type, control_type, dt=dt, substeps=substeps)
 
 # Acquire states
@@ -33,11 +33,11 @@ mppi = fusion_mppi.FUSION_MPPI(
     dynamics=None, 
     running_cost=None, 
     nx=4, 
-    noise_sigma = torch.tensor([[4, 0], [0, 65]], device="cuda:0", dtype=torch.float32),
+    noise_sigma = torch.tensor([[4, 0], [0, 65]], device=device, dtype=torch.float32),
     num_samples=num_envs, 
     horizon=15,
     lambda_=0.01, 
-    device="cuda:0", 
+    device=device, 
     u_max=torch.tensor([3.5, 35.5]),
     u_min=torch.tensor([-3.5, -35.5]),
     step_dependent_dynamics=True,

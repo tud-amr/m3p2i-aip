@@ -248,6 +248,11 @@ class MPPI():
         self.eta_min = 0.01     # 1%
         self.lambda_mult = 0.1  # Update rate
 
+        # covariance update
+        self.update_cov = False
+        self.step_size_cov = 0.7
+        self.kappa = 0.005
+
     @handle_batch_input
     def _dynamics(self, state, u, t):
         return self.F(state, u, t) if self.step_dependency else self.F(state, u)
@@ -354,7 +359,6 @@ class MPPI():
                 action = torch.from_numpy(u_filtered).to('cpu')
             else:
                 action = torch.from_numpy(u_filtered).to('cuda')
-        
         return action
 
     def _compute_rollout_costs(self, perturbed_actions):
@@ -445,6 +449,19 @@ class MPPI():
             self.step_size_mean * new_mean 
        
         delta = actions - self.mean_action.unsqueeze(0)
+
+        #Update Covariance
+        if self.update_cov:
+            #Diagonal covariance of size AxA
+            weighted_delta = w * (delta ** 2).T
+            # cov_update = torch.diag(torch.mean(torch.sum(weighted_delta.T, dim=0), dim=0))
+            cov_update = torch.mean(torch.sum(weighted_delta.T, dim=0), dim=0)
+    
+            self.cov_action = (1.0 - self.step_size_cov) * self.cov_action + self.step_size_cov * cov_update
+            self.cov_action += self.kappa #* self.init_cov_action
+            # self.cov_action[self.cov_action < 0.0005] = 0.0005
+            self.scale_tril = torch.sqrt(self.cov_action)
+
         return delta
 
     def get_action_cost(self):

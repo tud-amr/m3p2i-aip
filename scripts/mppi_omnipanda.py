@@ -14,7 +14,7 @@ torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 allow_viewer = False
 visualize_rollouts = False
 device = "cuda:0"
-num_envs = 400  # 50 is borderline acceptable behavior
+num_envs = 200  # 50 is borderline acceptable behavior
 spacing = 2.0
 robot = "omni_panda"                     # choose from "point_robot", "boxer", "albert", "panda"
 environment_type = "store"          # choose from "arena", "battery", "store"
@@ -29,13 +29,13 @@ actors_per_env = int(num_actors/num_envs)
 bodies_per_env = gym.get_env_rigid_body_count(envs[0])
 
 # For storm mppi mode
-sigma = 1
-sigma_base = 10
-max_vel = 6
-max_vel_base = 10
+sigma = 2
+sigma_base = 5
+max_vel = 2
+max_vel_base = 8
 max_vel_finger = 0.3
 sigma_finger = 0.5
-inv_temp = 0.01
+inv_temp = 0.1
 
 # For pure-randm mppi
 # sigma = 1
@@ -62,7 +62,7 @@ mppi = fusion_mppi.FUSION_MPPI(
                                 [0, 0, 0,0, 0, 0, 0, 0, 0, 0, sigma_finger, 0],
                                 [0, 0, 0,0, 0, 0, 0, 0, 0, 0, 0, sigma_finger],], device=device, dtype=torch.float32),
     num_samples=num_envs, 
-    horizon=12,
+    horizon=20,
     lambda_=inv_temp, 
     device=device, 
     u_max=torch.tensor([max_vel_base, max_vel_base, max_vel_base, max_vel, max_vel, max_vel, max_vel, max_vel, max_vel, max_vel, max_vel_finger, max_vel_finger]),
