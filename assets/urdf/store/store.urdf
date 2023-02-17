@@ -1,0 +1,22 @@
+<?xml version="1.0" ?>
+<robot name="store">
+  <link name="store__link">
+    <inertial>
+      <mass value="1000"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia ixx="1" ixy="0" ixz="0" iyy="1" iyz="0" izz="1"/>
+    </inertial>
+    <collision name="store__collision">
+      <origin xyz="0 0 -0.8" rpy="1.57 0 1.57"/>
+      <geometry>
+        <mesh filename="store/7acf46d9-3dec-4537-8ca5-b4d5f6ac0d15.obj" scale="0.01 0.01 0.01"/>
+      </geometry>
+    </collision>
+    <visual name="store__visual">
+      <origin xyz="0 0 -0.8" rpy="1.57 0 1.57"/>
+      <geometry>
+        <mesh filename="store/7acf46d9-3dec-4537-8ca5-b4d5f6ac0d15.obj" scale="0.01 0.01 0.01"/>
+      </geometry>
+    </visual>
+  </link>
+</robot>

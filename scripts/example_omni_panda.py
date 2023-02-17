@@ -5,8 +5,8 @@ import torch
 from utils import sim_init, skill_utils
 
 # Make the environment and simulation
-allow_viewer = False
-num_envs = 100
+allow_viewer = True
+num_envs = 1
 spacing = 1.5
 robot = "omni_panda"                     # "point_robot", "boxer", "husky", "albert", and "heijn", "panda"
 environment_type = "store"            # choose from "arena", "battery"

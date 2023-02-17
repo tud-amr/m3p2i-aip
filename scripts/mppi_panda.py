@@ -26,6 +26,14 @@ gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, sp
 dof_states, num_dofs, num_actors, root_states = sim_init.acquire_states(gym, sim, print_flag=False)
 actors_per_env = int(num_actors/num_envs)
 bodies_per_env = gym.get_env_rigid_body_count(envs[0])
+
+# For storm mppi mode
+sigma = 6
+max_vel = 3
+max_vel_finger = 1
+sigma_finger = 0.8
+
+# For pure random
 sigma = 1
 max_vel = 1
 max_vel_finger = 0.3
@@ -46,8 +54,8 @@ mppi = fusion_mppi.FUSION_MPPI(
                                 [0, 0, 0, 0, 0, 0, 0, sigma_finger, 0],
                                 [0, 0, 0, 0, 0, 0, 0, 0, sigma_finger],], device="cuda:0", dtype=torch.float32),
     num_samples=num_envs, 
-    horizon=10,
-    lambda_=0.05, 
+    horizon=12,
+    lambda_=0.01, 
     device="cuda:0", 
     u_max=torch.tensor([max_vel, max_vel, max_vel, max_vel, max_vel, max_vel, max_vel, max_vel_finger, max_vel_finger]),
     u_min=torch.tensor([-max_vel, -max_vel, -max_vel, -max_vel, -max_vel, -max_vel, -max_vel, -max_vel_finger, -max_vel_finger]),
@@ -122,13 +130,14 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
             conn.sendall(data_transfer.torch_to_bytes(int(visualize_rollouts)))
             if visualize_rollouts:
                 # Get the rollouts trajectory
-                rollouts = mppi.states[0, :, :, :].cpu().clone().numpy()
-                current_traj = np.zeros((mppi.T, 2))
+                rollouts = mppi.ee_states[:, :, :].cpu().clone().numpy()
+                current_traj = np.zeros((mppi.T, 3))
                 K = mppi.K
                 res = conn.recv(1024)
                 conn.sendall(data_transfer.numpy_to_bytes(mppi.K))
-                for i in range(K):
+                for i in range(len(rollouts)):
                     res4 = conn.recv(1024)
-                    current_traj[:, 1] = rollouts[i][:, 0]     # x pos
-                    current_traj[:, 0] = rollouts[i][:, 2]     # y pos
+                    current_traj[:, 0] = rollouts[i][:, 0]     # x pos
+                    current_traj[:, 1] = rollouts[i][:, 1]     # y pos
+                    current_traj[:, 2] = rollouts[i][:, 2]     # z pos
                     conn.sendall(data_transfer.numpy_to_bytes(current_traj))

@@ -145,7 +145,7 @@ def visualize_rollouts(gym, viewer, env, states):
     color_array = np.zeros((n_steps, 3), dtype=np.float32)
     color_array[:, 1] = 255     # green
     for i in range(n_steps):
-        pos = [states[i, 1], states[i, 0], 0.1, states[i+1, 1], states[i+1, 0], 0.1]
+        pos = [states[i, 0], states[i, 1], states[i, 2], states[i+1, 0], states[i+1, 1], states[i+1, 2]]
         line_array[i, :] = pos
 
     # Draw lines
@@ -281,3 +281,26 @@ def update_dyn_obs(gym, sim, num_actors, num_envs, count):
         indice_list.append((i+1)*num_actors/num_envs-index_offset)
     actor_indices = torch.tensor(indice_list, dtype=torch.int32, device="cuda:0")
     gym.set_actor_root_state_tensor_indexed(sim, _root_tensor, gymtorch.unwrap_tensor(actor_indices), num_envs)
+
+def update_goal(gym, sim, num_actors, num_envs, viewer):
+    gym.refresh_actor_root_state_tensor(sim)
+    _root_tensor = gym.acquire_actor_root_state_tensor(sim)
+    root_tensor = gymtorch.wrap_tensor(_root_tensor)
+    root_positions = root_tensor[:, 0:3] # [56, 3]
+    root_linvels = root_tensor[:, 7:10]
+
+    pos_update = 0.03
+    zero_vel = torch.tensor([0, 0, 0], dtype=torch.float32, device="cuda:0")
+    x_pos = torch.tensor([pos_update, 0, 0], dtype=torch.float32, device="cuda:0").repeat(num_envs)
+    y_pos = torch.tensor([0, pos_update, 0], dtype=torch.float32, device="cuda:0").repeat(num_envs)
+    z_pos = torch.tensor([0, 0, pos_update], dtype=torch.float32, device="cuda:0").repeat(num_envs)
+    pos_targets = {"up":-x_pos, "down":x_pos, "left":-y_pos, "right":y_pos, "1":z_pos, "2":-z_pos }
+
+    goal_index = 3 # Storm sphere goal
+
+     # Respond the keyboard
+    for evt in gym.query_viewer_action_events(viewer):
+        if evt.value > 0:
+            root_positions[goal_index] += pos_targets[evt.action]
+
+    gym.set_actor_root_state_tensor(sim, _root_tensor)
