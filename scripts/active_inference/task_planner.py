@@ -49,7 +49,7 @@ class PLANNER_AIF(PLANNER_SIMPLE):
         self.ai_agent_task = [ai_agent.AiAgent(mdp_isAt), ai_agent.AiAgent(mdp_battery)]
         # Set the preference for the battery 
         self.ai_agent_task[0].set_preferences(np.array([[1.], [0]]))
-        self.battery_factor = 2
+        self.battery_factor = 1
         self.battery_level = 100
         self.nav_goal = torch.tensor([3, -3], device="cuda:0")
     
@@ -62,7 +62,8 @@ class PLANNER_AIF(PLANNER_SIMPLE):
 
     # Battery simulation
     def battery_sim(self, robot_pos, stay_still):
-        if not stay_still:
+        obs_task = self.get_task_motion_obs(robot_pos)
+        if not stay_still and obs_task:
             if torch.norm(robot_pos - env_conf.docking_station_loc) < 0.5:
                 self.battery_level += self.battery_factor
             else:
@@ -76,9 +77,9 @@ class PLANNER_AIF(PLANNER_SIMPLE):
 
     # Battery observation
     def get_battery_obs(self):
-        if self.battery_level > 55: 
+        if self.battery_level > 80: 
             obs_battery = 0  # Battery is ok
-        elif self.battery_level > 35:
+        elif self.battery_level > 60:
             obs_battery = 1  # Battery is low
         else:
             obs_battery = 2  # Battery is critical

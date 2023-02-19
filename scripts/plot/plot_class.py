@@ -32,9 +32,9 @@ def start_dash_server():
     def display_graph(n_intervals):
         df1 = pd.read_csv(path_utils.get_plot_path() +'/data_battery.csv')
         bettery_level = float(df1.columns[0])
-        if bettery_level > 55:
+        if bettery_level > 80:
             color = "green"
-        elif bettery_level > 35:
+        elif bettery_level > 60:
             color = "blue"
         else:
             color = "red"
