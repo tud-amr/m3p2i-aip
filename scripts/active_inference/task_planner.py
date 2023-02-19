@@ -60,11 +60,15 @@ class PLANNER_AIF(PLANNER_SIMPLE):
         self.battery_level = 100
         self.nav_goal = torch.tensor([3, -3], device="cuda:0")
 
+    # Check the distance
+    def robot_close_to(self, robot_pos, obj_pos):
+        return torch.norm(robot_pos - obj_pos) < 0.5
+
     # Battery simulation
     def battery_sim(self, robot_pos, stay_still):
         obs_task = self.get_task_motion_obs(robot_pos)
         if not stay_still and obs_task:
-            if torch.norm(robot_pos - env_conf.docking_station_loc) < 0.5:
+            if self.robot_close_to(robot_pos, env_conf.docking_station_loc):
                 self.battery_level += self.battery_factor
             else:
                 self.battery_level -= self.battery_factor
@@ -87,7 +91,7 @@ class PLANNER_AIF(PLANNER_SIMPLE):
     
     # Task motion observation
     def get_task_motion_obs(self, robot_pos):
-        if torch.norm(robot_pos - self.nav_goal) < 0.5:
+        if self.robot_close_to(robot_pos, self.nav_goal):
             obs_task = 0     # at_goal
         else:
             obs_task = 1     # not_at_goal
@@ -107,6 +111,13 @@ class PLANNER_AIF(PLANNER_SIMPLE):
         if curr_action == 'go_recharge':
             self.task = 'go_recharge'
             self.curr_goal = env_conf.docking_station_loc
-        if curr_action in ["move_to", "slow_down"]:
+        elif curr_action == "move_to":
             self.task = "navigation"
             self.curr_goal = self.nav_goal
+        elif curr_action == "slow_down":
+            if self.robot_close_to(robot_pos, env_conf.docking_station_loc):
+                self.task = "None"
+                self.curr_goal = "None"
+            else:
+                self.task = "navigation"
+                self.curr_goal = self.nav_goal

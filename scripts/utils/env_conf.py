@@ -32,9 +32,9 @@ goal2_pose.p = gymapi.Vec3(3, 3, 0)
 goal3_pose = gymapi.Transform()
 goal3_pose.p = gymapi.Vec3(3, -3, 0)
 
-docking_station_loc = torch.tensor([-3, -3], dtype=torch.float32, device="cuda:0")
+docking_station_loc = torch.tensor([0, -3], dtype=torch.float32, device="cuda:0")
 recharge_pose = gymapi.Transform()
-recharge_pose.p = gymapi.Vec3(docking_station_loc[1], docking_station_loc[0], 0)
+recharge_pose.p = gymapi.Vec3(docking_station_loc[0], docking_station_loc[1], 0)
 
 color_vec_box1 = gymapi.Vec3(0.5, 0.1, 0.7)
 color_vec_box2 = gymapi.Vec3(0.2, 0.1, 0.2)
