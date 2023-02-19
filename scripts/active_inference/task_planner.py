@@ -49,7 +49,7 @@ class PLANNER_AIF(PLANNER_SIMPLE):
         self.ai_agent_task = [ai_agent.AiAgent(mdp_isAt), ai_agent.AiAgent(mdp_battery)]
         # Set the preference for the battery 
         self.ai_agent_task[0].set_preferences(np.array([[1.], [0]]))
-        self.battery_factor = 1
+        self.battery_factor = 1.1
         self.battery_level = 100
         self.nav_goal = torch.tensor([3, -3], device="cuda:0")
     
@@ -80,13 +80,24 @@ class PLANNER_AIF(PLANNER_SIMPLE):
         np.savetxt(file_path, [self.battery_level], fmt='%.1f')
 
     # Battery observation
-    def get_battery_obs(self):
-        if self.battery_level > 80: 
-            obs_battery = 0  # Battery is ok
-        elif self.battery_level > 60:
-            obs_battery = 1  # Battery is low
+    def get_battery_obs(self, robot_pos):
+        # Estimate the battery level for task
+        dist_battery_factor = 40 / (3 * np.sqrt(2))
+        if self.battery_level > 60 :
+            battery_enough_for_task = torch.norm(robot_pos - self.nav_goal) * dist_battery_factor / (self.battery_level - 60) < 1
+            battery_enough_for_task = battery_enough_for_task.item()
         else:
-            obs_battery = 2  # Battery is critical
+            battery_enough_for_task = False
+        # print('enough:', battery_enough_for_task)
+        if battery_enough_for_task:
+            if self.battery_level > 80: 
+                obs_battery = 0  # Battery is ok
+            elif self.battery_level > 60:
+                obs_battery = 1  # Battery is low
+            else:
+                obs_battery = 2  # Battery is critical
+        else:
+            obs_battery = 2      # Battery is critical
         return obs_battery
     
     # Task motion observation
@@ -100,7 +111,7 @@ class PLANNER_AIF(PLANNER_SIMPLE):
     # Upadte the task planner
     def update_plan(self, robot_pos, stay_still):
         self.battery_sim(robot_pos, stay_still)
-        obs_battery = self.get_battery_obs()
+        obs_battery = self.get_battery_obs(robot_pos)
         obs_task = self.get_task_motion_obs(robot_pos)
         obs = [obs_task, obs_battery]
         outcome, curr_action = adaptive_action_selection.adapt_act_sel(self.ai_agent_task, obs)
