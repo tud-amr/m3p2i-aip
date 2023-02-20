@@ -40,6 +40,13 @@
   <material name="Boxer_GreyTransparent">
     <color rgba="0.5 0.5 0.5 0.5"/>
   </material>
+  <link name="base_link">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="1"/>
+      <inertia ixx="0.2" ixy="0" ixz="0" iyy="0.2" iyz="0" izz="0.2"/>
+    </inertial>
+  </link>
   <link name="chassis_link">
     <inertial>
       <origin rpy="0 0 0" xyz="0 0 0.07"/>
@@ -85,12 +92,6 @@
       </geometry>
     </collision>
   </link>
-  <joint name="internal_joint" type="fixed">
-    <origin rpy="1.5708 0 0" xyz="0 0 0"/>
-    <parent link="chassis_link"/>
-    <child link="internal_link"/>
-    <axis xyz="0 0 0"/>
-  </joint>
   <link name="lift_link">
     <inertial>
       <origin rpy="0 0 0" xyz="0 0.076 0"/>
@@ -113,6 +114,92 @@
       </geometry>
     </collision>
   </link>
+  <link name="rotacastor_right_link">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="0.01"/>
+      <inertia ixx="0.2" ixy="0" ixz="0" iyy="0.2" iyz="0" izz="0.2"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 1.5708 0" xyz="0 0 0"/>
+      <geometry>
+        <cylinder length="0.06" radius="0.0625"/>
+      </geometry>
+      <material name="Boxer_Red"/>
+    </visual>
+    <collision>
+      <origin rpy="0 1.5708 0" xyz="0 0 0"/>
+      <geometry>
+        <cylinder length="0.001" radius="0.0625"/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="rotacastor_left_link">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="0.01"/>
+      <inertia ixx="0.2" ixy="0" ixz="0" iyy="0.2" iyz="0" izz="0.2"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 1.5708 0" xyz="0 0 0"/>
+      <geometry>
+        <cylinder length="0.06" radius="0.0625"/>
+      </geometry>
+      <material name="Boxer_Red"/>
+    </visual>
+    <collision>
+      <origin rpy="0 1.5708 0" xyz="0 0 0"/>
+      <geometry>
+        <cylinder length="0.001" radius="0.0625"/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="wheel_right_link">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="1"/>
+      <inertia ixx="0.2" ixy="0" ixz="0" iyy="0.2" iyz="0" izz="0.2"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 1.5708 0" xyz="0 0 0"/>
+      <geometry>
+        <cylinder length="0.05" radius="0.080"/>
+      </geometry>
+      <material name="Boxer_Red"/>
+    </visual>
+    <collision>
+      <origin rpy="0 1.5708 0" xyz="0 0 0"/>
+      <geometry>
+        <cylinder length="0.001" radius="0.080"/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="wheel_left_link">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="1"/>
+      <inertia ixx="0.2" ixy="0" ixz="0" iyy="0.2" iyz="0" izz="0.2"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 1.5708 0" xyz="0 0 0"/>
+      <geometry>
+        <cylinder length="0.05" radius="0.080"/>
+      </geometry>
+      <material name="Boxer_Red"/>
+    </visual>
+    <collision>
+      <origin rpy="0 1.5708 0" xyz="0 0 0"/>
+      <geometry>
+        <cylinder length="0.001" radius="0.080"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint name="internal_joint" type="fixed">
+    <origin rpy="1.5708 0 0" xyz="0 0 0"/>
+    <parent link="chassis_link"/>
+    <child link="internal_link"/>
+    <axis xyz="0 0 0"/>
+  </joint>
   <joint name="lift_joint" type="fixed">
     <origin rpy="1.5708 0 0" xyz="0 0 0.177"/>
     <parent link="chassis_link"/>
@@ -120,6 +207,41 @@
     <axis xyz="0 1 0"/>
     <limit effort="10000.0" lower="0" upper="0.078" velocity="0.02"/>
     <dynamics damping="100.0" friction="100"/>
+  </joint>
+  <joint name="base_chassis_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.0 0 0"/>
+    <parent link="base_link"/>
+    <child link="chassis_link"/>
+  </joint>
+  <joint name="rotacastor_right_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="-0.177 -0.274 0.043"/>
+    <parent link="chassis_link"/>
+    <child link="rotacastor_right_link"/>
+    <axis xyz="1 0 0"/>
+    <dynamics damping="1.0"/>
+  </joint>
+  <joint name="rotacastor_left_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.177 -0.274 0.043"/>
+    <parent link="chassis_link"/>
+    <child link="rotacastor_left_link"/>
+    <axis xyz="1 0 0"/>
+    <dynamics damping="1.0"/>
+  </joint>
+  <joint name="wheel_right_joint" type="continuous">
+    <origin rpy="0 0 0" xyz="-0.247 0.157 0.058"/>
+    <parent link="chassis_link"/>
+    <child link="wheel_right_link"/>
+    <axis xyz="1 0 0"/>
+    <limit effort="10000" velocity="1000"/>
+    <dynamics damping="1.0"/>
+  </joint>
+  <joint name="wheel_left_joint" type="continuous">
+    <origin rpy="0 0 0" xyz="0.247 0.157 0.058"/>
+    <parent link="chassis_link"/>
+    <child link="wheel_left_link"/>
+    <axis xyz="1 0 0"/>
+    <limit effort="10000" velocity="1000"/>
+    <dynamics damping="1.0"/>
   </joint>
   <link name="top_mount_bottom">
     <inertial>
@@ -141,11 +263,6 @@
       </geometry>
     </collision>
   </link>
-  <joint name="top_mount_bottom_joint" type="fixed">
-    <origin rpy="0 -1.5707 -1.5707" xyz="0 0.1125 0"/>
-    <parent link="lift_link"/>
-    <child link="top_mount_bottom"/>
-  </joint>
   <link name="extrusion1">
     <inertial>
       <origin rpy="0 0 0" xyz="0 0 0"/>
@@ -166,11 +283,6 @@
       </geometry>
     </collision>
   </link>
-  <joint name="extrusion1_joint" type="fixed">
-    <origin rpy="0 0 0" xyz="-0.2785 0.1835 0"/>
-    <parent link="top_mount_bottom"/>
-    <child link="extrusion1"/>
-  </joint>
   <link name="extrusion2">
     <inertial>
       <origin rpy="0 0 0" xyz="0 0 0"/>
@@ -191,11 +303,6 @@
       </geometry>
     </collision>
   </link>
-  <joint name="extrusion2_joint" type="fixed">
-    <origin rpy="0 0 -1.5707" xyz="0.2785 0.1835 0"/>
-    <parent link="top_mount_bottom"/>
-    <child link="extrusion2"/>
-  </joint>
   <link name="extrusion3">
     <inertial>
       <origin rpy="0 0 0" xyz="0 0 0"/>
@@ -216,11 +323,6 @@
       </geometry>
     </collision>
   </link>
-  <joint name="extrusion3_joint" type="fixed">
-    <origin rpy="0 0 3.1414" xyz="0.2785 -0.1835 0"/>
-    <parent link="top_mount_bottom"/>
-    <child link="extrusion3"/>
-  </joint>
   <link name="extrusion4">
     <inertial>
       <origin rpy="0 0 0" xyz="0 0 0"/>
@@ -241,6 +343,26 @@
       </geometry>
     </collision>
   </link>
+  <joint name="top_mount_bottom_joint" type="fixed">
+    <origin rpy="0 -1.5707 -1.5707" xyz="0 0.1125 0"/>
+    <parent link="lift_link"/>
+    <child link="top_mount_bottom"/>
+  </joint>
+  <joint name="extrusion1_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="-0.2785 0.1835 0"/>
+    <parent link="top_mount_bottom"/>
+    <child link="extrusion1"/>
+  </joint>
+  <joint name="extrusion2_joint" type="fixed">
+    <origin rpy="0 0 -1.5707" xyz="0.2785 0.1835 0"/>
+    <parent link="top_mount_bottom"/>
+    <child link="extrusion2"/>
+  </joint>
+  <joint name="extrusion3_joint" type="fixed">
+    <origin rpy="0 0 3.1414" xyz="0.2785 -0.1835 0"/>
+    <parent link="top_mount_bottom"/>
+    <child link="extrusion3"/>
+  </joint>
   <joint name="extrusion4_joint" type="fixed">
     <origin rpy="0 0 1.5707" xyz="-0.2785 -0.1835 0"/>
     <parent link="top_mount_bottom"/>
@@ -272,130 +394,8 @@
     <parent link="extrusion1"/>
     <child link="top_mount"/>
   </joint>
-  <link name="rotacastor_right_link">
-    <inertial>
-      <origin rpy="0 0 0" xyz="0 0 0"/>
-      <mass value="1"/>
-      <inertia ixx="0.2" ixy="0" ixz="0" iyy="0.2" iyz="0" izz="0.2"/>
-    </inertial>
-    <visual>
-      <origin rpy="0 1.5708 0" xyz="0 0 0"/>
-      <geometry>
-        <cylinder length="0.06" radius="0.0625"/>
-      </geometry>
-      <material name="Boxer_Red"/>
-    </visual>
-    <collision>
-      <origin rpy="0 1.5708 0" xyz="0 0 0"/>
-      <geometry>
-        <cylinder length="0.001" radius="0.0625"/>
-      </geometry>
-    </collision>
-  </link>
-  <joint name="rotacastor_right_joint" type="continuous">
-    <origin rpy="0 0 0" xyz="-0.177 -0.274 0.043"/>
-    <parent link="chassis_link"/>
-    <child link="rotacastor_right_link"/>
-    <axis xyz="1 0 0"/>
-    <dynamics damping="1.0"/>
-  </joint>
-  <link name="rotacastor_left_link">
-    <inertial>
-      <origin rpy="0 0 0" xyz="0 0 0"/>
-      <mass value="1"/>
-      <inertia ixx="0.2" ixy="0" ixz="0" iyy="0.2" iyz="0" izz="0.2"/>
-    </inertial>
-    <visual>
-      <origin rpy="0 1.5708 0" xyz="0 0 0"/>
-      <geometry>
-        <cylinder length="0.06" radius="0.0625"/>
-      </geometry>
-      <material name="Boxer_Red"/>
-    </visual>
-    <collision>
-      <origin rpy="0 1.5708 0" xyz="0 0 0"/>
-      <geometry>
-        <cylinder length="0.001" radius="0.0625"/>
-      </geometry>
-    </collision>
-  </link>
-  <joint name="rotacastor_left_joint" type="continuous">
-    <origin rpy="0 0 0" xyz="0.177 -0.274 0.043"/>
-    <parent link="chassis_link"/>
-    <child link="rotacastor_left_link"/>
-    <axis xyz="1 0 0"/>
-    <dynamics damping="1.0"/>
-  </joint>
-  <link name="wheel_right_link">
-    <inertial>
-      <origin rpy="0 0 0" xyz="0 0 0"/>
-      <mass value="100"/>
-      <inertia ixx="0.2" ixy="0" ixz="0" iyy="0.2" iyz="0" izz="0.2"/>
-    </inertial>
-    <visual>
-      <origin rpy="0 1.5708 0" xyz="0 0 0"/>
-      <geometry>
-        <cylinder length="0.05" radius="0.080"/>
-      </geometry>
-      <material name="Boxer_Red"/>
-    </visual>
-    <collision>
-      <origin rpy="0 1.5708 0" xyz="0 0 0"/>
-      <geometry>
-        <cylinder length="0.001" radius="0.080"/>
-      </geometry>
-    </collision>
-  </link>
-  <joint name="wheel_right_joint" type="continuous">
-    <origin rpy="0 0 0" xyz="-0.247 0.157 0.058"/>
-    <parent link="chassis_link"/>
-    <child link="wheel_right_link"/>
-    <axis xyz="1 0 0"/>
-    <limit effort="10000" velocity="1000"/>
-    <dynamics damping="1.0"/>
-  </joint>
-  <link name="wheel_left_link">
-    <inertial>
-      <origin rpy="0 0 0" xyz="0 0 0"/>
-      <mass value="100"/>
-      <inertia ixx="0.2" ixy="0" ixz="0" iyy="0.2" iyz="0" izz="0.2"/>
-    </inertial>
-    <visual>
-      <origin rpy="0 1.5708 0" xyz="0 0 0"/>
-      <geometry>
-        <cylinder length="0.05" radius="0.080"/>
-      </geometry>
-      <material name="Boxer_Red"/>
-    </visual>
-    <collision>
-      <origin rpy="0 1.5708 0" xyz="0 0 0"/>
-      <geometry>
-        <cylinder length="0.001" radius="0.080"/>
-      </geometry>
-    </collision>
-  </link>
-  <joint name="wheel_left_joint" type="continuous">
-    <origin rpy="0 0 0" xyz="0.247 0.157 0.058"/>
-    <parent link="chassis_link"/>
-    <child link="wheel_left_link"/>
-    <axis xyz="1 0 0"/>
-    <limit effort="10000" velocity="1000"/>
-    <dynamics damping="1.0"/>
-  </joint>
   <!-- Base link with no geometry or inertia, because KDL needs it
 to be that way. -->
-  <link name="base_link">
-    <inertial>
-      <origin rpy="0 0 0" xyz="0 0 0"/>
-      <mass value="1"/>
-      <inertia ixx="0.2" ixy="0" ixz="0" iyy="0.2" iyz="0" izz="0.2"/>
-    </inertial>
-  </link>
-  <joint name="base_chassis_joint" type="fixed">
-    <origin rpy="0 0 0" xyz="0.0 0 0"/>
-    <parent link="base_link"/>
-    <child link="chassis_link"/>
-  </joint>
   <joint name="mmrobot_joint_top_mount" type="fixed">
     <parent link="top_mount"/>
     <child link="mmrobot_link0"/>

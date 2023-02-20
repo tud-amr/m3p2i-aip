@@ -82,6 +82,10 @@ class FUSION_MPPI(mppi.MPPI):
                 self.block_index = 2
                 self.ee_index = 15
                 self.block_goal = torch.tensor([1.5, 3., 0.6], device=self.device)
+            elif robot_type == 'albert':
+                self.block_index = 2
+                self.ee_index = 21
+                self.ee_goal = torch.tensor([-3., -3., 0.6], device=self.device)
             for i in range(self.num_envs):
                 self.block_indexes[i] = self.block_index + i*self.bodies_per_env
                 self.ee_indexes[i] = self.ee_index + i*self.bodies_per_env
@@ -121,6 +125,11 @@ class FUSION_MPPI(mppi.MPPI):
 
     def get_navigation_cost(self, r_pos):
         return torch.clamp(torch.linalg.norm(r_pos - self.nav_goal, axis=1)-0.05, min=0, max=1999) 
+    
+    def get_albert_cost(self, r_pos):
+        self.ee_state = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))[self.ee_indexes, 0:7]
+        reach_cost = torch.linalg.norm(self.ee_state[:,0:3] - self.ee_goal, axis = 1) 
+        return reach_cost 
 
     def get_push_cost(self, r_pos):
         block_pos = torch.cat((torch.split(torch.clone(self.root_positions[:,0:2]), int(torch.clone(self.root_positions[:,0:2]).size(dim=0)/self.num_envs))),1)[self.block_index,:].reshape(self.num_envs,2)
@@ -237,13 +246,19 @@ class FUSION_MPPI(mppi.MPPI):
 
     @mppi.handle_batch_input
     def _ik(self, u):
+        r = 0.08
+        L = 2*0.157
         if self.robot == 'boxer':
-            r = 0.08
-            L = 2*0.157
             # Diff drive fk
             u_ik = u.clone()
             u_ik[:, 0] = (u[:, 0] / r) - ((L*u[:, 1])/(2*r))
             u_ik[:, 1] = (u[:, 0] / r) + ((L*u[:, 1])/(2*r))
+            return u_ik
+        if self.robot == 'albert':
+            # Diff drive fk
+            u_ik = u.clone()
+            u_ik[:, 9] = (u[:, 9] / r) - ((L*u[:, 10])/(2*r))
+            u_ik[:, 10] = (u[:, 9] / r) + ((L*u[:, 10])/(2*r))
             return u_ik
         else: return u
 
@@ -326,12 +341,16 @@ class FUSION_MPPI(mppi.MPPI):
             self.omni_dofs = torch.clone(res)
         elif self.robot == 'shadow_hand':
             res = torch.clone(dof_states).view(-1, 48)
-
+        elif self.robot == 'albert':
+            res = torch.clone(dof_states).view(-1, 22)
+            # res_ = actor_root_state[self.actors_per_env-1::self.actors_per_env]
+            # res = torch.cat([res_[:, 0:2], res_[:, 7:9], res_albert], axis=1)
+            
+            
         if self.viewer is not None:
             self.gym.step_graphics(self.sim)
             self.gym.draw_viewer(self.viewer, self.sim, False)
             self.gym.sync_frame_time(self.sim)
-
         return res, u
 
 
@@ -351,7 +370,12 @@ class FUSION_MPPI(mppi.MPPI):
             state_pos = torch.cat((state[:, 0].unsqueeze(1), state[:, 2].unsqueeze(1), state[:, 4].unsqueeze(1),
                                    state[:, 6].unsqueeze(1), state[:, 8].unsqueeze(1), state[:, 10].unsqueeze(1),
                                    state[:, 12].unsqueeze(1), state[:, 14].unsqueeze(1), state[:, 16].unsqueeze(1),
-                                   state[:, 18].unsqueeze(1), state[:, 20].unsqueeze(1), state[:, 22].unsqueeze(1)), 1)   
+                                   state[:, 18].unsqueeze(1), state[:, 20].unsqueeze(1), state[:, 22].unsqueeze(1)), 1)
+        elif self.robot == 'albert':
+            state_pos = torch.cat((state[:, 0].unsqueeze(1), state[:, 2].unsqueeze(1), state[:, 4].unsqueeze(1),
+                                   state[:, 6].unsqueeze(1), state[:, 8].unsqueeze(1), state[:, 10].unsqueeze(1),
+                                   state[:, 12].unsqueeze(1), state[:, 14].unsqueeze(1), state[:, 16].unsqueeze(1),
+                                   state[:, 18].unsqueeze(1), state[:, 20].unsqueeze(1)), 1)   
         # elif self.robot == 'shadow_hand':
         #     state_pos = torch.cat((state[:, 0].unsqueeze(1), state[:, 2].unsqueeze(1), state[:, 4].unsqueeze(1),
         #                            state[:, 6].unsqueeze(1), state[:, 8].unsqueeze(1), state[:, 10].unsqueeze(1),
@@ -416,6 +440,8 @@ class FUSION_MPPI(mppi.MPPI):
             task_cost = self.get_panda_cost(state_pos)
         elif self.robot == 'shadow_hand':
             task_cost = self.get_shadow_cost_2()
+        elif self.robot == 'albert':
+            task_cost = self.get_albert_cost(state_pos)
 
         # Acceleration cost
         acc_cost = 0.00001*torch.linalg.norm(torch.square((u[0:1]-past_u[0:1])/0.05), dim=1)
