@@ -99,6 +99,16 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
             action_fk[0] = (action[0] / r) - ((L*action[1])/(2*r))
             action_fk[1] = (action[0] / r) + ((L*action[1])/(2*r))
             action = action_fk
+        if robot == 'albert':
+            r = 0.08
+            L = 2*0.157
+            # Diff drive fk
+            action_fk = action.clone()
+            action_fk[9] = (action[9] / r) - ((L*action[10])/(2*r))
+            action_fk[10] = (action[9] / r) + ((L*action[10])/(2*r))
+            action = action_fk
+
+        # action = torch.clamp(action, min=-4, max=4)
 
         if 'action_seq' not in locals():
             action_seq = torch.zeros_like(action)
@@ -175,6 +185,8 @@ if log_data:
         label = ['joint1', 'joint2', 'joint3', 'joint4', 'joint5', 'joint6', 'joint7', 'left_f', 'right_f']
     elif robot == "omni_panda":
         label = ['x_vel', 'y_vel', 'theta_vel','joint1', 'joint2', 'joint3', 'joint4', 'joint5', 'joint6', 'joint7', 'left_f', 'right_f']
+    elif robot == "albert":
+        label = ['joint1', 'joint2', 'joint3', 'joint4', 'joint5', 'joint6', 'joint7', 'left_f', 'right_f','l_vel', 'r_vel']
 
     for j in range(num_dof):
         ctrl_input[:,j] = action_seq[:,j].tolist()

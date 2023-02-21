@@ -536,5 +536,19 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, e
             shape_props[2].torsion_friction = 0.
             shape_props[2].rolling_friction = 0.
             gym.set_actor_rigid_shape_properties(env, robot_handle, shape_props)
+            
+
+        albert_rigid_body_names = ['base_link', 'chassis_link', 'internal_link', 'lift_link', 'top_mount_bottom', 'extrusion1', 'top_mount', 'mmrobot_link0', 'mmrobot_link1', 'mmrobot_link2', 'mmrobot_link3', 'mmrobot_link4', 'mmrobot_link5', 'mmrobot_link6', 'mmrobot_link7', 'mmrobot_link8', 'mmrobot_hand', 'mmrobot_leftfinger', 'mmrobot_rightfinger', 'extrusion2', 'extrusion3', 'extrusion4', 'rotacastor_left_link', 'rotacastor_right_link', 'wheel_left_link', 'wheel_right_link']
+        if gym.get_asset_rigid_body_names(robot_asset) == albert_rigid_body_names:
+            # Rigid bodies and rigid shapes are different. A rigid bodies can have 0 to n rigid shapes
+            shape_props = gym.get_actor_rigid_shape_properties(env, robot_handle)
+            shape_props[20].friction = 0.
+            shape_props[20].torsion_friction = 0.
+            shape_props[20].rolling_friction = 0.
+            shape_props[21].friction = 0.
+            shape_props[21].torsion_friction = 0.
+            shape_props[21].rolling_friction = 0.
+            gym.set_actor_rigid_shape_properties(env, robot_handle, shape_props)
+
     print('Ready to start')
     return envs, robot_handles
