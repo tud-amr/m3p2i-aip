@@ -50,7 +50,7 @@
   <link name="chassis_link">
     <inertial>
       <origin rpy="0 0 0" xyz="0 0 0.07"/>
-      <mass value="250"/>
+      <mass value="150"/>
       <inertia ixx="2.3" ixy="0" ixz="0" iyy="3.35" iyz="0.00" izz="1.22"/>
     </inertial>
     <visual>
@@ -72,7 +72,7 @@
   <link name="internal_link">
     <inertial>
       <origin rpy="0 0 0" xyz="0 0.19 -0.031"/>
-      <mass value="31"/>
+      <mass value="20"/>
       <inertia ixx="1.19" ixy="0" ixz="0" iyy="1.82" iyz="0.0" izz="0.68"/>
     </inertial>
     <visual>
@@ -117,7 +117,7 @@
   <link name="rotacastor_right_link">
     <inertial>
       <origin rpy="0 0 0" xyz="0 0 0"/>
-      <mass value="0.01"/>
+      <mass value="0.3"/>
       <inertia ixx="0.2" ixy="0" ixz="0" iyy="0.2" iyz="0" izz="0.2"/>
     </inertial>
     <visual>
@@ -137,7 +137,7 @@
   <link name="rotacastor_left_link">
     <inertial>
       <origin rpy="0 0 0" xyz="0 0 0"/>
-      <mass value="0.01"/>
+      <mass value="0.3"/>
       <inertia ixx="0.2" ixy="0" ixz="0" iyy="0.2" iyz="0" izz="0.2"/>
     </inertial>
     <visual>
@@ -246,7 +246,7 @@
   <link name="top_mount_bottom">
     <inertial>
       <origin rpy="0 0 0" xyz="0 0 0"/>
-      <mass value="10"/>
+      <mass value="8"/>
       <inertia ixx="0.50" ixy="0" ixz="0" iyy="0.50" iyz="0" izz="1.00"/>
     </inertial>
     <visual>
@@ -371,7 +371,7 @@
   <link name="top_mount">
     <inertial>
       <origin rpy="0 0 0" xyz="0 0 0"/>
-      <mass value="10"/>
+      <mass value="8"/>
       <inertia ixx="0.50" ixy="0" ixz="0" iyy="0.50" iyz="0" izz="1.00"/>
     </inertial>
     <visual>
@@ -399,7 +399,7 @@ to be that way. -->
   <joint name="mmrobot_joint_top_mount" type="fixed">
     <parent link="top_mount"/>
     <child link="mmrobot_link0"/>
-    <origin rpy="0 0 0" xyz="-0.15 0 0"/>
+    <origin rpy="0 0 0" xyz="0.237 0 0"/>
   </joint>
   <link name="mmrobot_link0">
     <visual>

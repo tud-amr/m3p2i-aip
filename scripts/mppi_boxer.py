@@ -13,7 +13,7 @@ torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 # Make the environment and simulation
 allow_viewer = False
 visualize_rollouts = False
-num_envs = 30
+num_envs = 100
 spacing = 10.0
 robot = "boxer"               # choose from "point_robot", "boxer", "albert"
 environment_type = "arena"         # choose from "arena", "battery"

@@ -85,7 +85,7 @@ class FUSION_MPPI(mppi.MPPI):
             elif robot_type == 'albert':
                 self.block_index = 2
                 self.ee_index = 21
-                self.ee_goal = torch.tensor([-3., -3., 0.6], device=self.device)
+                self.ee_goal = torch.tensor([1.5, 3., 0.6], device=self.device)
             for i in range(self.num_envs):
                 self.block_indexes[i] = self.block_index + i*self.bodies_per_env
                 self.ee_indexes[i] = self.ee_index + i*self.bodies_per_env
@@ -133,7 +133,7 @@ class FUSION_MPPI(mppi.MPPI):
 
     def get_push_cost(self, r_pos):
         block_pos = torch.cat((torch.split(torch.clone(self.root_positions[:,0:2]), int(torch.clone(self.root_positions[:,0:2]).size(dim=0)/self.num_envs))),1)[self.block_index,:].reshape(self.num_envs,2)
-    
+        
         robot_to_block = r_pos - block_pos
         block_to_goal = self.block_goal[0:2] - block_pos
 
@@ -160,7 +160,7 @@ class FUSION_MPPI(mppi.MPPI):
         if self.robot != 'boxer':
             align_cost += torch.abs(torch.linalg.norm(r_pos- self.block_goal[:2], axis = 1) - (torch.linalg.norm(block_pos - self.block_goal[:2], axis = 1) + align_offset))
 
-        cost = dist_cost + 2*align_cost
+        cost = dist_cost + 3*align_cost
 
         return cost
     
@@ -343,9 +343,12 @@ class FUSION_MPPI(mppi.MPPI):
             res = torch.clone(dof_states).view(-1, 48)
         elif self.robot == 'albert':
             res = torch.clone(dof_states).view(-1, 22)
-            # res_ = actor_root_state[self.actors_per_env-1::self.actors_per_env]
-            # res = torch.cat([res_[:, 0:2], res_[:, 7:9], res_albert], axis=1)
             
+            # For boxer
+            res_ = actor_root_state[self.actors_per_env-1::self.actors_per_env]
+            res_boxer = torch.cat([res_[:, 0:2], res_[:, 7:9]], axis=1)
+            res[:,18:22] = res_boxer 
+            # print(res_boxer.size())
             
         if self.viewer is not None:
             self.gym.step_graphics(self.sim)
