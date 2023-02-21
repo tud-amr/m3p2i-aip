@@ -437,8 +437,8 @@ class FUSION_MPPI(mppi.MPPI):
             #task_cost = self.get_navigation_cost(state_pos)
             task_cost = self.get_push_cost(state_pos)
         elif self.robot == 'panda':
-            task_cost = self.get_panda_cost(state_pos)
-            #task_cost = self.get_panda_reach_cost(state_pos)
+            #task_cost = self.get_panda_cost(state_pos)
+            task_cost = self.get_panda_reach_cost(state_pos)
         elif self.robot == 'omni_panda':
             task_cost = self.get_panda_cost(state_pos)
         elif self.robot == 'shadow_hand':
