@@ -49,16 +49,16 @@ for i in range(35):
     elif i < 10:
         obs = [1, 1, 1] # not_at_goal, battery_low, not_charging -> slow down
     elif i < 15:
-        ai_agent_task[1].set_preferences(np.array([[0.], [1], [0]])) 
+        ai_agent_task[1].set_preferences(np.array([[0.], [1], [0]])) # favors battery_low
         obs = [1, 2, 1] # not_at_goal, battery_critical, not_charging -> go_recharge
     elif i < 20:
-        # ai_agent_task[2].set_preferences(np.array([[1.], [0]])) 
-        obs = [1, 2, 0] # not_at_goal, battery_critical, is_charging -> idle? seems go_recharge
+        ai_agent_task[2].set_preferences(np.array([[1.], [0]])) # favors is_charging
+        obs = [1, 2, 0] # not_at_goal, battery_critical, is_charging -> idle
     elif i < 25:
-        ai_agent_task[2].set_preferences(np.array([[1.], [0]])) 
+        ai_agent_task[2].set_preferences(np.array([[1.], [0]])) # favors is_charging
         obs = [1, 1, 0] # not_at_goal, battery_low, is_charging -> idle
     elif i < 30:
-        ai_agent_task[2].set_preferences(np.array([[0.], [1]]))
+        ai_agent_task[2].set_preferences(np.array([[0.], [1]])) # favors move_to
         obs = [1, 0, 0] # not_at_goal, battery_ok, is_charging -> move_to
     else:
         obs = [0, 1, 1] # at_goal, battery_low, not_charging -> idle_success
@@ -69,5 +69,5 @@ for i in range(35):
     #outcome, curr_acti = parallel_action_selection.par_act_sel(ai_agent_task, obs)
 
     print('Round:', i)
-    print('Status:', outcome)
+    # print('Status:', outcome)
     print('Current action(s):', curr_acti)

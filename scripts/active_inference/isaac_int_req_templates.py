@@ -83,19 +83,20 @@ class MDPCharging():
     def __init__(self): 
         self.state_name = 'chargingState'                            
         self.state_names = ['is_charging', 'not_charging']
-        self.action_names = ['idle', 'move_to']    
+        self.action_names = ['go_recharge', 'move_to']    #! ['idle', 'move_to'] is also ok
 
         self.V = np.array([0, 1])
         self.B = np.zeros((2, 2, 2))            
         
         # Transition matrices corecponding to the actions
         # ----------------------------------------------------------
-        self.B[:, :, 0] = np.eye(1)                 # idle
-        self.B[:, :, 1] = np.array([[1, 1],         # move_to
-                                    [0, 0]])    
+        self.B[:, :, 0] = np.array([[1, 1],         # go_recharge or eye()
+                                    [0, 0]]) 
+        self.B[:, :, 1] = np.array([[0, 0],         # move_to
+                                    [1, 1]])    
         # Preconditions of the actions above
         # ----------------------------------------------------------
-        self.preconditions = [['is_charging', 'battery_low'], ['battery_ok']]    # Preconditions needed for actions
+        self.preconditions = [['is_charging'], ['battery_ok']]    # Preconditions needed for actions
         
         # Likelihood matrix matrices
         # ----------------------------------------------------------
