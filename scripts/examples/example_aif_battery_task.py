@@ -18,7 +18,7 @@ ai_agent_task = [ai_agent.AiAgent(mdp_isAt), ai_agent.AiAgent(mdp_battery)]
 ai_agent_task[0].set_preferences(np.array([[1.], [0]]))
 
 # Loop for the execution of the task, ideally this will be given by the tick of a BT
-for i in range(25):
+for i in range(20):
     # Set the observation from the current readings, the logic of the observations need to be specified for the task. 
     # When an observation is unavailable set it to 'null'
 
@@ -50,6 +50,21 @@ for i in range(25):
         obs = [1, 0] # not_at_goal, battery_ok -> move_to
     elif i < 15:
         obs = [0, 0] # at_goal, battery_ok -> idle
+
+    '''
+    *************************************************************
+    Case 3: The battery is thought to be enough at first, and not 
+    enough later (meybe due to high velocity)
+    *************************************************************
+    '''
+    # if i < 5:  
+    #     obs = [1, 0] # not_at_goal, battery_ok -> move_to
+    # elif i < 10:   
+    #     obs = [1, 1] # not_at_goal, battery_not_enough -> go_recharge
+    # elif i < 15:
+    #     obs = [1, 0] # not_at_goal, battery_ok -> move_to
+    # elif i < 20:
+    #     obs = [0, 0] # at_goal, battery_ok -> idle
 
     # To test parallel adaptive action selection swap commented lines below
     outcome, curr_acti = adaptive_action_selection.adapt_act_sel(ai_agent_task, obs)
