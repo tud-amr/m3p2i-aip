@@ -51,7 +51,6 @@ for i in range(30):
         obs = [1, 1] # not_at_goal, battery_low -> slow down
     elif i < 25:      
         # issue of "removed preference state 1"
-        ai_agent_task[1].set_preferences(np.array([[1], [0], [0]]))
         obs = [1, 0] # not_at_goal, battery_ok -> move_to
     else:
         obs = [0, 1] # at_goal, battery_low -> idle_success
@@ -61,5 +60,6 @@ for i in range(30):
     outcome, curr_acti = adaptive_action_selection.adapt_act_sel(ai_agent_task, obs)
     #outcome, curr_acti = parallel_action_selection.par_act_sel(ai_agent_task, obs)
    
+    print('Round:', i)
     print('Status:', outcome)
     print('Current action(s):', curr_acti)
