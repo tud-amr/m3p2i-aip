@@ -32,6 +32,11 @@ def get_params_path():
     path = os.path.join(scripts_path,'params')
     return path
 
+def get_plot_path():
+    scripts_path = get_scripts_path()
+    path = os.path.join(scripts_path,'plot')
+    return path
+
 def load_yaml(file_path):
     with open(file_path) as file:
         yaml_params = yaml.load(file, Loader=yaml.FullLoader)
