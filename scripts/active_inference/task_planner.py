@@ -44,7 +44,7 @@ class PLANNER_AIF(PLANNER_SIMPLE):
         PLANNER_SIMPLE.__init__(self)
         # Define the required mdp structures 
         mdp_isAt = isaac_state_action_templates.MDPIsAt()
-        mdp_battery = isaac_int_req_templates.MDPBattery()  
+        mdp_battery = isaac_int_req_templates.MDPBatteryTask()  
         # Define ai agent with related mdp structure to reason about
         self.ai_agent_task = [ai_agent.AiAgent(mdp_isAt), ai_agent.AiAgent(mdp_battery)]
         # Set the preference for the battery 
@@ -84,20 +84,11 @@ class PLANNER_AIF(PLANNER_SIMPLE):
         # Estimate the battery level for task
         dist_battery_factor = 40 / (3 * np.sqrt(2))
         if self.battery_level > 60 :
-            battery_enough_for_task = torch.norm(robot_pos - self.nav_goal) * dist_battery_factor / (self.battery_level - 60) < 1
+            battery_enough_for_task = torch.norm(robot_pos - self.nav_goal) * dist_battery_factor * self.battery_factor / (self.battery_level - 60) < 1
             battery_enough_for_task = battery_enough_for_task.item()
         else:
             battery_enough_for_task = False
-        # print('enough:', battery_enough_for_task)
-        if battery_enough_for_task:
-            if self.battery_level > 80: 
-                obs_battery = 0  # Battery is ok
-            elif self.battery_level > 60:
-                obs_battery = 1  # Battery is low
-            else:
-                obs_battery = 2  # Battery is critical
-        else:
-            obs_battery = 2      # Battery is critical
+        obs_battery = int(not battery_enough_for_task)
         return obs_battery
     
     # Task motion observation
@@ -125,10 +116,3 @@ class PLANNER_AIF(PLANNER_SIMPLE):
         elif curr_action == "move_to":
             self.task = "navigation"
             self.curr_goal = self.nav_goal
-        elif curr_action == "slow_down":
-            if self.robot_close_to(robot_pos, env_conf.docking_station_loc):
-                self.task = "None"
-                self.curr_goal = "None"
-            else:
-                self.task = "navigation"
-                self.curr_goal = self.nav_goal
