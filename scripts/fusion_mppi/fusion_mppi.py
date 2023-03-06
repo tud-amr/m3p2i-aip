@@ -77,7 +77,7 @@ class FUSION_MPPI(mppi.MPPI):
             if robot_type == 'panda':
                 self.block_index = 2
                 self.ee_index = 11
-                self.block_goal = torch.tensor([0.5, 0, 0.8], device=self.device)
+                self.block_goal = torch.tensor([0.3, 0.3, 0.42], device=self.device)
             elif robot_type == 'omni_panda':
                 self.block_index = 2
                 self.ee_index = 15
@@ -116,7 +116,7 @@ class FUSION_MPPI(mppi.MPPI):
                
         self.block_not_goal = torch.tensor([-2, 1], device=self.device)
         self.nav_goal = torch.tensor([3, 3], device=self.device)
-        self.panda_hand_goal = torch.tensor([0.5, 0.4, 0.2, 1, 0, 0, 0], device=self.device)
+        self.panda_hand_goal = torch.tensor([0.5, 0.0, 0.7, 1, 0, 0, 0], device=self.device)
         self.joint_comfy = torch.tensor([0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1.58, 0., 1.86, 0.], device=self.device)
     def update_gym(self, gym, sim, viewer=None):
         self.gym = gym
@@ -164,6 +164,54 @@ class FUSION_MPPI(mppi.MPPI):
 
         return cost
     
+    def get_panda_push_cost(self, joint_pos):
+        r_pose = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))[self.ee_indexes, 0:7]
+        r_pos = r_pose[:,0:2]
+        r_ort = r_pose[:,3:7]
+        ee_height = r_pose[:,2]
+        block_pos = torch.cat((torch.split(torch.clone(self.root_positions[:,0:2]), int(torch.clone(self.root_positions[:,0:2]).size(dim=0)/self.num_envs))),1)[self.block_index,:].reshape(self.num_envs,2)
+        
+        robot_to_block = r_pos - block_pos
+        block_to_goal = self.block_goal[0:2] - block_pos
+
+        robot_to_block_dist = torch.linalg.norm(robot_to_block, axis = 1)
+        block_to_goal_dist = torch.linalg.norm(block_to_goal, axis = 1)
+        dist_cost = 0.1*robot_to_block_dist + 5*block_to_goal_dist 
+
+        # Force the robot behind block and goal,
+        # align_cost is actually the cos(theta)
+
+        # Tuning per robot
+        if self.robot == "heijn":
+            align_weight = 1
+            align_offset = 0.1
+        elif self.robot == "point_robot":
+            align_weight = 0.5
+            align_offset = 0.05
+        elif self.robot == "boxer":
+            align_weight = 1
+        elif self.robot == "panda":
+            align_weight = 1
+            align_offset = 0.08
+
+        align_cost = torch.sum(robot_to_block*block_to_goal, 1)/(robot_to_block_dist*block_to_goal_dist)
+        align_cost = align_weight*align_cost
+        
+        if self.robot != 'boxer':
+            align_cost += torch.abs(torch.linalg.norm(r_pos- self.block_goal[:2], axis = 1) - (torch.linalg.norm(block_pos - self.block_goal[:2], axis = 1) + align_offset))
+        
+        if self.robot == "panda":
+            # Encourage gripper to stay upright and close to table
+            align_cost += torch.linalg.norm(r_ort - self.panda_hand_goal[3:7], axis = 1) 
+            dist_cost += 15*torch.abs(ee_height - 0.425)
+        
+        # minimize contact
+        # Only z component should be added here
+        contatc_cost = 100*torch.abs(torch.sum(self.net_cf.reshape([self.num_envs, int(self.net_cf.size(dim=0)/self.num_envs)])[:,self.block_index]))
+        cost = dist_cost + 3*align_cost + contatc_cost
+
+        return cost
+
     def get_pull_cost(self, r_pos):
         block_pos = torch.cat((torch.split(torch.clone(self.root_positions[:,0:2]), int(torch.clone(self.root_positions[:,0:2]).size(dim=0)/self.num_envs))),1)[self.block_index,:].reshape(self.num_envs,2)
         robot_to_block = r_pos - block_pos
@@ -394,11 +442,11 @@ class FUSION_MPPI(mppi.MPPI):
         control_cost = torch.sum(torch.square(u),1)
         w_u = 0.1
         # Contact forces
-        _net_cf = self.gym.acquire_net_contact_force_tensor(self.sim)
-        net_cf = gymtorch.wrap_tensor(_net_cf)
-        _net_cf = self.gym.refresh_net_contact_force_tensor(self.sim)
+        self._net_cf = self.gym.acquire_net_contact_force_tensor(self.sim)
+        self.net_cf = gymtorch.wrap_tensor(self._net_cf)
+        self._net_cf = self.gym.refresh_net_contact_force_tensor(self.sim)
         # Take only forces in x,y in modulus for each environment. Avoid all collisions
-        net_cf = torch.sum(torch.abs(torch.cat((net_cf[:, 0].unsqueeze(1), net_cf[:, 1].unsqueeze(1)), 1)),1)
+        self.net_cf = torch.sum(torch.abs(torch.cat((self.net_cf[:, 0].unsqueeze(1), self.net_cf[:, 1].unsqueeze(1)), 1)),1)
         # The last actors are allowed to collide with eachother (movabable obstacles and robot), check depending on the amount of actors
         if self.env_type == 'arena':   
             obst_up_to = 6
@@ -412,9 +460,9 @@ class FUSION_MPPI(mppi.MPPI):
             obst_up_to = 4
 
         if obst_up_to > 0:
-            coll_cost = 100000*torch.sum(net_cf.reshape([self.num_envs, int(net_cf.size(dim=0)/self.num_envs)])[:,0:obst_up_to], 1)
+            coll_cost = 10000000*torch.sum(self.net_cf.reshape([self.num_envs, int(self.net_cf.size(dim=0)/self.num_envs)])[:,0:obst_up_to], 1)
         else:
-            coll_cost = 0*torch.sum(net_cf.reshape([self.num_envs, int(net_cf.size(dim=0)/self.num_envs)])[:,0:obst_up_to], 1)
+            coll_cost = 0*torch.sum(self.net_cf.reshape([self.num_envs, int(self.net_cf.size(dim=0)/self.num_envs)])[:,0:obst_up_to], 1)
 
         # add collision cost fingers not ro
         # if self.robot == 'panda' or self.robot == 'omni_panda':
@@ -434,11 +482,12 @@ class FUSION_MPPI(mppi.MPPI):
             task_cost = self.get_navigation_cost(state_pos)
             #task_cost = self.get_pull_cost(state_pos)
         elif self.robot == 'heijn':
-            #task_cost = self.get_navigation_cost(state_pos)
-            task_cost = self.get_push_cost(state_pos)
+            task_cost = self.get_navigation_cost(state_pos)
+            #task_cost = self.get_push_cost(state_pos)
         elif self.robot == 'panda':
             #task_cost = self.get_panda_cost(state_pos)
-            task_cost = self.get_panda_reach_cost(state_pos)
+            task_cost = self.get_panda_push_cost(state_pos)
+            #task_cost = self.get_panda_reach_cost(state_pos)
         elif self.robot == 'omni_panda':
             task_cost = self.get_panda_cost(state_pos)
         elif self.robot == 'shadow_hand':

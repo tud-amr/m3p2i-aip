@@ -28,16 +28,16 @@ actors_per_env = int(num_actors/num_envs)
 bodies_per_env = gym.get_env_rigid_body_count(envs[0])
 
 # For storm mppi mode
-sigma = 6
-max_vel = 3
+sigma = 10
+max_vel = 2
 max_vel_finger = 1
 sigma_finger = 0.8
 
 # For pure random
-sigma = 1
-max_vel = 1
-max_vel_finger = 0.3
-sigma_finger = 0.5
+# sigma = 1
+# max_vel = 1
+max_vel_finger = 0.000000000003
+sigma_finger = 0.00000000000005
 
 # Creater mppi object
 mppi = fusion_mppi.FUSION_MPPI(
@@ -54,7 +54,7 @@ mppi = fusion_mppi.FUSION_MPPI(
                                 [0, 0, 0, 0, 0, 0, 0, sigma_finger, 0],
                                 [0, 0, 0, 0, 0, 0, 0, 0, sigma_finger],], device="cuda:0", dtype=torch.float32),
     num_samples=num_envs, 
-    horizon=12,
+    horizon=18,
     lambda_=0.01, 
     device="cuda:0", 
     u_max=torch.tensor([max_vel, max_vel, max_vel, max_vel, max_vel, max_vel, max_vel, max_vel_finger, max_vel_finger]),
@@ -65,7 +65,7 @@ mppi = fusion_mppi.FUSION_MPPI(
     use_priors=False,
     use_vacuum = False,
     robot_type=robot,
-    u_per_command=10,
+    u_per_command=18,
     actors_per_env=actors_per_env,
     env_type=environment_type,
     bodies_per_env=bodies_per_env,
