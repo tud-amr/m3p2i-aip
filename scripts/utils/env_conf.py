@@ -130,6 +130,8 @@ def load_robot(robot, gym, sim):
         robot_asset = load_point_robot(gym, sim)
     elif robot == "panda":
         robot_asset = load_panda(gym, sim)
+    elif robot == "panda_no_hand":
+        robot_asset = load_panda_no_hand(gym, sim)
     elif robot == "husky":
         robot_asset = load_husky(gym, sim)
     elif robot == "heijn":
@@ -191,6 +193,29 @@ def load_heijn(gym, sim):
     print("Loading asset '%s' from '%s'" % (asset_file, asset_root))
     robot_asset = gym.load_asset(sim, asset_root, asset_file, asset_options)
     return robot_asset
+
+def load_panda_no_hand(gym, sim):
+    # Load asset
+    asset_root = "../assets"
+    franka_asset_file = "urdf/franka_description/robots/franka_panda_no_hand.urdf"
+
+    asset_options = gymapi.AssetOptions()
+    asset_options.armature = 0.01
+    asset_options.fix_base_link = True
+    asset_options.disable_gravity = True
+    asset_options.flip_visual_attachments = True
+    franka_asset = gym.load_asset(sim, asset_root, franka_asset_file, asset_options)
+    # configure franka dofs
+    franka_dof_props = gym.get_asset_dof_properties(franka_asset)
+    franka_lower_limits = franka_dof_props["lower"]
+    franka_upper_limits = franka_dof_props["upper"]
+    franka_ranges = franka_upper_limits - franka_lower_limits
+    franka_mids = 0.3 * (franka_upper_limits + franka_lower_limits)
+    franka_dof_props["driveMode"][7:].fill(gymapi.DOF_MODE_VEL)
+    franka_dof_props["stiffness"][7:].fill(800.0)
+    franka_dof_props["damping"][7:].fill(40.0)
+
+    return franka_asset
 
 def load_panda(gym, sim):
     # Load asset
@@ -376,7 +401,7 @@ def add_store(sim, gym, env, table_asset, shelf_asset, product_asset, index):
     table_handle = gym.create_actor(env, table_asset, table_pose, "table", index, 0)
     shelf_handle = gym.create_actor(env, shelf_asset, shelf_pose, "shelf", index, 0)
 
-    box_handle = add_box(sim, gym, env, box_size*2, box_size*2, box_size, box_pose, color_vec_crate, False, "product", index)
+    box_handle = add_box(sim, gym, env, box_size, box_size, box_size, box_pose, color_vec_crate, False, "product", index)
     box_props = gym.get_actor_rigid_body_properties(env, box_handle)
     box_props[0].mass = 0.1 
     gym.set_actor_rigid_body_properties(env, box_handle, box_props)  

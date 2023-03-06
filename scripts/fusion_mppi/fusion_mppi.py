@@ -86,6 +86,10 @@ class FUSION_MPPI(mppi.MPPI):
                 self.block_index = 2
                 self.ee_index = 21
                 self.ee_goal = torch.tensor([1.5, 3., 0.6], device=self.device)
+            elif robot_type == 'panda_no_hand':
+                self.block_index = 2
+                self.ee_index = 11
+                self.block_goal = torch.tensor([0.3, 0.3, 0.42], device=self.device)
             for i in range(self.num_envs):
                 self.block_indexes[i] = self.block_index + i*self.bodies_per_env
                 self.ee_indexes[i] = self.ee_index + i*self.bodies_per_env
@@ -166,17 +170,18 @@ class FUSION_MPPI(mppi.MPPI):
     
     def get_panda_push_cost(self, joint_pos):
         r_pose = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))[self.ee_indexes, 0:7]
-        r_pos = r_pose[:,0:2]
+        r_pos = r_pose[:,0:3]
         r_ort = r_pose[:,3:7]
         ee_height = r_pose[:,2]
-        block_pos = torch.cat((torch.split(torch.clone(self.root_positions[:,0:2]), int(torch.clone(self.root_positions[:,0:2]).size(dim=0)/self.num_envs))),1)[self.block_index,:].reshape(self.num_envs,2)
+        block_pos = torch.cat((torch.split(torch.clone(self.root_positions[:,0:3]), int(torch.clone(self.root_positions[:,0:3]).size(dim=0)/self.num_envs))),1)[self.block_index,:].reshape(self.num_envs,3)
         
         robot_to_block = r_pos - block_pos
-        block_to_goal = self.block_goal[0:2] - block_pos
+        block_to_goal = self.block_goal - block_pos
 
-        robot_to_block_dist = torch.linalg.norm(robot_to_block, axis = 1)
+        robot_to_block_dist = torch.linalg.norm(robot_to_block[:, 0:2], axis = 1)
         block_to_goal_dist = torch.linalg.norm(block_to_goal, axis = 1)
-        dist_cost = 0.1*robot_to_block_dist + 5*block_to_goal_dist 
+        ee_hover_cost= torch.abs(ee_height - 0.42) 
+        dist_cost = 10*robot_to_block_dist + 100*block_to_goal_dist + 40*ee_hover_cost
 
         # Force the robot behind block and goal,
         # align_cost is actually the cos(theta)
@@ -190,27 +195,27 @@ class FUSION_MPPI(mppi.MPPI):
             align_offset = 0.05
         elif self.robot == "boxer":
             align_weight = 1
-        elif self.robot == "panda":
+        elif self.robot == "panda" or 'panda_no_hand':
             align_weight = 1
             align_offset = 0.08
 
         align_cost = torch.sum(robot_to_block*block_to_goal, 1)/(robot_to_block_dist*block_to_goal_dist)
         align_cost = align_weight*align_cost
         
-        if self.robot != 'boxer':
-            align_cost += torch.abs(torch.linalg.norm(r_pos- self.block_goal[:2], axis = 1) - (torch.linalg.norm(block_pos - self.block_goal[:2], axis = 1) + align_offset))
+        # if self.robot != 'boxer':
+        #     align_cost += torch.abs(torch.linalg.norm(r_pos- self.block_goal[:2], axis = 1) - (torch.linalg.norm(block_pos - self.block_goal[:2], axis = 1) + align_offset))
         
-        if self.robot == "panda":
+        if self.robot == "panda" or 'panda_no_hand':
             # Encourage gripper to stay upright and close to table
             align_cost += torch.linalg.norm(r_ort - self.panda_hand_goal[3:7], axis = 1) 
-            dist_cost += 15*torch.abs(ee_height - 0.425)
+            #dist_cost += 15*torch.abs(ee_height - 0.42)
         
         # minimize contact
         # Only z component should be added here
-        contatc_cost = 100*torch.abs(torch.sum(self.net_cf.reshape([self.num_envs, int(self.net_cf.size(dim=0)/self.num_envs)])[:,self.block_index]))
-        cost = dist_cost + 3*align_cost + contatc_cost
+        contatc_cost = 0.1*torch.abs(self.net_cf_all.reshape([self.num_envs, int(self.net_cf_all.size(dim=0)/self.num_envs)])[:,self.block_index])
+        # cost = dist_cost #+ 3*align_cost #+ contatc_cost
 
-        return cost
+        return dist_cost + contatc_cost + align_cost
 
     def get_pull_cost(self, r_pos):
         block_pos = torch.cat((torch.split(torch.clone(self.root_positions[:,0:2]), int(torch.clone(self.root_positions[:,0:2]).size(dim=0)/self.num_envs))),1)[self.block_index,:].reshape(self.num_envs,2)
@@ -384,6 +389,8 @@ class FUSION_MPPI(mppi.MPPI):
             res = torch.clone(dof_states).view(-1, 6)  
         elif self.robot == 'panda':
             res = torch.clone(dof_states).view(-1, 18)
+        elif self.robot == 'panda_no_hand':
+            res = torch.clone(dof_states).view(-1, 14)
         elif self.robot == 'omni_panda':
             res = torch.clone(dof_states).view(-1, 24)
             self.omni_dofs = torch.clone(res)
@@ -417,6 +424,10 @@ class FUSION_MPPI(mppi.MPPI):
             state_pos = torch.cat((state[:, 0].unsqueeze(1), state[:, 2].unsqueeze(1), state[:, 4].unsqueeze(1),
                                    state[:, 6].unsqueeze(1), state[:, 8].unsqueeze(1), state[:, 10].unsqueeze(1),
                                    state[:, 12].unsqueeze(1), state[:, 14].unsqueeze(1), state[:, 16].unsqueeze(1)), 1)
+        elif self.robot == 'panda_no_hand':
+            state_pos = torch.cat((state[:, 0].unsqueeze(1), state[:, 2].unsqueeze(1), state[:, 4].unsqueeze(1),
+                                   state[:, 6].unsqueeze(1), state[:, 8].unsqueeze(1), state[:, 10].unsqueeze(1),
+                                   state[:, 12].unsqueeze(1)), 1)
         elif self.robot == 'omni_panda':
             state_pos = torch.cat((state[:, 0].unsqueeze(1), state[:, 2].unsqueeze(1), state[:, 4].unsqueeze(1),
                                    state[:, 6].unsqueeze(1), state[:, 8].unsqueeze(1), state[:, 10].unsqueeze(1),
@@ -445,6 +456,7 @@ class FUSION_MPPI(mppi.MPPI):
         self._net_cf = self.gym.acquire_net_contact_force_tensor(self.sim)
         self.net_cf = gymtorch.wrap_tensor(self._net_cf)
         self._net_cf = self.gym.refresh_net_contact_force_tensor(self.sim)
+        self.net_cf_all = torch.sum(torch.abs(torch.cat((self.net_cf[:, 0].unsqueeze(1), self.net_cf[:, 1].unsqueeze(1), self.net_cf[:, 2].unsqueeze(1)), 1)),1)
         # Take only forces in x,y in modulus for each environment. Avoid all collisions
         self.net_cf = torch.sum(torch.abs(torch.cat((self.net_cf[:, 0].unsqueeze(1), self.net_cf[:, 1].unsqueeze(1)), 1)),1)
         # The last actors are allowed to collide with eachother (movabable obstacles and robot), check depending on the amount of actors
@@ -460,7 +472,7 @@ class FUSION_MPPI(mppi.MPPI):
             obst_up_to = 4
 
         if obst_up_to > 0:
-            coll_cost = 10000000*torch.sum(self.net_cf.reshape([self.num_envs, int(self.net_cf.size(dim=0)/self.num_envs)])[:,0:obst_up_to], 1)
+            coll_cost = 0.01*torch.sum(self.net_cf_all.reshape([self.num_envs, int(self.net_cf_all.size(dim=0)/self.num_envs)])[:,0:obst_up_to], 1)
         else:
             coll_cost = 0*torch.sum(self.net_cf.reshape([self.num_envs, int(self.net_cf.size(dim=0)/self.num_envs)])[:,0:obst_up_to], 1)
 
@@ -488,6 +500,8 @@ class FUSION_MPPI(mppi.MPPI):
             #task_cost = self.get_panda_cost(state_pos)
             task_cost = self.get_panda_push_cost(state_pos)
             #task_cost = self.get_panda_reach_cost(state_pos)
+        elif self.robot == 'panda_no_hand':
+            task_cost = self.get_panda_push_cost(state_pos)
         elif self.robot == 'omni_panda':
             task_cost = self.get_panda_cost(state_pos)
         elif self.robot == 'shadow_hand':
