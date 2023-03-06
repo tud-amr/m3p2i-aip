@@ -215,7 +215,7 @@ class FUSION_MPPI(mppi.MPPI):
         contatc_cost = 0.1*torch.abs(self.net_cf_all.reshape([self.num_envs, int(self.net_cf_all.size(dim=0)/self.num_envs)])[:,self.block_index])
         # cost = dist_cost #+ 3*align_cost #+ contatc_cost
 
-        return dist_cost + contatc_cost + align_cost
+        return dist_cost + contatc_cost + 3*align_cost
 
     def get_pull_cost(self, r_pos):
         block_pos = torch.cat((torch.split(torch.clone(self.root_positions[:,0:2]), int(torch.clone(self.root_positions[:,0:2]).size(dim=0)/self.num_envs))),1)[self.block_index,:].reshape(self.num_envs,2)
