@@ -176,11 +176,11 @@ class FUSION_MPPI(mppi.MPPI):
         block_pos = torch.cat((torch.split(torch.clone(self.root_positions[:,0:3]), int(torch.clone(self.root_positions[:,0:3]).size(dim=0)/self.num_envs))),1)[self.block_index,:].reshape(self.num_envs,3)
         
         robot_to_block = r_pos - block_pos
-        block_to_goal = self.block_goal - block_pos
+        block_to_goal = self.block_goal[0:2] - block_pos[:,0:2]
 
         robot_to_block_dist = torch.linalg.norm(robot_to_block[:, 0:2], axis = 1)
         block_to_goal_dist = torch.linalg.norm(block_to_goal, axis = 1)
-        ee_hover_cost= torch.abs(ee_height - 0.42) 
+        ee_hover_cost= torch.abs(ee_height - 0.52) 
         dist_cost = 10*robot_to_block_dist + 100*block_to_goal_dist + 40*ee_hover_cost
 
         # Force the robot behind block and goal,
@@ -199,7 +199,7 @@ class FUSION_MPPI(mppi.MPPI):
             align_weight = 1
             align_offset = 0.08
 
-        align_cost = torch.sum(robot_to_block*block_to_goal, 1)/(robot_to_block_dist*block_to_goal_dist)
+        align_cost = torch.sum(robot_to_block[:,0:2]*block_to_goal, 1)/(robot_to_block_dist*block_to_goal_dist)
         align_cost = align_weight*align_cost
         
         # if self.robot != 'boxer':
