@@ -59,7 +59,7 @@ franka_pose.p = gymapi.Vec3(-0.2, 0, 0)
 
 table_dims = gymapi.Vec3(0.6, 1.0, 0.4)
 table_pose = gymapi.Transform()
-table_pose.p = gymapi.Vec3(0.5, 0.0, 0.5 * table_dims.z)
+table_pose.p = gymapi.Vec3(0.4, 0.0, 0.5 * table_dims.z)
 
 shelves_dims = gymapi.Vec3(0.6, 1.0, 1.5)
 shelf_pose = gymapi.Transform()

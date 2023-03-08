@@ -90,6 +90,7 @@ class FUSION_MPPI(mppi.MPPI):
                 self.block_index = 2
                 self.ee_index = 11
                 self.block_goal = torch.tensor([0.3, 0.3, 0.42], device=self.device)
+                self.block_goal_ort = torch.tensor([0.0, 0.0, 0.0, 1], device=self.device)
             for i in range(self.num_envs):
                 self.block_indexes[i] = self.block_index + i*self.bodies_per_env
                 self.ee_indexes[i] = self.ee_index + i*self.bodies_per_env
@@ -174,14 +175,17 @@ class FUSION_MPPI(mppi.MPPI):
         r_ort = r_pose[:,3:7]
         ee_height = r_pose[:,2]
         block_pos = torch.cat((torch.split(torch.clone(self.root_positions[:,0:3]), int(torch.clone(self.root_positions[:,0:3]).size(dim=0)/self.num_envs))),1)[self.block_index,:].reshape(self.num_envs,3)
-        
+        block_ort = torch.cat((torch.split(torch.clone(self.root_ort), int(torch.clone(self.root_ort).size(dim=0)/self.num_envs))),1)[self.block_index,:].reshape(self.num_envs,4)
         robot_to_block = r_pos - block_pos
         block_to_goal = self.block_goal[0:2] - block_pos[:,0:2]
+        block_to_ort = self.block_goal_ort - block_ort
 
         robot_to_block_dist = torch.linalg.norm(robot_to_block[:, 0:2], axis = 1)
         block_to_goal_dist = torch.linalg.norm(block_to_goal, axis = 1)
+        block_to_goal_ort = torch.linalg.norm(block_to_ort, axis = 1)
+
         ee_hover_cost= torch.abs(ee_height - 0.52) 
-        dist_cost = 10*robot_to_block_dist + 100*block_to_goal_dist + 40*ee_hover_cost
+        dist_cost = 10*robot_to_block_dist + 100*block_to_goal_dist + 40*ee_hover_cost + 50*block_to_goal_ort
 
         # Force the robot behind block and goal,
         # align_cost is actually the cos(theta)
@@ -337,6 +341,7 @@ class FUSION_MPPI(mppi.MPPI):
         actor_root_state = gymtorch.wrap_tensor(self.gym.acquire_actor_root_state_tensor(self.sim))
         dof_states, _, _, _ = sim_init.acquire_states(self.gym, self.sim, print_flag=False)
         self.root_positions = actor_root_state[:, 0:3]
+        self.root_ort = actor_root_state[:, 3:7]
         
         if self.suction_active:
             dof_pos = torch.clone(dof_states).view(-1, 4)[:,[0,2]]
