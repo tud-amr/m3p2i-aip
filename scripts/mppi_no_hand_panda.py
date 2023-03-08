@@ -13,9 +13,9 @@ torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 # Make the environment and simulation
 allow_viewer = False
 visualize_rollouts = False
-num_envs = 200
+num_envs = 500
 spacing = 2.0
-robot = "panda"                     # choose from "point_robot", "boxer", "albert", "panda"
+robot = "panda_no_hand"                     # choose from "point_robot", "boxer", "albert", "panda"
 environment_type = "store"          # choose from "arena", "battery", "store"
 control_type = "vel_control"        # choose from "vel_control", "pos_control", "force_control"
 dt = 0.01
@@ -28,38 +28,34 @@ actors_per_env = int(num_actors/num_envs)
 bodies_per_env = gym.get_env_rigid_body_count(envs[0])
 
 # For storm mppi mode
-sigma = 10
-max_vel = 2
-max_vel_finger = 1
-sigma_finger = 0.8
+sigma = 20
+max_vel = 0.8
 
 # Creater mppi object
 mppi = fusion_mppi.FUSION_MPPI(
     dynamics=None, 
     running_cost=None, 
-    nx=18, 
-    noise_sigma = torch.tensor([[sigma, 0, 0, 0, 0, 0, 0, 0, 0],
-                                [0, sigma, 0, 0, 0, 0, 0, 0, 0], 
-                                [0, 0, sigma, 0, 0, 0, 0, 0, 0],
-                                [0, 0, 0, sigma, 0, 0, 0, 0, 0],
-                                [0, 0, 0, 0, sigma, 0, 0, 0, 0],
-                                [0, 0, 0, 0, 0, sigma, 0, 0, 0],
-                                [0, 0, 0, 0, 0, 0, sigma, 0, 0],
-                                [0, 0, 0, 0, 0, 0, 0, sigma_finger, 0],
-                                [0, 0, 0, 0, 0, 0, 0, 0, sigma_finger],], device="cuda:0", dtype=torch.float32),
+    nx=14, 
+    noise_sigma = torch.tensor([[sigma, 0, 0, 0, 0, 0, 0],
+                                [0, sigma, 0, 0, 0, 0, 0], 
+                                [0, 0, sigma, 0, 0, 0, 0],
+                                [0, 0, 0, sigma, 0, 0, 0],
+                                [0, 0, 0, 0, sigma, 0, 0],
+                                [0, 0, 0, 0, 0, sigma, 0],
+                                [0, 0, 0, 0, 0, 0, sigma]], device="cuda:0", dtype=torch.float32),
     num_samples=num_envs, 
-    horizon=12,
-    lambda_=0.01, 
+    horizon=18,
+    lambda_=0.05, 
     device="cuda:0", 
-    u_max=torch.tensor([max_vel, max_vel, max_vel, max_vel, max_vel, max_vel, max_vel, max_vel_finger, max_vel_finger]),
-    u_min=torch.tensor([-max_vel, -max_vel, -max_vel, -max_vel, -max_vel, -max_vel, -max_vel, -max_vel_finger, -max_vel_finger]),
+    u_max=torch.tensor([max_vel, max_vel, max_vel, max_vel, max_vel, max_vel, max_vel]),
+    u_min=torch.tensor([-max_vel, -max_vel, -max_vel, -max_vel, -max_vel, -max_vel, -max_vel]),
     step_dependent_dynamics=True,
     terminal_state_cost=None,
     sample_null_action=True,
     use_priors=False,
     use_vacuum = False,
     robot_type=robot,
-    u_per_command=18,
+    u_per_command=12,
     actors_per_env=actors_per_env,
     env_type=environment_type,
     bodies_per_env=bodies_per_env,
@@ -107,7 +103,7 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
             _root_states = data_transfer.bytes_to_torch(r).repeat(num_envs, 1)
 
             # Reset the simulator to requested state
-            s = _dof_states.view(-1, 18) 
+            s = _dof_states.view(-1, 14) 
             gym.set_dof_state_tensor(sim, gymtorch.unwrap_tensor(s))
             gym.set_actor_root_state_tensor(sim, gymtorch.unwrap_tensor(_root_states))
             sim_init.refresh_states(gym, sim)

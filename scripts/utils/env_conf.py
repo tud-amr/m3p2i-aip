@@ -59,7 +59,7 @@ franka_pose.p = gymapi.Vec3(-0.2, 0, 0)
 
 table_dims = gymapi.Vec3(0.6, 1.0, 0.4)
 table_pose = gymapi.Transform()
-table_pose.p = gymapi.Vec3(0.5, 0.0, 0.5 * table_dims.z)
+table_pose.p = gymapi.Vec3(0.4, 0.0, 0.5 * table_dims.z)
 
 shelves_dims = gymapi.Vec3(0.6, 1.0, 1.5)
 shelf_pose = gymapi.Transform()
@@ -67,7 +67,7 @@ shelf_pose.p = gymapi.Vec3(1.85, 3-0.5*shelves_dims.y, 0)
 
 box_size = 0.04
 box_pose = gymapi.Transform()
-box_pose.p.x = table_pose.p.x 
+box_pose.p.x = table_pose.p.x - 0.15
 box_pose.p.y = table_pose.p.y 
 box_pose.p.z = table_dims.z + 0.5 * box_size
 box_pose.r = gymapi.Quat.from_axis_angle(gymapi.Vec3(0, 0, 1), np.random.uniform(-math.pi, math.pi))
@@ -130,6 +130,8 @@ def load_robot(robot, gym, sim):
         robot_asset = load_point_robot(gym, sim)
     elif robot == "panda":
         robot_asset = load_panda(gym, sim)
+    elif robot == "panda_no_hand":
+        robot_asset = load_panda_no_hand(gym, sim)
     elif robot == "husky":
         robot_asset = load_husky(gym, sim)
     elif robot == "heijn":
@@ -191,6 +193,29 @@ def load_heijn(gym, sim):
     print("Loading asset '%s' from '%s'" % (asset_file, asset_root))
     robot_asset = gym.load_asset(sim, asset_root, asset_file, asset_options)
     return robot_asset
+
+def load_panda_no_hand(gym, sim):
+    # Load asset
+    asset_root = "../assets"
+    franka_asset_file = "urdf/franka_description/robots/franka_panda_stick.urdf"
+
+    asset_options = gymapi.AssetOptions()
+    asset_options.armature = 0.01
+    asset_options.fix_base_link = True
+    asset_options.disable_gravity = True
+    asset_options.flip_visual_attachments = True
+    franka_asset = gym.load_asset(sim, asset_root, franka_asset_file, asset_options)
+    # configure franka dofs
+    franka_dof_props = gym.get_asset_dof_properties(franka_asset)
+    franka_lower_limits = franka_dof_props["lower"]
+    franka_upper_limits = franka_dof_props["upper"]
+    franka_ranges = franka_upper_limits - franka_lower_limits
+    franka_mids = 0.3 * (franka_upper_limits + franka_lower_limits)
+    franka_dof_props["driveMode"][7:].fill(gymapi.DOF_MODE_VEL)
+    franka_dof_props["stiffness"][7:].fill(800.0)
+    franka_dof_props["damping"][7:].fill(40.0)
+
+    return franka_asset
 
 def load_panda(gym, sim):
     # Load asset
@@ -377,7 +402,9 @@ def add_store(sim, gym, env, table_asset, shelf_asset, product_asset, index):
     shelf_handle = gym.create_actor(env, shelf_asset, shelf_pose, "shelf", index, 0)
 
     box_handle = add_box(sim, gym, env, box_size, box_size, box_size, box_pose, color_vec_crate, False, "product", index)
-
+    box_props = gym.get_actor_rigid_body_properties(env, box_handle)
+    box_props[0].mass = 0.2
+    gym.set_actor_rigid_body_properties(env, box_handle, box_props)  
     # mug_handle = gym.create_actor(env, mug_asset, box_pose, "mug", i, 0)
     #product_handle = gym.create_actor(env, product_asset, product_pose, "product", index, 0)
 
@@ -393,7 +420,7 @@ def get_default_franka_state(gym, robot_asset):
     default_dof_pos = np.zeros(franka_num_dofs, dtype=np.float32)
     default_dof_pos[:10] = franka_mids[:10]
     # grippers open
-    default_dof_pos[10:] = franka_upper_limits[10:]
+    # default_dof_pos[7:] = franka_lower_limits[7:]
 
     default_dof_state = np.zeros(franka_num_dofs, gymapi.DofState.dtype)
     default_dof_state["pos"] = default_dof_pos
