@@ -62,7 +62,7 @@ class FUSION_MPPI(mppi.MPPI):
         self.env_type = env_type
         self.device = device
 
-        self.block_goal = torch.tensor([0.5, 0, 0.8], device=self.device)
+        self.block_goal = torch.tensor([0.4, 0, 0.6], device=self.device)
         self.cube_target_state = None
 
         # Additional variables for the environment or robot
@@ -77,7 +77,6 @@ class FUSION_MPPI(mppi.MPPI):
             if robot_type == 'panda':
                 self.block_index = 2
                 self.ee_index = 11
-                self.block_goal = torch.tensor([0.3, 0.3, 0.42], device=self.device)
             elif robot_type == 'omni_panda':
                 self.block_index = 2
                 self.ee_index = 15
@@ -477,7 +476,10 @@ class FUSION_MPPI(mppi.MPPI):
             obst_up_to = 4
 
         if obst_up_to > 0:
-            coll_cost = 0.01*torch.sum(self.net_cf_all.reshape([self.num_envs, int(self.net_cf_all.size(dim=0)/self.num_envs)])[:,0:obst_up_to], 1)
+            if self.env_type == 'storm':
+                coll_cost = 1000*torch.sum(self.net_cf.reshape([self.num_envs, int(self.net_cf.size(dim=0)/self.num_envs)])[:,0:obst_up_to], 1)
+            else:
+                coll_cost = 0.01*torch.sum(self.net_cf_all.reshape([self.num_envs, int(self.net_cf_all.size(dim=0)/self.num_envs)])[:,0:obst_up_to], 1)
         else:
             coll_cost = 0*torch.sum(self.net_cf.reshape([self.num_envs, int(self.net_cf.size(dim=0)/self.num_envs)])[:,0:obst_up_to], 1)
 
@@ -503,8 +505,7 @@ class FUSION_MPPI(mppi.MPPI):
             #task_cost = self.get_push_cost(state_pos)
         elif self.robot == 'panda':
             #task_cost = self.get_panda_cost(state_pos)
-            task_cost = self.get_panda_push_cost(state_pos)
-            #task_cost = self.get_panda_reach_cost(state_pos)
+            task_cost = self.get_panda_reach_cost(state_pos)
         elif self.robot == 'panda_no_hand':
             task_cost = self.get_panda_push_cost(state_pos)
         elif self.robot == 'omni_panda':

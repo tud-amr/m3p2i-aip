@@ -13,7 +13,7 @@ torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 # Make the environment and simulation
 allow_viewer = False
 visualize_rollouts = False
-num_envs = 500
+num_envs = 200
 spacing = 2.0
 robot = "panda"                     # choose from "point_robot", "boxer", "albert", "panda"
 environment_type = "store"          # choose from "arena", "battery", "store"
@@ -33,12 +33,6 @@ max_vel = 2
 max_vel_finger = 1
 sigma_finger = 0.8
 
-# For pure random
-# sigma = 1
-# max_vel = 1
-max_vel_finger = 0.000000000003
-sigma_finger = 0.00000000000005
-
 # Creater mppi object
 mppi = fusion_mppi.FUSION_MPPI(
     dynamics=None, 
@@ -54,7 +48,7 @@ mppi = fusion_mppi.FUSION_MPPI(
                                 [0, 0, 0, 0, 0, 0, 0, sigma_finger, 0],
                                 [0, 0, 0, 0, 0, 0, 0, 0, sigma_finger],], device="cuda:0", dtype=torch.float32),
     num_samples=num_envs, 
-    horizon=18,
+    horizon=12,
     lambda_=0.01, 
     device="cuda:0", 
     u_max=torch.tensor([max_vel, max_vel, max_vel, max_vel, max_vel, max_vel, max_vel, max_vel_finger, max_vel_finger]),
