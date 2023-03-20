@@ -184,7 +184,7 @@ class FUSION_MPPI(mppi.MPPI):
         block_to_goal_ort = torch.linalg.norm(block_to_ort, axis = 1)
 
         ee_hover_cost= torch.abs(ee_height - 0.52) 
-        dist_cost = 10*robot_to_block_dist + 100*block_to_goal_dist + 40*ee_hover_cost + 50*block_to_goal_ort
+        dist_cost = 10*robot_to_block_dist + 100*block_to_goal_dist + 40*ee_hover_cost + 10*block_to_goal_ort
 
         # Force the robot behind block and goal,
         # align_cost is actually the cos(theta)
