@@ -72,7 +72,9 @@ class REACTIVE_TAMP:
 
     def tamp_interface(self, robot_pos, stay_still):
         # Update task planner goal
-        self.task_freq = self.task_planner.update_plan(robot_pos, stay_still)
+        start_time = time.monotonic()
+        self.task_planner.update_plan(robot_pos, stay_still)
+        self.task_freq = format(1/(time.monotonic()-start_time), '.2f')
         # Send task and goal to motion planner
         print('task:', self.task_planner.task, 'goal:', self.task_planner.curr_goal)
         self.motion_planner.update_task(self.task_planner.task, self.task_planner.curr_goal)

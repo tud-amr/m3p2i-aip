@@ -102,7 +102,6 @@ class PLANNER_AIF(PLANNER_SIMPLE):
 
     # Upadte the task planner
     def update_plan(self, robot_pos, stay_still):
-        start_time = time.monotonic()
         self.battery_sim(robot_pos, stay_still)
         obs_battery = self.get_battery_obs(robot_pos)
         obs_task = self.get_task_motion_obs(robot_pos)
@@ -118,8 +117,3 @@ class PLANNER_AIF(PLANNER_SIMPLE):
         elif curr_action == "move_to":
             self.task = "navigation"
             self.curr_goal = self.nav_goal
-        end_time = time.monotonic()
-        run_time = end_time - start_time
-        task_freq = format(1/run_time, '.2f')
-        # print('Task freq', task_freq)
-        return task_freq
