@@ -76,7 +76,7 @@ class FUSION_MPPI(mppi.MPPI):
             self.ee_indexes = np.zeros(self.num_envs)
             if robot_type == 'panda':
                 self.block_index = 2
-                self.ee_index = 11
+                self.ee_index = 12
             elif robot_type == 'omni_panda':
                 self.block_index = 2
                 self.ee_index = 15
@@ -87,8 +87,8 @@ class FUSION_MPPI(mppi.MPPI):
                 self.ee_goal = torch.tensor([1.5, 3., 0.6], device=self.device)
             elif robot_type == 'panda_no_hand':
                 self.block_index = 2
-                self.ee_index = 11
-                self.block_goal = torch.tensor([0.3, 0.3, 0.42], device=self.device)
+                self.ee_index = 12
+                self.block_goal = torch.tensor([0.3, 0.3, 0.138], device=self.device)
                 self.block_goal_ort = torch.tensor([0.0, 0.0, 0.0, 1], device=self.device)
             for i in range(self.num_envs):
                 self.block_indexes[i] = self.block_index + i*self.bodies_per_env
@@ -182,8 +182,8 @@ class FUSION_MPPI(mppi.MPPI):
         robot_to_block_dist = torch.linalg.norm(robot_to_block[:, 0:2], axis = 1)
         block_to_goal_dist = torch.linalg.norm(block_to_goal, axis = 1)
         block_to_goal_ort = torch.linalg.norm(block_to_ort, axis = 1)
-
-        ee_hover_cost= torch.abs(ee_height - 0.52) 
+        hoover_height = 0.130
+        ee_hover_cost= torch.abs(ee_height - hoover_height) 
         dist_cost = 10*robot_to_block_dist + 100*block_to_goal_dist + 40*ee_hover_cost + 10*block_to_goal_ort
 
         # Force the robot behind block and goal,

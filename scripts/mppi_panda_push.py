@@ -13,7 +13,7 @@ torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 # Make the environment and simulation
 allow_viewer = False
 visualize_rollouts = False
-num_envs = 500
+num_envs = 400
 spacing = 2.0
 robot = "panda_no_hand"                     # choose from "point_robot", "boxer", "albert", "panda"
 environment_type = "store"          # choose from "arena", "battery", "store"
@@ -29,7 +29,7 @@ bodies_per_env = gym.get_env_rigid_body_count(envs[0])
 
 # For storm mppi mode
 sigma = 20
-max_vel = 0.8
+max_vel = 0.5
 
 # Creater mppi object
 mppi = fusion_mppi.FUSION_MPPI(
@@ -44,7 +44,7 @@ mppi = fusion_mppi.FUSION_MPPI(
                                 [0, 0, 0, 0, 0, sigma, 0],
                                 [0, 0, 0, 0, 0, 0, sigma]], device="cuda:0", dtype=torch.float32),
     num_samples=num_envs, 
-    horizon=18,
+    horizon=12,
     lambda_=0.05, 
     device="cuda:0", 
     u_max=torch.tensor([max_vel, max_vel, max_vel, max_vel, max_vel, max_vel, max_vel]),

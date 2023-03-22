@@ -171,20 +171,30 @@
   <link name="panda_ee_finger">
     <visual>
       <geometry>
-        <box size="0.015 0.015 0.2"/>
+        <cylinder length="0.32" radius="0.01"/>
       </geometry>
+      <origin rpy="0 0 0" xyz="0 0 0.16"/>
       <material name="purple"/>
     </visual>
     <collision>
       <geometry>
-        <box size="0.015 0.015 0.2"/>
+        <cylinder length="0.32" radius="0.01"/>
       </geometry>
+      <origin rpy="0 0 0" xyz="0 0 0.16"/>
     </collision>
   </link>
   <joint name="panda_ee_finger" type="fixed">
     <origin rpy="0 0 0" xyz="0 0 0.107"/>
     <parent link="panda_link7"/>
     <child link="panda_ee_finger"/>
+    <axis xyz="0 0 0"/>
+  </joint>
+  <link name="panda_ee_tip">
+  </link>
+  <joint name="panda_ee_tip" type="fixed">
+    <origin rpy="0 0 0" xyz="0 0 0.32"/>
+    <parent link="panda_ee_finger"/>
+    <child link="panda_ee_tip"/>
     <axis xyz="0 0 0"/>
   </joint>
 </robot>

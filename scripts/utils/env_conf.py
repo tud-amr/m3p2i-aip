@@ -57,7 +57,7 @@ yaxis_pose.p = gymapi.Vec3(0, 0.25, 0.01)
 franka_pose = gymapi.Transform()
 franka_pose.p = gymapi.Vec3(-0.2, 0, 0)
 
-table_dims = gymapi.Vec3(0.6, 1.0, 0.4)
+table_dims = gymapi.Vec3(0.6, 1.0, 0.108)
 table_pose = gymapi.Transform()
 table_pose.p = gymapi.Vec3(0.4, 0.0, 0.5 * table_dims.z)
 
@@ -400,8 +400,9 @@ def add_store(sim, gym, env, table_asset, shelf_asset, product_asset, index):
     # add table and shelf
     table_handle = gym.create_actor(env, table_asset, table_pose, "table", index, 0)
     shelf_handle = gym.create_actor(env, shelf_asset, shelf_pose, "shelf", index, 0)
-
-    box_handle = add_box(sim, gym, env, box_size, box_size, box_size, box_pose, color_vec_crate, False, "product", index)
+    hageslag_l = 0.062
+    hageslag_h = 0.103
+    box_handle = add_box(sim, gym, env, hageslag_h, hageslag_l, hageslag_l, box_pose, color_vec_crate, False, "product", index)
     box_props = gym.get_actor_rigid_body_properties(env, box_handle)
     box_props[0].mass = 0.2
     gym.set_actor_rigid_body_properties(env, box_handle, box_props)  
