@@ -4,6 +4,7 @@ from utils import env_conf
 from active_inference import ai_agent, adaptive_action_selection
 from active_inference import isaac_int_req_templates, isaac_state_action_templates
 import sys
+import time
 import os
 sys.path.append('../')
 from utils import path_utils
@@ -101,12 +102,13 @@ class PLANNER_AIF(PLANNER_SIMPLE):
 
     # Upadte the task planner
     def update_plan(self, robot_pos, stay_still):
+        start_time = time.monotonic()
         self.battery_sim(robot_pos, stay_still)
         obs_battery = self.get_battery_obs(robot_pos)
         obs_task = self.get_task_motion_obs(robot_pos)
         obs = [obs_task, obs_battery]
         outcome, curr_action = adaptive_action_selection.adapt_act_sel(self.ai_agent_task, obs)
-        print('Measured battery level:', self.battery_level)
+        print('Measured battery level:', format(self.battery_level, '.2f'))
         print('Status:', outcome)
         print('Current action:', curr_action)
 
@@ -116,3 +118,8 @@ class PLANNER_AIF(PLANNER_SIMPLE):
         elif curr_action == "move_to":
             self.task = "navigation"
             self.curr_goal = self.nav_goal
+        end_time = time.monotonic()
+        run_time = end_time - start_time
+        task_freq = format(1/run_time, '.2f')
+        print('Task freq', task_freq)
+        return task_freq

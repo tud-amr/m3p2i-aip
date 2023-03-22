@@ -72,7 +72,7 @@ class REACTIVE_TAMP:
 
     def tamp_interface(self, robot_pos, stay_still):
         # Update task planner goal
-        self.task_planner.update_plan(robot_pos, stay_still)
+        self.task_freq = self.task_planner.update_plan(robot_pos, stay_still)
         # Send task and goal to motion planner
         print('task:', self.task_planner.task, 'goal:', self.task_planner.curr_goal)
         self.motion_planner.update_task(self.task_planner.task, self.task_planner.curr_goal)
@@ -134,10 +134,20 @@ class REACTIVE_TAMP:
                     # Stay still if the task planner has no task
                     if self.task_planner.task == "None" or stay_still:
                         actions = torch.zeros(self.motion_planner.u_per_command, self.motion_planner.nu, device="cuda:0")
+                        self.motion_freq = 0 # should be filtered later
                     # Compute optimal action and send to real simulator
                     else:
+                        motion_time_prev = time.monotonic()
                         actions = self.motion_planner.command(s[0])
+                        motion_time_now = time.monotonic()
+                        self.motion_freq = format(1/(motion_time_now-motion_time_prev), '.2f')
+                    print('Motion freq', self.motion_freq)
                     conn.sendall(data_transfer.torch_to_bytes(actions))
+
+                    # Send freq data
+                    message = conn.recv(1024)
+                    freq_data = np.array([self.task_freq, self.motion_freq], dtype = float)
+                    conn.sendall(data_transfer.numpy_to_bytes(freq_data))
 
                     # Visualize rollouts
                     if self.visualize_rollouts:

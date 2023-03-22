@@ -74,6 +74,12 @@ class SIM():
                 b = s.recv(2**14)
                 actions = data_transfer.bytes_to_torch(b)
 
+                # Receive freq data
+                s.sendall(b"freq data")
+                b = s.recv(1024)
+                freq_data = data_transfer.bytes_to_numpy(b)
+                print('freq_data', freq_data)
+
                 # Clear lines at the beginning
                 self.gym.clear_lines(self.viewer)
                 
@@ -132,6 +138,7 @@ class SIM():
                 # Step rendering
                 self.sim_time = np.append(self.sim_time, t_prev)
                 t_now = time.monotonic()
+                # print('Whole freq', format(1/(t_now-t_prev), '.2f'))
                 if (t_now - t_prev) < self.dt:
                     sim_init.step_rendering(self.gym, self.sim, self.viewer, sync_frame_time=True)
                 else:
