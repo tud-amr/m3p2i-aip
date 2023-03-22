@@ -13,10 +13,21 @@ class PLANNER_SIMPLE:
     def __init__(self) -> None:
         self.task = "None"
         self.curr_goal = "None"
+    
+    def update_params(self, params):
+        if self.task == "pull":
+            params.suction_active = True
+        else:
+            params.suction_active = False
+        return params
 
     def update_plan(self, robot_pos, stay_still):
-        self.task = "navigation"
-        self.curr_goal = torch.tensor([3, 3], device="cuda:0")
+        # # navigation
+        # self.task = "navigation"
+        # self.curr_goal = torch.tensor([3, 3], device="cuda:0")
+        # push or pull
+        self.task = "push"
+        self.curr_goal = torch.tensor([-3, 3], device="cuda:0")
     
     def reset_plan(self):
         self.task = "None"
@@ -50,7 +61,7 @@ class PLANNER_AIF(PLANNER_SIMPLE):
         self.ai_agent_task = [ai_agent.AiAgent(mdp_isAt), ai_agent.AiAgent(mdp_battery)]
         # Set the preference for the battery 
         self.ai_agent_task[0].set_preferences(np.array([[1.], [0]]))
-        self.battery_factor = 1.1
+        self.battery_factor = 1  # <=0.8 0.9 >=1.0
         self.battery_level = 100
         self.nav_goal = torch.tensor([3, -3], device="cuda:0")
     

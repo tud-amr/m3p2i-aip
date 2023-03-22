@@ -82,6 +82,12 @@ class FUSION_MPPI(mppi.MPPI):
         self.task = task
         if self.task == 'navigation' or self.task == 'go_recharge':
             self.nav_goal = goal
+        elif self.task == 'push' or self.task == 'pull':
+            self.block_goal = goal
+    
+    def update_params(self, params):
+        self.params = params
+        self.suction_active = self.params.suction_active
 
     def get_navigation_cost(self, r_pos):
         return torch.clamp(torch.linalg.norm(r_pos - self.nav_goal, axis=1)-0.05, min=0, max=1999) 
@@ -243,8 +249,9 @@ class FUSION_MPPI(mppi.MPPI):
             obst_up_to = 6
         elif self.env_type == 'lab':
             obst_up_to = 4 
-
+        
         coll_cost = torch.sum(net_cf.reshape([self.num_envs, int(net_cf.size(dim=0)/self.num_envs)])[:,0:obst_up_to], 1)
+        # coll_cost = torch.sum(net_cf.reshape([self.num_envs, int(net_cf.size(dim=0)/self.num_envs)])[:,:], 1) # avoid all obstacles, for navigation
         w_c = 1000 # Weight for collisions
         # Binary check for collisions. So far checking all collision with unmovable obstacles. Movable obstacles touching unmovable ones are considered collisions       
         coll_cost[coll_cost>0.1] = 1

@@ -17,6 +17,7 @@ from plot import plot_class
 class REACTIVE_TAMP:
     def __init__(self, params) -> None:
         # Make the environment and simulation
+        self.params = params
         self.allow_viewer = params.allow_viewer
         self.visualize_rollouts = params.visualize_rollouts
         self.num_envs = params.num_envs
@@ -71,13 +72,20 @@ class REACTIVE_TAMP:
         data_transfer.check_server(self.server_address)
 
     def tamp_interface(self, robot_pos, stay_still):
-        # Update task planner goal
+        # Update task and goal in the task planner
         start_time = time.monotonic()
         self.task_planner.update_plan(robot_pos, stay_still)
         self.task_freq = format(1/(time.monotonic()-start_time), '.2f')
-        # Send task and goal to motion planner
+
+        # Update params according to the plan
+        self.params = self.task_planner.update_params(self.params)
+
+        # Update task and goal in the motion planner
         print('task:', self.task_planner.task, 'goal:', self.task_planner.curr_goal)
         self.motion_planner.update_task(self.task_planner.task, self.task_planner.curr_goal)
+
+        # Update params in the motion planner
+        self.motion_planner.update_params(self.params)
     
     def reset(self, i, reset_flag):
         if reset_flag:
@@ -148,7 +156,7 @@ class REACTIVE_TAMP:
 
                     # Send freq data
                     message = conn.recv(1024)
-                    freq_data = np.array([self.task_freq, self.motion_freq], dtype = float)
+                    freq_data = np.array([self.task_freq, self.motion_freq, self.params.suction_active], dtype = float)
                     conn.sendall(data_transfer.numpy_to_bytes(freq_data))
 
                     # Visualize rollouts

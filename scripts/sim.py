@@ -82,6 +82,7 @@ class SIM():
                 freq_data = data_transfer.bytes_to_numpy(b)
                 self.task_freq_array = np.append(self.task_freq_array, freq_data[0])
                 self.motion_freq_array = np.append(self.motion_freq_array, freq_data[1])
+                self.suction_active = int(freq_data[2])
 
                 # Clear lines at the beginning
                 self.gym.clear_lines(self.viewer)
