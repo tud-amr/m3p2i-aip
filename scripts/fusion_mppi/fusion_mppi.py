@@ -88,7 +88,7 @@ class FUSION_MPPI(mppi.MPPI):
             elif robot_type == 'panda_no_hand':
                 self.block_index = 2
                 self.ee_index = 12
-                self.block_goal = torch.tensor([0.3, 0.3, 0.138], device=self.device)
+                self.block_goal = torch.tensor([0.5, 0.0, 0.138], device=self.device)
                 self.block_goal_ort = torch.tensor([0.0, 0.0, 0.0, 1], device=self.device)
             for i in range(self.num_envs):
                 self.block_indexes[i] = self.block_index + i*self.bodies_per_env
@@ -186,24 +186,8 @@ class FUSION_MPPI(mppi.MPPI):
         ee_hover_cost= torch.abs(ee_height - hoover_height) 
         dist_cost = 10*robot_to_block_dist + 100*block_to_goal_dist + 40*ee_hover_cost + 10*block_to_goal_ort
 
-        # Force the robot behind block and goal,
-        # align_cost is actually the cos(theta)
-
-        # Tuning per robot
-        if self.robot == "heijn":
-            align_weight = 1
-            align_offset = 0.1
-        elif self.robot == "point_robot":
-            align_weight = 0.5
-            align_offset = 0.05
-        elif self.robot == "boxer":
-            align_weight = 1
-        elif self.robot == "panda" or 'panda_no_hand':
-            align_weight = 1
-            align_offset = 0.08
-
         align_cost = torch.sum(robot_to_block[:,0:2]*block_to_goal, 1)/(robot_to_block_dist*block_to_goal_dist)
-        align_cost = align_weight*align_cost
+        align_cost = align_cost
         
         # if self.robot != 'boxer':
         #     align_cost += torch.abs(torch.linalg.norm(r_pos- self.block_goal[:2], axis = 1) - (torch.linalg.norm(block_pos - self.block_goal[:2], axis = 1) + align_offset))
@@ -211,12 +195,10 @@ class FUSION_MPPI(mppi.MPPI):
         if self.robot == "panda" or 'panda_no_hand':
             # Encourage gripper to stay upright and close to table
             align_cost += torch.linalg.norm(r_ort - self.panda_hand_goal[3:7], axis = 1) 
-            #dist_cost += 15*torch.abs(ee_height - 0.42)
         
         # minimize contact
         # Only z component should be added here
         contatc_cost = 0.1*torch.abs(self.net_cf_all.reshape([self.num_envs, int(self.net_cf_all.size(dim=0)/self.num_envs)])[:,self.block_index])
-        # cost = dist_cost #+ 3*align_cost #+ contatc_cost
 
         return dist_cost + contatc_cost + 3*align_cost
 
