@@ -40,6 +40,8 @@ class SIM():
         self.t1 = 0
         self.count = 0
         self.sim_time = np.array([])
+        self.task_freq_array = np.array([])
+        self.motion_freq_array = np.array([])
 
         # Set server address
         self.server_address = './uds_socket'
@@ -78,7 +80,8 @@ class SIM():
                 s.sendall(b"freq data")
                 b = s.recv(1024)
                 freq_data = data_transfer.bytes_to_numpy(b)
-                print('freq_data', freq_data)
+                self.task_freq_array = np.append(self.task_freq_array, freq_data[0])
+                self.motion_freq_array = np.append(self.motion_freq_array, freq_data[1])
 
                 # Clear lines at the beginning
                 self.gym.clear_lines(self.viewer)
@@ -145,7 +148,7 @@ class SIM():
                     sim_init.step_rendering(self.gym, self.sim, self.viewer, sync_frame_time=False)
                 t_prev = t_now
 
-                self.next_fps_report, self.frame_count, self.t1 = sim_init.time_logging(self.gym, self.sim, self.next_fps_report, self.frame_count, self.t1, self.num_envs)
+                self.next_fps_report, self.frame_count, self.t1 = sim_init.time_logging(self.gym, self.sim, self.next_fps_report, self.frame_count, self.t1, self.num_envs, freq_data)
 
     def plot(self):
         # Saving and plotting
@@ -171,7 +174,9 @@ class SIM():
             axs[j].legend([label[j]])
             axs[j].set(xlabel = 'Time [s]')
 
-        print("Avg. control frequency ", format(len(self.action_seq)/self.sim_time[-1], '.4f'))
+        print("Avg. simulation frequency ", format(len(self.action_seq)/self.sim_time[-1], '.2f'))
+        print("Avg. task planner frequency", format(np.average(self.task_freq_array), '.2f'))
+        print("Avg. motion planner frequency", format(np.average(self.motion_freq_array[np.nonzero(self.motion_freq_array)]), '.2f'))
         plt.show()
 
     def destroy(self):

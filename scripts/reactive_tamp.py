@@ -141,7 +141,7 @@ class REACTIVE_TAMP:
                         actions = self.motion_planner.command(s[0])
                         motion_time_now = time.monotonic()
                         self.motion_freq = format(1/(motion_time_now-motion_time_prev), '.2f')
-                    print('Motion freq', self.motion_freq)
+                    # print('Motion freq', self.motion_freq)
                     conn.sendall(data_transfer.torch_to_bytes(actions))
 
                     # Send freq data

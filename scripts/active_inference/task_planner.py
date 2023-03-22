@@ -121,5 +121,5 @@ class PLANNER_AIF(PLANNER_SIMPLE):
         end_time = time.monotonic()
         run_time = end_time - start_time
         task_freq = format(1/run_time, '.2f')
-        print('Task freq', task_freq)
+        # print('Task freq', task_freq)
         return task_freq

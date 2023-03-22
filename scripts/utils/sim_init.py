@@ -175,7 +175,7 @@ def step_rendering(gym, sim, viewer, sync_frame_time=False):
             gym.sync_frame_time(sim)
 
 # Time logging
-def time_logging(gym, sim, next_fps_report, frame_count, t1, num_envs):
+def time_logging(gym, sim, next_fps_report, frame_count, t1, num_envs, freq_data = np.zeros(2)):
     t = gym.get_elapsed_time(sim)
     if t >= next_fps_report:
         t2 = gym.get_elapsed_time(sim)
@@ -183,7 +183,10 @@ def time_logging(gym, sim, next_fps_report, frame_count, t1, num_envs):
         print("FPS %.1f (%.1f)" % (fps, fps * num_envs))
         frame_count = 0
         t1 = gym.get_elapsed_time(sim)
-        next_fps_report = t1 + 2.0
+        next_fps_report = t1 + 1
+        if freq_data.any() != 0:
+            print('Task freq', freq_data[0])
+            print('Motion freq', freq_data[1])
     frame_count += 1
     return next_fps_report, frame_count, t1
 
