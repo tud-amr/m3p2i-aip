@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import math
 
 # Make the environment and simulation
-log_data = True                    # Set true for plots of control inputs and other stats
+log_data = False                    # Set true for plots of control inputs and other stats
 allow_viewer = True
 num_envs = 1 
 spacing = 10.0

@@ -67,8 +67,8 @@ shelf_pose.p = gymapi.Vec3(1.85, 3-0.5*shelves_dims.y, 0)
 
 box_size = 0.04
 box_pose = gymapi.Transform()
-box_pose.p.x = table_pose.p.x - 0.15
-box_pose.p.y = table_pose.p.y 
+box_pose.p.x = table_pose.p.x + 0.2*np.random.rand()
+box_pose.p.y = table_pose.p.y + 0.3*np.random.rand()
 box_pose.p.z = table_dims.z + 0.5 * box_size
 box_pose.r = gymapi.Quat.from_axis_angle(gymapi.Vec3(0, 0, 1), np.random.uniform(-math.pi, math.pi))
 
@@ -205,15 +205,6 @@ def load_panda_no_hand(gym, sim):
     asset_options.disable_gravity = True
     asset_options.flip_visual_attachments = True
     franka_asset = gym.load_asset(sim, asset_root, franka_asset_file, asset_options)
-    # configure franka dofs
-    franka_dof_props = gym.get_asset_dof_properties(franka_asset)
-    franka_lower_limits = franka_dof_props["lower"]
-    franka_upper_limits = franka_dof_props["upper"]
-    franka_ranges = franka_upper_limits - franka_lower_limits
-    franka_mids = 0.3 * (franka_upper_limits + franka_lower_limits)
-    franka_dof_props["driveMode"][7:].fill(gymapi.DOF_MODE_VEL)
-    franka_dof_props["stiffness"][7:].fill(800.0)
-    franka_dof_props["damping"][7:].fill(40.0)
 
     return franka_asset
 
@@ -547,11 +538,21 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, e
         elif control_type == "force_control":
             props["driveMode"].fill(gymapi.DOF_MODE_EFFORT)
             props["stiffness"].fill(0.0)
-            props["damping"].fill(0.0)
+            props["damping"].fill(1000.0)
         else:
             print("Invalid control type!")
+
+        props["friction"].fill(10.0)
         gym.set_actor_dof_properties(env, robot_handle, props)
         
+        # panda_stick_rigid_body_names = ['panda_link0', 'panda_link1', 'panda_link2', 'panda_link3', 'panda_link4', 'panda_link5', 'panda_link6', 'panda_link7', 'panda_ee_finger', 'panda_ee_tip']
+        # if gym.get_asset_rigid_body_names(robot_asset) == panda_stick_rigid_body_names:
+        #     shape_props = gym.get_actor_rigid_shape_properties(env, robot_handle)
+        #     for index in range(len(shape_props)-2):
+        #         shape_props[index].friction = 1000000000.
+        #         shape_props[index].torsion_friction = 100000000.
+        #         shape_props[index].rolling_friction = 100000000.
+        #     gym.set_actor_rigid_shape_properties(env, robot_handle, shape_props)
 
         # Set friction of rotacasters to zero for boxer
         boxer_rigid_body_names = ['base_link_ori', 'base_link', 'chassis_link', 'rotacastor_left_link', 'rotacastor_right_link', 'wheel_left_link', 'wheel_right_link', 'ee_link']

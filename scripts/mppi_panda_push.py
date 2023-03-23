@@ -59,7 +59,7 @@ mppi = fusion_mppi.FUSION_MPPI(
     actors_per_env=actors_per_env,
     env_type=environment_type,
     bodies_per_env=bodies_per_env,
-    filter_u=True
+    filter_u=False
     )
 
 # Make sure the socket does not already exist

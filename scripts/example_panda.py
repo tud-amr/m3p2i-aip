@@ -3,14 +3,15 @@ from isaacgym import gymutil
 from isaacgym import gymtorch
 import torch
 from utils import sim_init, skill_utils
+import numpy as np
 
 # Make the environment and simulation
 allow_viewer = True
-num_envs = 100
+num_envs = 1
 spacing = 1.5
-robot = "panda"                     # "point_robot", "boxer", "husky", "albert", and "heijn", "panda"
-environment_type = "table"            # choose from "arena", "battery"
-control_type = "vel_control"        # choose from "vel_control", "pos_control", "force_control"
+robot = "panda_no_hand"                     # "point_robot", "boxer", "husky", "albert", and "heijn", "panda"
+environment_type = "store"            # choose from "arena", "battery"
+control_type = "force_control"        # choose from "vel_control", "pos_control", "force_control"
 
 # Time logging
 frame_count = 0
@@ -34,6 +35,14 @@ while viewer is None or not gym.query_viewer_has_closed(viewer):
     # Step rendering
     sim_init.step_rendering(gym, sim, viewer)
     next_fps_report, frame_count, t1 = sim_init.time_logging(gym, sim, next_fps_report, frame_count, t1, num_envs)
+    # apply efforts (every frame)
+    # get total number of DOFs
+    num_dofs = gym.get_sim_dof_count(sim)
 
+    # generate a PyTorch tensor with a random force for each DOF
+    actions = 1.0 - 0.0 * torch.rand(num_dofs, dtype=torch.float32, device="cuda:0")
+    # print(actions)
+    # apply the forces
+    gym.set_dof_actuation_force_tensor(sim, gymtorch.unwrap_tensor(actions))
 # Destroy the simulation
 sim_init.destroy_sim(gym, sim, viewer)
