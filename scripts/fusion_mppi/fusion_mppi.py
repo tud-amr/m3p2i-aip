@@ -100,16 +100,15 @@ class FUSION_MPPI(mppi.MPPI):
 
         robot_to_block_dist = torch.linalg.norm(robot_to_block, axis = 1)
         block_to_goal_dist = torch.linalg.norm(block_to_goal, axis = 1)
+        robot_to_goal_dist = torch.linalg.norm(r_pos- self.block_goal, axis = 1)
         dist_cost = robot_to_block_dist + block_to_goal_dist 
 
         # Force the robot behind block and goal,
-        # align_cost is actually the cos(theta)
+        # align_cost is actually the cos(theta)+1
         align_cost = torch.sum(robot_to_block*block_to_goal, 1)/(robot_to_block_dist*block_to_goal_dist)
-        align_cost = self.align_weight[self.robot]*align_cost
-        
-        if self.robot != 'boxer':
-            align_cost += torch.abs(torch.linalg.norm(r_pos- self.block_goal, axis = 1) - (torch.linalg.norm(block_pos - self.block_goal, axis = 1) + self.align_offset[self.robot]))
-
+        align_cost = self.align_weight[self.robot] * (align_cost+1) * 5
+        # if self.robot != 'boxer':
+        #     align_cost += torch.abs(robot_to_goal_dist - block_to_goal_dist - self.align_offset[self.robot])
         cost = dist_cost + align_cost
 
         return cost
@@ -124,7 +123,7 @@ class FUSION_MPPI(mppi.MPPI):
         dist_cost = robot_to_block_dist + block_to_goal_dist 
 
         # Force the robot to be in the middle between block and goal,
-        # align_cost is actually the cos(theta)
+        # align_cost is actually the 1-cos(theta)
         align_cost = torch.sum(robot_to_block*block_to_goal, 1)/(robot_to_block_dist*block_to_goal_dist)
         align_cost = (1-align_cost) * 5
 
