@@ -267,11 +267,26 @@ class MPPI():
         """
         traj_costs = cost_to_go(costs, self.gamma_seq)
         traj_costs = traj_costs[:,0]
-
+        # print(traj_costs)
         #control_costs = self._control_costs(actions)
-        total_costs = traj_costs #+ self.beta * control_costs
-
-        w = torch.softmax((-1.0/self.beta) * total_costs, dim=0)
+        total_costs = traj_costs - torch.min(traj_costs) #+ self.beta * control_costs
+        
+        # Normalization of the weights
+        exp_ = torch.exp((-1.0/self.beta) * total_costs)
+        eta = torch.sum(exp_)       # tells how many significant samples we have, more or less
+        w = 1/eta*exp_
+        # print(self.beta)
+        eta_u_bound = 10
+        eta_l_bound = 5
+        beta_lm = 0.9
+        beta_um = 1.2
+        # beta update 
+        if eta > eta_u_bound:
+            self.beta = self.beta*beta_lm
+        elif eta < eta_l_bound:
+            self.beta = self.beta*beta_um
+        
+        # w = torch.softmax((-1.0/self.beta) * total_costs, dim=0)
         self.total_costs = total_costs
         return w
 
