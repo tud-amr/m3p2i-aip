@@ -167,7 +167,46 @@ class FUSION_MPPI(mppi.MPPI):
         cost = dist_cost + 3*align_cost
 
         return cost
-    
+
+    def orientation_error(self, q1, q2_batch):
+        """
+        Computes the orientation error between a single quaternion and a batch of quaternions.
+        
+        Parameters:
+        -----------
+        q1 : torch.Tensor
+            A tensor of shape (4,) representing the first quaternion.
+        q2_batch : torch.Tensor
+            An tensor of shape (batch_size, 4) representing the second set of quaternions.
+            
+        Returns:
+        --------
+        error_batch : torch.Tensor
+            An tensor of shape (batch_size,) containing the orientation error between the first quaternion and each quaternion in the batch.
+        """
+        
+        # Expand the first quaternion to match the batch size of the second quaternion
+        q1_batch = q1.expand(q2_batch.shape[0], -1)
+        
+        # Normalize the quaternions
+        q1_batch = q1_batch / torch.norm(q1_batch, dim=1, keepdim=True)
+        q2_batch = q2_batch / torch.norm(q2_batch, dim=1, keepdim=True)
+        
+        # Compute the dot product between the quaternions in the batch
+        dot_product_batch = torch.sum(q1_batch * q2_batch, dim=1)
+        
+        # Compute the angle between the quaternions in the batch
+        # chatgpt
+        #angle_batch = 2 * torch.acos(torch.abs(dot_product_batch))
+        # method2
+        angle_batch = torch.acos(2*torch.square(dot_product_batch)-1)
+        # method 3
+        # angle_batch = 1 - torch.square(dot_product_batch)
+        # Return the orientation error for each quaternion in the batch
+        error_batch = angle_batch
+        
+        return error_batch
+
     def get_panda_push_cost(self, joint_pos):
         r_pose = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))[self.ee_indexes, 0:7]
         r_pos = r_pose[:,0:3]
@@ -177,14 +216,16 @@ class FUSION_MPPI(mppi.MPPI):
         block_ort = torch.cat((torch.split(torch.clone(self.root_ort), int(torch.clone(self.root_ort).size(dim=0)/self.num_envs))),1)[self.block_index,:].reshape(self.num_envs,4)
         robot_to_block = r_pos - block_pos
         block_to_goal = self.block_goal[0:2] - block_pos[:,0:2]
-        block_to_ort = self.block_goal_ort - block_ort
+        # block_to_ort = self.block_goal_ort - block_ort
 
+        block_to_goal_ort = self.orientation_error(self.block_goal_ort, block_ort)
+        # print(block_to_ort.size())
         robot_to_block_dist = torch.linalg.norm(robot_to_block[:, 0:2], axis = 1)
         block_to_goal_dist = torch.linalg.norm(block_to_goal, axis = 1)
-        block_to_goal_ort = torch.linalg.norm(block_to_ort, axis = 1)
+        # block_to_goal_ort = torch.linalg.norm(block_to_ort, axis = 1)
         hoover_height = 0.130
         ee_hover_cost= torch.abs(ee_height - hoover_height) 
-        dist_cost = 10*robot_to_block_dist + 100*block_to_goal_dist + 40*ee_hover_cost + 10*block_to_goal_ort
+        dist_cost = 10*robot_to_block_dist + 100*block_to_goal_dist + 60*ee_hover_cost + 15*block_to_goal_ort
 
         align_cost = torch.sum(robot_to_block[:,0:2]*block_to_goal, 1)/(robot_to_block_dist*block_to_goal_dist)
         align_cost = align_cost
@@ -197,8 +238,7 @@ class FUSION_MPPI(mppi.MPPI):
             align_cost += torch.linalg.norm(r_ort - self.panda_hand_goal[3:7], axis = 1) 
         
         # minimize contact
-        # Only z component should be added here
-        contatc_cost = 0.1*torch.abs(self.net_cf_all.reshape([self.num_envs, int(self.net_cf_all.size(dim=0)/self.num_envs)])[:,self.block_index])
+        contatc_cost = 0.01*(0.1*torch.abs(self.net_cf_all.reshape([self.num_envs, int(self.net_cf_all.size(dim=0)/self.num_envs)])[:,self.block_index]))
 
         return dist_cost + contatc_cost + 3*align_cost
 
