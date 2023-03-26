@@ -93,30 +93,60 @@ def make(allow_viewer, num_envs, spacing, robot, obstacle_type, control_type = "
     return gym, sim, viewer, envs, robot_handles
 
 # Acquire states information
-def acquire_states(gym, sim, print_flag):
+def acquire_states(gym, sim, params):
     # Get dof state tensor
     _dof_states = gym.acquire_dof_state_tensor(sim)
     dof_states = gymtorch.wrap_tensor(_dof_states)
     num_dofs = gym.get_sim_dof_count(sim)
     num_actors = gym.get_sim_actor_count(sim)
+    num_bodies = gym.get_sim_rigid_body_count(sim)
+    dofs_per_robot = int(num_dofs/params.num_envs)
+    actors_per_env = int(num_actors/params.num_envs)
+    bodies_per_env = int(num_bodies/params.num_envs)
 
-    # Acquire root state tensor descriptor and wrap it in a PyTorch Tensor
+    # Acquire root state tensor
     _root_states = gym.acquire_actor_root_state_tensor(sim)
     root_states = gymtorch.wrap_tensor(_root_states)
+
+    # Acquire rigid body states
+    _rb_states = gym.acquire_rigid_body_state_tensor(sim)
+    rb_states = gymtorch.wrap_tensor(_rb_states)
 
     # Refresh the states
     gym.refresh_actor_root_state_tensor(sim)
     gym.refresh_dof_state_tensor(sim)
+    gym.refresh_rigid_body_state_tensor(sim)
+
+    # Get 2D pos of block and robot
+    block_pos = root_states.reshape(params.num_envs, actors_per_env, 13)[:, params.block_index, :2] # [num_envs, 2]
+    if params.robot in ["boxer", "albert", "husky"]:
+        robot_pos = root_states.reshape(params.num_envs, actors_per_env, 13)[:, -1, :2] # [num_envs, 2]
+    elif params.robot in ["point_robot", "heijn"]:
+        robot_pos = dof_states[:,0].reshape([params.num_envs, dofs_per_robot])[:, :2] # [num_envs, 2]
+
+    states_dict = {"dof_states": dof_states,
+                   "root_states": root_states,
+                   "rb_states": rb_states,
+                   "num_dofs": num_dofs,
+                   "num_actors": num_actors,
+                   "dofs_per_robot": dofs_per_robot,
+                   "actors_per_env": actors_per_env, 
+                   "bodies_per_env": bodies_per_env, 
+                   "robot_pos": robot_pos,
+                   "block_pos": block_pos
+                    }
 
     # Print relevant info
-    if print_flag:
+    if params.print_flag:
         print("root_states", root_states.size())
         print('number of DOFs:', num_dofs) # num_envs * dof_per_actor
         print("dof_states size:", dof_states.size()) # [num_dofs, 2]
         print("pos", dof_states[:,0])
         print("vel", dof_states[:,1])
         print("actor num", num_actors)
-    return dof_states, num_dofs, num_actors, root_states
+        print("bodies num", num_bodies)
+
+    return states_dict
 
 # Visualize optimal trajectory
 def visualize_traj(gym, viewer, env, actions, dof_states):
@@ -164,6 +194,7 @@ def step(gym, sim):
 def refresh_states(gym, sim):
     gym.refresh_actor_root_state_tensor(sim)
     gym.refresh_dof_state_tensor(sim)
+    gym.refresh_rigid_body_state_tensor(sim)
 
 # Gym rendering 
 def step_rendering(gym, sim, viewer, sync_frame_time=False):
