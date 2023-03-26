@@ -26,8 +26,8 @@ class PLANNER_SIMPLE:
         # self.task = "navigation"
         # self.curr_goal = torch.tensor([3, 3], device="cuda:0")
         # push or pull
-        self.task = "push"
-        self.curr_goal = torch.tensor([-3, 3], device="cuda:0")
+        self.task = "pull"
+        self.curr_goal = torch.tensor([0, 0], device="cuda:0")
     
     def reset_plan(self):
         self.task = "None"

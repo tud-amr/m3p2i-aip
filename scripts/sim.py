@@ -24,6 +24,7 @@ class SIM():
 
         # Acquire states
         self.dof_states, self.num_dofs, self.num_actors, self.root_states = sim_init.acquire_states(self.gym, self.sim, print_flag=False)
+        self.dofs_per_robot = int(self.num_dofs/self.num_envs)
         self.actors_per_env = int(self.num_actors/self.num_envs)
         self.bodies_per_env = self.gym.get_env_rigid_body_count(self.envs[0])
         self.initial_root_states = self.root_states.clone()
@@ -122,10 +123,14 @@ class SIM():
                 actor_root_state = gymtorch.wrap_tensor(self.gym.acquire_actor_root_state_tensor(self.sim))
                 
                 if self.suction_active:  
-                    root_positions = torch.reshape(actor_root_state[:, 0:2], (self.num_envs, self.actors_per_env, 2))
-                    dof_pos = self.dof_states[:,0].reshape([self.num_envs, 2])
+                    # Get 2D pos of block and robot
+                    block_pos = self.root_states.reshape(self.num_envs, self.actors_per_env, 13)[:, self.block_index, :2] # [num_envs, 2]
+                    if self.robot in ["boxer", "albert", "husky"]:
+                        robot_pos = self.root_states.reshape(self.num_envs, self.actors_per_env, 13)[:, -1, :2] # [num_envs, 2]
+                    elif self.robot in ["point_robot", "heijn"]:
+                        robot_pos = self.dof_states[:,0].reshape([self.num_envs, self.dofs_per_robot])[:, :2] # [num_envs, 2]
                     # simulation of a magnetic/suction effect to attach to the box
-                    suction_force, _, _ = skill_utils.calculate_suction(root_positions[:, self.block_index, :], dof_pos, self.num_envs, self.kp_suction, self.block_index, self.bodies_per_env)
+                    suction_force, _, _ = skill_utils.calculate_suction(block_pos, robot_pos, self.num_envs, self.kp_suction, self.block_index, self.bodies_per_env)
                     # print(suction_force)
                     # Apply suction/magnetic force
                     self.gym.apply_rigid_body_force_tensors(self.sim, gymtorch.unwrap_tensor(torch.reshape(suction_force, (self.num_envs*self.bodies_per_env, 3))), None, gymapi.ENV_SPACE)
