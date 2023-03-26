@@ -191,25 +191,25 @@ class FUSION_MPPI(mppi.MPPI):
             # Apply suction/magnetic force
             self.gym.apply_rigid_body_force_tensors(self.sim, gymtorch.unwrap_tensor(torch.reshape(suction_force, (self.num_envs*self.bodies_per_env, 3))), None, gymapi.ENV_SPACE)
             
-            # Modify allowed velocities if suction is active, just to have a cone backwards
-            rnd_theta = (torch.rand(self.num_envs)*2-1)*120*math.pi/180       # Random angles in a cone of 120 deg
-            rot_mat = torch.zeros(self.num_envs, 2, 2, device="cuda:0")
-            rnd_mag = torch.tensor(torch.rand(self.num_envs), device='cuda:0').reshape([self.num_envs, 1])*2
+            # # Modify allowed velocities if suction is active, just to have a cone backwards
+            # rnd_theta = (torch.rand(self.num_envs)*2-1)*120*math.pi/180       # Random angles in a cone of 120 deg
+            # rot_mat = torch.zeros(self.num_envs, 2, 2, device="cuda:0")
+            # rnd_mag = torch.tensor(torch.rand(self.num_envs), device='cuda:0').reshape([self.num_envs, 1])*2
 
-            # Populate rot matrix
-            rot_mat[:, 0, 0] = torch.cos(rnd_theta)
-            rot_mat[:, 1, 1] = rot_mat[:, 0, 0]
-            rot_mat[:, 0, 1] = -torch.sin(rnd_theta)
-            rot_mat[:, 1, 0] = -rot_mat[:, 0, 1]
+            # # Populate rot matrix
+            # rot_mat[:, 0, 0] = torch.cos(rnd_theta)
+            # rot_mat[:, 1, 1] = rot_mat[:, 0, 0]
+            # rot_mat[:, 0, 1] = -torch.sin(rnd_theta)
+            # rot_mat[:, 1, 0] = -rot_mat[:, 0, 1]
 
-            dir = dir.reshape([self.num_envs,1,2])
-            rnd_input = torch.bmm(dir, rot_mat).squeeze(1)*rnd_mag
-            # print('u', u.size()) # [200, 3] for heijn
-            # print('rnd input', rnd_input.size()) # [200, 2]
-            # This is to quickly use the "sample null action" which is the last sample. Should be made more general, considering the N last inputs being priors
-            old_last_u = torch.clone(u[-1,:])
-            u[mask,:2] = rnd_input[mask,:]
-            u[-1,:] = old_last_u
+            # dir = dir.reshape([self.num_envs,1,2])
+            # rnd_input = torch.bmm(dir, rot_mat).squeeze(1)*rnd_mag
+            # # print('u', u.size()) # [200, 3] for heijn
+            # # print('rnd input', rnd_input.size()) # [200, 2]
+            # # This is to quickly use the "sample null action" which is the last sample. Should be made more general, considering the N last inputs being priors
+            # old_last_u = torch.clone(u[-1,:])
+            # u[mask,:2] = rnd_input[mask,:]
+            # u[-1,:] = old_last_u
 
         # Use inverse kinematics if the MPPI action space is different than dof velocity space
         u_ = self._ik(u)
