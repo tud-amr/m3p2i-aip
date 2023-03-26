@@ -4,14 +4,14 @@ import torch
 allow_viewer = False
 visualize_rollouts = False
 task = "reactive"                   # "simple", "patrolling", "reactive"
-num_envs = 200
+num_envs = 150
 nx = 4
 noise_sigma = torch.tensor([[15, 0], [0, 15]], device="cuda:0", dtype=torch.float32)
 horizon = 15
 lambda_ = 0.1 
 device = "cuda:0" 
-u_max = torch.tensor([1.5, 5.5], device="cuda:0", dtype=torch.float32)
-u_min = torch.tensor([-1.5, -5.5], device="cuda:0", dtype=torch.float32)
+u_max = torch.tensor([2.5, 5.5], device="cuda:0", dtype=torch.float32)
+u_min = torch.tensor([-2.5, -5.5], device="cuda:0", dtype=torch.float32)
 step_dependent_dynamics = True
 terminal_state_cost = None
 sample_null_action = True

@@ -4,7 +4,7 @@ import torch
 allow_viewer = False
 visualize_rollouts = False
 task = "reactive"                   # "simple", "patrolling", "reactive"
-num_envs = 200
+num_envs = 100
 nx = 6
 noise_sigma = torch.tensor([[3, 0, 0], [0, 3, 0], [0, 0, 5]], device="cuda:0", dtype=torch.float32)
 horizon = 20

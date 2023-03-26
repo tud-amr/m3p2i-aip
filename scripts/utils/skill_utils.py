@@ -14,7 +14,18 @@ def calculate_suction(block_pos, robot_pos, num_envs, kp_suction, block_index, b
     forces = torch.zeros((num_envs, bodies_per_env, 3), dtype=torch.float32, device='cuda:0', requires_grad=False)
     
     # Start suction only when close
-    mask = magnitude[:, :] > 1.5
+    # The different thresholds for real and sim envs are due to the inconsistency of 
+    # transferring suction force between sim to real. Among the rollouts, the optimal
+    # solution is selected based on the cost instead of the criteria which one is closest to the block. 
+    # So the optimal solution does not mean it is closest to the block. This leads to the inconsistency of suction force.
+    if num_envs == 1:
+        # For the case of real env, the threshold is lower. 
+        # This means the robot and block donot need to be so close to generate the suction
+        mask = magnitude[:, :] > 1.5
+    else:
+        # For the case of simulated rollout env, the threshold is higher.
+        # This means the robot and block need to be close enough to generate the suction
+        mask = magnitude[:, :] > 1.8
     mask = mask.reshape(num_envs)
     # Force on the block
     forces[mask, block_index, 0] = -kp_suction*unit_force[mask, 0]
