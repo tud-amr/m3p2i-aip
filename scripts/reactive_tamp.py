@@ -27,9 +27,11 @@ class REACTIVE_TAMP:
         self.gym, self.sim, self.viewer, envs, _ = sim_init.make(self.allow_viewer, self.num_envs, self.spacing, self.robot, self.environment_type)
 
         # Acquire states
-        self.dof_states, self.num_dofs, self.num_actors, self.root_states = sim_init.acquire_states(self.gym, self.sim, print_flag=False)
-        actors_per_env = int(self.num_actors/self.num_envs)
-        bodies_per_env = self.gym.get_env_rigid_body_count(envs[0])
+        states_dict = sim_init.acquire_states(self.gym, self.sim, self.params)
+        self.dofs_per_robot = states_dict["dofs_per_robot"]
+        self.actors_per_env = states_dict["actors_per_env"]
+        self.bodies_per_env = states_dict["bodies_per_env"]
+        self.robot_pos = states_dict["robot_pos"]
 
         # Choose the task planner
         self.task = params.task
@@ -44,6 +46,7 @@ class REACTIVE_TAMP:
 
         # Choose the motion planner
         self.motion_planner = fusion_mppi.FUSION_MPPI(
+                            params = self.params,
                             dynamics = None, 
                             running_cost = None, 
                             nx = params.nx, 
@@ -61,9 +64,9 @@ class REACTIVE_TAMP:
                             use_vacuum = params.suction_active,
                             robot_type = self.robot,
                             u_per_command = params.u_per_command,
-                            actors_per_env = actors_per_env,
+                            actors_per_env = self.actors_per_env,
                             env_type = self.environment_type,
-                            bodies_per_env = bodies_per_env,
+                            bodies_per_env = self.bodies_per_env,
                             filter_u = params.filter_u
                             )
         
@@ -122,21 +125,14 @@ class REACTIVE_TAMP:
                     _root_states = data_transfer.bytes_to_torch(r).repeat(self.num_envs, 1)
 
                     # Reset the simulator to requested state
-                    if self.robot == "point_robot" or self.robot == "boxer":
-                        s = _dof_states.view(-1, 4) # [x, v_x, y, v_y]
-                    elif self.robot == "heijn":
-                        s = _dof_states.view(-1, 6) # [x, v_x, y, v_y, theta, v_theta]
+                    s = _dof_states.view(-1, 2*self.dofs_per_robot)
                     self.gym.set_dof_state_tensor(self.sim, gymtorch.unwrap_tensor(s))
                     self.gym.set_actor_root_state_tensor(self.sim, gymtorch.unwrap_tensor(_root_states))
                     sim_init.refresh_states(self.gym, self.sim)
 
                     # Update TAMP interface
-                    if self.robot == "boxer":
-                        robot_pos = _root_states[-1, :2]
-                    elif self.robot == "point_robot" or self.robot == "heijn":
-                        robot_pos = torch.tensor([s[0][0], s[0][2]], device="cuda:0")
                     stay_still = True if i < 50 else False
-                    self.tamp_interface(robot_pos, stay_still)
+                    self.tamp_interface(self.robot_pos[0, :], stay_still)
 
                     # Update gym in mppi
                     self.motion_planner.update_gym(self.gym, self.sim, self.viewer)

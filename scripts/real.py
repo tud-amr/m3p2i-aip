@@ -21,10 +21,23 @@ def _it(self):
     yield self.w
 Quaternion.__iter__ = _it
 
+class Params:
+    def __init__(self) -> None:
+        # Make the environment and simulation
+        self.allow_viewer = False
+        self.num_envs = 200
+        self.spacing = 10.0
+        self.robot = "heijn"                # "point_robot", "boxer", "husky", "albert", and "heijn"
+        self.environment_type = "lab"       # "normal", "battery", "lab"
+        self.control_type = "vel_control"   # "vel_control", "pos_control", "force_control"
+        self.print_flag = False
+        self.block_index = "None"
+        self.suction_active = False
 
 class IsaacgymMppiRos:
-    def __init__(self):
+    def __init__(self, params):
         rospy.init_node(name="mppi_point")
+        self.params = params
         self.frequency = 10
         self.rate = rospy.Rate(self.frequency)
         self.init_isaacgym_mppi()
@@ -69,26 +82,26 @@ class IsaacgymMppiRos:
 
     def init_isaacgym_mppi(self):
         # Make the environment and simulation
-        allow_viewer = False
-        self.num_envs = 200
-        spacing = 10.0
-        robot = "heijn"               # choose from "point_robot", "boxer", "albert"
-        environment_type = "lab"         # choose from "normal", "battery"
-        control_type = "vel_control"        # choose from "vel_control", "pos_control", "force_control"
-        self.gym, self.sim, self.viewer, envs, robot_handles = sim_init.make(allow_viewer, self.num_envs, spacing, robot, environment_type, control_type, dt=1/self.frequency)
+        self.gym, self.sim, self.viewer, envs, robot_handles = sim_init.make(self.params.allow_viewer, self.params.num_envs, 
+                                                                             self.params.spacing, self.params.robot, 
+                                                                             self.params.environment_type, self.params.control_type, 
+                                                                             dt=1/self.frequency)
 
         # Acquire states
-        dof_states, num_dofs, self.num_actors, root_states = sim_init.acquire_states(self.gym, self.sim, print_flag=False)
+        states_dict = sim_init.acquire_states(self.gym, self.sim, self.params)
 
-        self.root_states = copy.deepcopy(root_states)
+        self.root_states = copy.deepcopy(states_dict["root_states"])
+        self.actors_per_env = states_dict["actors_per_env"]
+        self.num_actors = states_dict["num_actors"]
 
         # Creater mppi object
         self.mppi = fusion_mppi.FUSION_MPPI(
+            params = self.params,
             dynamics=None, 
             running_cost=None, 
             nx=6, 
             noise_sigma = torch.tensor([[15, 0, 0], [0, 15, 0], [0, 0, 15]], device="cuda:0", dtype=torch.float32),
-            num_samples=self.num_envs, 
+            num_samples=self.params.num_envs, 
             horizon=20,
             lambda_=0.3, 
             device="cuda:0", 
@@ -99,21 +112,21 @@ class IsaacgymMppiRos:
             sample_null_action=True,
             use_priors=False,
             use_vacuum = False,
-            robot_type=robot,
+            robot_type = self.params.robot,
             u_per_command=20,
-            actors_per_env=int(self.num_actors/self.num_envs),
-            env_type=environment_type,
+            actors_per_env=self.actors_per_env,
+            env_type=self.params.environment_type,
             bodies_per_env=self.gym.get_env_rigid_body_count(envs[0])
         )
 
     def run(self):
         while not rospy.is_shutdown():
             # Reset the simulator to requested state
-            s = self.state.repeat(self.num_envs, 1) # [x, v_x, y, v_y, yaw, v_yaw]
+            s = self.state.repeat(self.params.num_envs, 1) # [x, v_x, y, v_y, yaw, v_yaw]
             self.gym.set_dof_state_tensor(self.sim, gymtorch.unwrap_tensor(s))
             block_index = 4
-            for i in range(self.num_envs):
-                self.root_states[i*int(self.num_actors/self.num_envs) + block_index] = self.block_state
+            for i in range(self.params.num_envs):
+                self.root_states[i*int(self.num_actors/self.params.num_envs) + block_index] = self.block_state
             self.gym.set_actor_root_state_tensor(self.sim, gymtorch.unwrap_tensor(self.root_states))
             sim_init.refresh_states(self.gym, self.sim)
 
@@ -135,7 +148,7 @@ class IsaacgymMppiRos:
 
             self.rate.sleep()
 
-
-test = IsaacgymMppiRos()
+params = Params()
+test = IsaacgymMppiRos(params)
 test.run()
 

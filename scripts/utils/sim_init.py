@@ -93,16 +93,20 @@ def make(allow_viewer, num_envs, spacing, robot, obstacle_type, control_type = "
     return gym, sim, viewer, envs, robot_handles
 
 # Acquire states information
-def acquire_states(gym, sim, params):
+def acquire_states(gym, sim, params, flag="none"):
+    if flag == "sim":
+        num_envs = params.sim_num_envs
+    else:
+        num_envs = params.num_envs
     # Get dof state tensor
     _dof_states = gym.acquire_dof_state_tensor(sim)
     dof_states = gymtorch.wrap_tensor(_dof_states)
     num_dofs = gym.get_sim_dof_count(sim)
     num_actors = gym.get_sim_actor_count(sim)
     num_bodies = gym.get_sim_rigid_body_count(sim)
-    dofs_per_robot = int(num_dofs/params.num_envs)
-    actors_per_env = int(num_actors/params.num_envs)
-    bodies_per_env = int(num_bodies/params.num_envs)
+    dofs_per_robot = int(num_dofs/num_envs) # dofs_per_robot * 2 = nx
+    actors_per_env = int(num_actors/num_envs)
+    bodies_per_env = int(num_bodies/num_envs)
 
     # Acquire root state tensor
     _root_states = gym.acquire_actor_root_state_tensor(sim)
@@ -118,23 +122,31 @@ def acquire_states(gym, sim, params):
     gym.refresh_rigid_body_state_tensor(sim)
 
     # Get 2D pos of block and robot
-    block_pos = root_states.reshape(params.num_envs, actors_per_env, 13)[:, params.block_index, :2] # [num_envs, 2]
+    if params.block_index != "None":
+        block_pos = root_states.reshape([num_envs, actors_per_env, 13])[:, params.block_index, :2] # [num_envs, 2]
+    else:
+        block_pos = "None"
     if params.robot in ["boxer", "albert", "husky"]:
-        robot_pos = root_states.reshape(params.num_envs, actors_per_env, 13)[:, -1, :2] # [num_envs, 2]
+        robot_pos = root_states.reshape([num_envs, actors_per_env, 13])[:, -1, :2]   # [num_envs, 2]
+        robot_vel = root_states.reshape([num_envs, actors_per_env, 13])[:, -1, 7:9]  # [num_envs, 2]
+        robot_states = root_states.reshape([num_envs, actors_per_env, 13])[:, -1, :] # [num_envs, 13]
     elif params.robot in ["point_robot", "heijn"]:
-        robot_pos = dof_states[:,0].reshape([params.num_envs, dofs_per_robot])[:, :2] # [num_envs, 2]
+        robot_pos = dof_states[:, 0].reshape([num_envs, dofs_per_robot])[:, :2] # [num_envs, 2]
+        robot_vel = dof_states[:, 1].reshape([num_envs, dofs_per_robot])[:, :2] # [num_envs, 2]
+        robot_states = dof_states.reshape([num_envs, dofs_per_robot*2]) # [num_envs, 4] or [num_envs, 6] for each row [pos1, vel1, pos2, vel2...]
 
     states_dict = {"dof_states": dof_states,
                    "root_states": root_states,
                    "rb_states": rb_states,
+                   "robot_states": robot_states,
                    "num_dofs": num_dofs,
                    "num_actors": num_actors,
                    "dofs_per_robot": dofs_per_robot,
                    "actors_per_env": actors_per_env, 
                    "bodies_per_env": bodies_per_env, 
                    "robot_pos": robot_pos,
-                   "block_pos": block_pos
-                    }
+                   "block_pos": block_pos,
+                   "robot_vel": robot_vel}
 
     # Print relevant info
     if params.print_flag:

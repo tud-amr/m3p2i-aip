@@ -32,3 +32,4 @@ environment_type = "normal"                   # choose from "normal", "battery",
 spacing = 10.0
 manual_control_type = "vel_control"        # choose from "vel_control", "pos_control", "force_control"
 suction_active = False                     # the same with use_vacuum
+print_flag = False

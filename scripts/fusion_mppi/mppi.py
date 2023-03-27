@@ -6,7 +6,7 @@ from torch.distributions.multivariate_normal import MultivariateNormal
 import functools
 import numpy as np
 from scipy import signal
-from priors.fabrics_planner import fabrics_point
+# from priors.fabrics_planner import fabrics_point
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +63,7 @@ class MPPI():
     based off of https://github.com/ferreirafabio/mppi_pendulum
     """
 
-    def __init__(self, dynamics, running_cost, nx, noise_sigma, num_samples=100, horizon=15, device="cpu",
+    def __init__(self, params, dynamics, running_cost, nx, noise_sigma, num_samples=100, horizon=15, device="cpu",
                  terminal_state_cost=None,
                  lambda_=1.,
                  noise_mu=None,
@@ -185,19 +185,20 @@ class MPPI():
         self.kp = 0.5
 
         # filtering
-        if robot == "point_robot":
+        self.robot = robot
+        if self.robot == "point_robot":
             if self.T < 20:
                 self.sgf_window = self.T
             else:
                 self.sgf_window = 10
             self.sgf_order = 2
-        elif robot == "heijn":
+        elif self.robot == "heijn":
             if self.T < 20:
                 self.sgf_window = self.T
             else:
                 self.sgf_window = 20
             self.sgf_order = 1
-        elif robot == "boxer":
+        elif self.robot == "boxer":
             if self.T < 20:
                 self.sgf_window = self.T
             else:

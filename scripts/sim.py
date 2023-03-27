@@ -23,10 +23,13 @@ class SIM():
         self.gym, self.sim, self.viewer, self.envs, _ = sim_init.make(self.allow_viewer, self.num_envs, self.spacing, self.robot, self.environment_type, dt = self.dt)
 
         # Acquire states
-        self.dof_states, self.num_dofs, self.num_actors, self.root_states = sim_init.acquire_states(self.gym, self.sim, print_flag=False)
-        self.dofs_per_robot = int(self.num_dofs/self.num_envs)
-        self.actors_per_env = int(self.num_actors/self.num_envs)
-        self.bodies_per_env = self.gym.get_env_rigid_body_count(self.envs[0])
+        states_dict = sim_init.acquire_states(self.gym, self.sim, params, "sim")
+        self.dof_states = states_dict["dof_states"]
+        self.num_actors = states_dict["num_actors"]
+        self.root_states = states_dict["root_states"]
+        self.bodies_per_env = states_dict["bodies_per_env"]
+        self.block_pos = states_dict["block_pos"]
+        self.robot_pos = states_dict["robot_pos"]
         self.initial_root_states = self.root_states.clone()
         self.initial_dof_states = self.dof_states.clone()
 
@@ -120,17 +123,9 @@ class SIM():
                 # Apply optimal action
                 self.gym.set_dof_velocity_target_tensor(self.sim, gymtorch.unwrap_tensor(self.action))
 
-                actor_root_state = gymtorch.wrap_tensor(self.gym.acquire_actor_root_state_tensor(self.sim))
-                
                 if self.suction_active:  
-                    # Get 2D pos of block and robot
-                    block_pos = self.root_states.reshape(self.num_envs, self.actors_per_env, 13)[:, self.block_index, :2] # [num_envs, 2]
-                    if self.robot in ["boxer", "albert", "husky"]:
-                        robot_pos = self.root_states.reshape(self.num_envs, self.actors_per_env, 13)[:, -1, :2] # [num_envs, 2]
-                    elif self.robot in ["point_robot", "heijn"]:
-                        robot_pos = self.dof_states[:,0].reshape([self.num_envs, self.dofs_per_robot])[:, :2] # [num_envs, 2]
                     # simulation of a magnetic/suction effect to attach to the box
-                    suction_force, _, _ = skill_utils.calculate_suction(block_pos, robot_pos, self.num_envs, self.kp_suction, self.block_index, self.bodies_per_env)
+                    suction_force, _, _ = skill_utils.calculate_suction(self.block_pos, self.robot_pos, self.num_envs, self.kp_suction, self.block_index, self.bodies_per_env)
                     # print(suction_force)
                     # Apply suction/magnetic force
                     self.gym.apply_rigid_body_force_tensors(self.sim, gymtorch.unwrap_tensor(torch.reshape(suction_force, (self.num_envs*self.bodies_per_env, 3))), None, gymapi.ENV_SPACE)

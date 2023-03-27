@@ -4,7 +4,7 @@ from isaacgym import gymtorch, gymapi
 from utils import sim_init, skill_utils
 
 class FUSION_MPPI(mppi.MPPI):
-    def __init__(self, dynamics, running_cost, nx, noise_sigma, num_samples=100, horizon=15, device="cpu", 
+    def __init__(self, params, dynamics, running_cost, nx, noise_sigma, num_samples=100, horizon=15, device="cpu", 
                     terminal_state_cost=None, 
                     lambda_=1, 
                     noise_mu=None, 
@@ -27,7 +27,7 @@ class FUSION_MPPI(mppi.MPPI):
                     env_type="normal",
                     bodies_per_env=None,
                     filter_u=True):
-        super().__init__(dynamics, running_cost, nx, noise_sigma, num_samples, horizon, device, 
+        super().__init__(params, dynamics, running_cost, nx, noise_sigma, num_samples, horizon, device, 
                     terminal_state_cost, 
                     lambda_, 
                     noise_mu, 
@@ -77,6 +77,21 @@ class FUSION_MPPI(mppi.MPPI):
         self.gym = gym
         self.sim = sim
         self.viewer = viewer
+
+        self.flag = True
+        # Acquire states
+        if self.flag:
+            states_dict = sim_init.acquire_states(self.gym, self.sim, self.params)
+            self.dof_states = states_dict["dof_states"]
+            self.num_actors = states_dict["num_actors"]
+            self.root_states = states_dict["root_states"]
+            self.actors_per_env = states_dict["actors_per_env"]
+            self.bodies_per_env = states_dict["bodies_per_env"]
+            self.robot_states = states_dict["robot_states"]
+            self.block_pos = states_dict["block_pos"]
+            self.robot_pos = states_dict["robot_pos"]
+            self.robot_vel = states_dict["robot_vel"]
+            self.flag = False
     
     def update_task(self, task, goal):
         self.task = task
@@ -89,18 +104,16 @@ class FUSION_MPPI(mppi.MPPI):
         self.params = params
         self.suction_active = self.params.suction_active
 
-    def get_navigation_cost(self, r_pos):
-        return torch.clamp(torch.linalg.norm(r_pos - self.nav_goal, axis=1)-0.05, min=0, max=1999) 
+    def get_navigation_cost(self):
+        return torch.clamp(torch.linalg.norm(self.robot_pos - self.nav_goal, axis=1)-0.05, min=0, max=1999) 
 
-    def get_push_cost(self, r_pos):
-        block_pos = torch.cat((torch.split(torch.clone(self.root_positions[:,0:2]), int(torch.clone(self.root_positions[:,0:2]).size(dim=0)/self.num_envs))),1)[self.block_index,:].reshape(self.num_envs,2)
-
-        robot_to_block = r_pos - block_pos
-        block_to_goal = self.block_goal - block_pos
+    def get_push_cost(self):
+        robot_to_block = self.robot_pos - self.block_pos
+        block_to_goal = self.block_goal - self.block_pos
 
         robot_to_block_dist = torch.linalg.norm(robot_to_block, axis = 1)
         block_to_goal_dist = torch.linalg.norm(block_to_goal, axis = 1)
-        robot_to_goal_dist = torch.linalg.norm(r_pos- self.block_goal, axis = 1)
+        # robot_to_goal_dist = torch.linalg.norm(self.robot_pos- self.block_goal, axis = 1)
         dist_cost = robot_to_block_dist + block_to_goal_dist 
 
         # Force the robot behind block and goal,
@@ -113,14 +126,13 @@ class FUSION_MPPI(mppi.MPPI):
 
         return cost
     
-    def get_pull_cost(self, r_pos):
-        block_pos = torch.cat((torch.split(torch.clone(self.root_positions[:,0:2]), int(torch.clone(self.root_positions[:,0:2]).size(dim=0)/self.num_envs))),1)[self.block_index,:].reshape(self.num_envs,2)
-        robot_to_block = r_pos - block_pos
-        block_to_goal = self.block_goal - block_pos
+    def get_pull_cost(self):
+        robot_to_block = self.robot_pos - self.block_pos
+        block_to_goal = self.block_goal - self.block_pos
 
         robot_to_block_dist = torch.linalg.norm(robot_to_block, axis = 1)
         block_to_goal_dist = torch.linalg.norm(block_to_goal, axis = 1)
-        dist_cost = robot_to_block_dist + block_to_goal_dist 
+        dist_cost = robot_to_block_dist + block_to_goal_dist * 5
 
         # Force the robot to be in the middle between block and goal,
         # align_cost is actually the 1-cos(theta)
@@ -130,10 +142,9 @@ class FUSION_MPPI(mppi.MPPI):
         cost = dist_cost + align_cost
         return cost
 
-    def get_push_not_goal_cost(self, r_pos):
-        block_pos = torch.cat((torch.split(torch.clone(self.root_positions[:,0:2]), int(torch.clone(self.root_positions[:,0:2]).size(dim=0)/self.num_envs))),1)[self.block_index,:].reshape(self.num_envs,2)
-        non_goal_cost = torch.clamp((1/torch.linalg.norm(self.block_not_goal - block_pos,axis = 1)), min=0, max=10)
-        return torch.linalg.norm(r_pos - block_pos, axis = 1) + non_goal_cost
+    def get_push_not_goal_cost(self):
+        non_goal_cost = torch.clamp((1/torch.linalg.norm(self.block_not_goal - self.block_pos,axis = 1)), min=0, max=10)
+        return torch.linalg.norm(self.robot_pos - self.block_pos, axis = 1) + non_goal_cost
 
     @mppi.handle_batch_input
     def _ik(self, u):
@@ -166,26 +177,14 @@ class FUSION_MPPI(mppi.MPPI):
 
     @mppi.handle_batch_input
     def _dynamics(self, state, u, t):
-        actor_root_state = gymtorch.wrap_tensor(self.gym.acquire_actor_root_state_tensor(self.sim))
-        self.root_positions = actor_root_state[:, 0:3]
-        # print('root pos', self.root_positions.size())
-        dof_states, num_dofs, _, root_states = sim_init.acquire_states(self.gym, self.sim, print_flag=False)
-        dofs_per_robot = int(num_dofs/self.num_envs)
-
-        # Get 2D pos of block and robot
-        block_pos = root_states.reshape(self.num_envs, self.actors_per_env, 13)[:, self.block_index, :2] # [num_envs, 2]
-        if self.robot in ["boxer", "albert", "husky"]:
-            robot_pos = root_states.reshape(self.num_envs, self.actors_per_env, 13)[:, -1, :2] # [num_envs, 2]
-        elif self.robot in ["point_robot", "heijn"]:
-            robot_pos = dof_states[:,0].reshape([self.num_envs, dofs_per_robot])[:, :2] # [num_envs, 2]
-
+        # Apply suction force
         if self.suction_active:
-            pos_dir = block_pos - robot_pos
+            pos_dir = self.block_pos - self.robot_pos
             # True means the velocity moves towards block, otherwise means pull direction
             # flag_towards_block = torch.sum(dof_vel*pos_dir, 1) > 0
 
             # simulation of a magnetic/suction effect to attach to the box
-            suction_force, dir, mask = skill_utils.calculate_suction(block_pos, robot_pos, self.num_envs, self.kp_suction, self.block_index, self.bodies_per_env)
+            suction_force, dir, mask = skill_utils.calculate_suction(self.block_pos, self.robot_pos, self.num_envs, self.kp_suction, self.block_index, self.bodies_per_env)
             # Set no suction force if robot moves towards the block
             # suction_force[flag_towards_block] = 0
             # Apply suction/magnetic force
@@ -214,25 +213,19 @@ class FUSION_MPPI(mppi.MPPI):
         # Use inverse kinematics if the MPPI action space is different than dof velocity space
         u_ = self._ik(u)
         self.gym.set_dof_velocity_target_tensor(self.sim, gymtorch.unwrap_tensor(u_))
-        self.gym.simulate(self.sim)
-        self.gym.fetch_results(self.sim, True)
-        self.gym.refresh_actor_root_state_tensor(self.sim)
-        self.gym.refresh_dof_state_tensor(self.sim)
-        
-        if self.robot == 'boxer':
-            res_ = actor_root_state[self.actors_per_env-1::self.actors_per_env]
-            res = torch.cat([res_[:, 0:2], res_[:, 7:9]], axis=1)
-        elif self.robot == 'point_robot':
-            res = torch.clone(dof_states).view(-1, 4)  
-        elif self.robot == 'heijn':
-            res = torch.clone(dof_states).view(-1, 6)  
 
-        if self.viewer is not None:
-            self.gym.step_graphics(self.sim)
-            self.gym.draw_viewer(self.viewer, self.sim, False)
-            self.gym.sync_frame_time(self.sim)
+        # Step the simulation
+        sim_init.step(self.gym, self.sim)
+        sim_init.refresh_states(self.gym, self.sim)
+        sim_init.step_rendering(self.gym, self.sim, self.viewer, sync_frame_time=True)
 
-        return res, u
+        # Return the current states
+        states = torch.stack([self.robot_pos[:, 0], 
+                              self.robot_vel[:, 0], 
+                              self.robot_pos[:, 1], 
+                              self.robot_vel[:, 1]], dim=1) # [num_envs, 4]
+
+        return states, u
 
     def get_motion_cost(self, state, u):
         # State: for each environment, the current state containing position and velocity
@@ -241,9 +234,9 @@ class FUSION_MPPI(mppi.MPPI):
         if 'past_u' not in locals():
             past_u = torch.zeros_like(u, device=self.device)
 
-        state_pos = torch.cat((state[:, 0].unsqueeze(1), state[:, 2].unsqueeze(1)), 1)
-        control_cost = torch.sum(torch.square(u),1)
-        w_u = 0.1
+        # state_pos = torch.cat((state[:, 0].unsqueeze(1), state[:, 2].unsqueeze(1)), 1)
+        # control_cost = torch.sum(torch.square(u),1)
+        # w_u = 0.1
 
         # Collision cost via contact forces
         _net_cf = self.gym.acquire_net_contact_force_tensor(self.sim)
@@ -272,19 +265,14 @@ class FUSION_MPPI(mppi.MPPI):
 
     @mppi.handle_batch_input
     def _running_cost(self, state, u):
-        if self.robot == 'boxer':
-            state_pos = state[:, :2]
-        else:
-            state_pos = torch.cat((state[:, 0].unsqueeze(1), state[:, 2].unsqueeze(1)), 1)
-
         if self.task == 'navigation' or self.task == 'go_recharge':
-            task_cost = self.get_navigation_cost(state_pos)
+            task_cost = self.get_navigation_cost()
         elif self.task == 'push':
-            task_cost = self.get_push_cost(state_pos)
+            task_cost = self.get_push_cost()
         elif self.task == 'pull':
-            task_cost = self.get_pull_cost(state_pos)
+            task_cost = self.get_pull_cost()
         elif self.task == 'push_not_goal':
-            task_cost = self.get_push_not_goal_cost(state_pos)
+            task_cost = self.get_push_not_goal_cost()
 
         total_cost = task_cost + self.get_motion_cost(state, u)
         
