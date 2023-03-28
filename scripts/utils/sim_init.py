@@ -111,6 +111,7 @@ def acquire_states(gym, sim, params, flag="none"):
     # Acquire root state tensor
     _root_states = gym.acquire_actor_root_state_tensor(sim)
     root_states = gymtorch.wrap_tensor(_root_states)
+    shaped_root_states = root_states.reshape([num_envs, actors_per_env, 13])
 
     # Acquire rigid body states
     _rb_states = gym.acquire_rigid_body_state_tensor(sim)
@@ -123,13 +124,13 @@ def acquire_states(gym, sim, params, flag="none"):
 
     # Get 2D pos of block and robot
     if params.block_index != "None":
-        block_pos = root_states.reshape([num_envs, actors_per_env, 13])[:, params.block_index, :2] # [num_envs, 2]
+        block_pos = shaped_root_states[:, params.block_index, :2] # [num_envs, 2]
     else:
         block_pos = "None"
     if params.robot in ["boxer", "albert", "husky"]:
-        robot_pos = root_states.reshape([num_envs, actors_per_env, 13])[:, -1, :2]   # [num_envs, 2]
-        robot_vel = root_states.reshape([num_envs, actors_per_env, 13])[:, -1, 7:9]  # [num_envs, 2]
-        robot_states = root_states.reshape([num_envs, actors_per_env, 13])[:, -1, :] # [num_envs, 13]
+        robot_pos = shaped_root_states[:, -1, :2]   # [num_envs, 2]
+        robot_vel = shaped_root_states[:, -1, 7:9]  # [num_envs, 2]
+        robot_states = shaped_root_states[:, -1, :] # [num_envs, 13]
     elif params.robot in ["point_robot", "heijn"]:
         robot_pos = dof_states[:, 0].reshape([num_envs, dofs_per_robot])[:, :2] # [num_envs, 2]
         robot_vel = dof_states[:, 1].reshape([num_envs, dofs_per_robot])[:, :2] # [num_envs, 2]
@@ -137,6 +138,7 @@ def acquire_states(gym, sim, params, flag="none"):
 
     states_dict = {"dof_states": dof_states,
                    "root_states": root_states,
+                   "shaped_root_states": shaped_root_states,
                    "rb_states": rb_states,
                    "robot_states": robot_states,
                    "num_dofs": num_dofs,

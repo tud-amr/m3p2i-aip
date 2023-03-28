@@ -85,6 +85,7 @@ class FUSION_MPPI(mppi.MPPI):
             self.dof_states = states_dict["dof_states"]
             self.num_actors = states_dict["num_actors"]
             self.root_states = states_dict["root_states"]
+            self.shaped_root_states = states_dict["shaped_root_states"]
             self.actors_per_env = states_dict["actors_per_env"]
             self.bodies_per_env = states_dict["bodies_per_env"]
             self.robot_states = states_dict["robot_states"]
