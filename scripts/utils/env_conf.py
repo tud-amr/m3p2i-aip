@@ -401,6 +401,7 @@ def add_store(sim, gym, env, table_asset, shelf_asset, product_asset, index):
     print(box_props[0].mass)
     # mug_handle = gym.create_actor(env, mug_asset, box_pose, "mug", i, 0)
     #product_handle = gym.create_actor(env, product_asset, product_pose, "product", index, 0)
+    return table_handle
 
 def get_default_franka_state(gym, robot_asset):
 
@@ -464,12 +465,20 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, e
         envs.append(env)
         
         if environment_type == "store":
-            add_store(sim, gym, env, table_asset, shelf_asset, hageslag_asset, i)
+            table_handle = add_store(sim, gym, env, table_asset, shelf_asset, hageslag_asset, i)
             robot_handle = gym.create_actor(env, robot_asset, franka_pose, "franka", i, 2)
             # configure franka dofs
             if 'default_dof_state' not in locals():
                 default_dof_state = get_default_franka_state(gym, robot_asset)
             gym.set_actor_dof_states(env, robot_handle, default_dof_state, gymapi.STATE_ALL)
+
+            # Table friction randomized   
+            shape_props = gym.get_actor_rigid_shape_properties(env, table_handle)
+            shape_props[0].friction = np.random.uniform(0.1, 1)
+            shape_props[0].torsion_friction = np.random.uniform(0.001, 0.01)
+            gym.set_actor_rigid_shape_properties(env, table_handle, shape_props)
+            # print(shape_props[0].friction)
+
         elif environment_type == "arena" or environment_type == "battery" or environment_type == "lab":
             add_arena(sim, gym, env, wall_size, wall_thickness, 0, 0, i) # Wall size, wall thickness, origin_x, origin_y, index
             # Add obstacles

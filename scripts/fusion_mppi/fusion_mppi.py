@@ -225,7 +225,7 @@ class FUSION_MPPI(mppi.MPPI):
         # block_to_goal_ort = torch.linalg.norm(block_to_ort, axis = 1)
         hoover_height = 0.130
         ee_hover_cost= torch.abs(ee_height - hoover_height) 
-        dist_cost = 10*robot_to_block_dist + 100*block_to_goal_dist + 60*ee_hover_cost + 15*block_to_goal_ort
+        dist_cost = 10*robot_to_block_dist + 100*block_to_goal_dist + 60*ee_hover_cost + 10*block_to_goal_ort
 
         align_cost = torch.sum(robot_to_block[:,0:2]*block_to_goal, 1)/(robot_to_block_dist*block_to_goal_dist)
         align_cost = align_cost
