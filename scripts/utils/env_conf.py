@@ -395,8 +395,10 @@ def add_store(sim, gym, env, table_asset, shelf_asset, product_asset, index):
     hageslag_h = 0.103
     box_handle = add_box(sim, gym, env, hageslag_h, hageslag_l, hageslag_l, box_pose, color_vec_crate, False, "product", index)
     box_props = gym.get_actor_rigid_body_properties(env, box_handle)
-    box_props[0].mass = 0.2
+    box_props[0].mass = 0.45 + (0.7*(np.random.rand()-0.5))
     gym.set_actor_rigid_body_properties(env, box_handle, box_props)  
+    box_props = gym.get_actor_rigid_body_properties(env, box_handle)
+    print(box_props[0].mass)
     # mug_handle = gym.create_actor(env, mug_asset, box_pose, "mug", i, 0)
     #product_handle = gym.create_actor(env, product_asset, product_pose, "product", index, 0)
 
@@ -406,16 +408,17 @@ def get_default_franka_state(gym, robot_asset):
     franka_lower_limits = franka_dof_props["lower"]
     franka_upper_limits = franka_dof_props["upper"]
     franka_mids = 0.5 * (franka_upper_limits + franka_lower_limits)
-
+    
     # default dof states and position targets
     franka_num_dofs = gym.get_asset_dof_count(robot_asset)
     default_dof_pos = np.zeros(franka_num_dofs, dtype=np.float32)
     default_dof_pos[:10] = franka_mids[:10]
     # grippers open
     # default_dof_pos[7:] = franka_lower_limits[7:]
-
     default_dof_state = np.zeros(franka_num_dofs, gymapi.DofState.dtype)
     default_dof_state["pos"] = default_dof_pos
+    default_dof_state["pos"][3] = -2
+    print(default_dof_state["pos"])
 
     return default_dof_state
 

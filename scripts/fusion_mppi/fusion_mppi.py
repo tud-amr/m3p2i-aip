@@ -204,7 +204,7 @@ class FUSION_MPPI(mppi.MPPI):
         # angle_batch = 1 - torch.square(dot_product_batch)
         # Return the orientation error for each quaternion in the batch
         error_batch = angle_batch
-        print(error_batch[-1])
+        #print(error_batch[-1])
         return error_batch
 
     def get_panda_push_cost(self, joint_pos):
@@ -225,7 +225,7 @@ class FUSION_MPPI(mppi.MPPI):
         # block_to_goal_ort = torch.linalg.norm(block_to_ort, axis = 1)
         hoover_height = 0.130
         ee_hover_cost= torch.abs(ee_height - hoover_height) 
-        dist_cost = 10*robot_to_block_dist + 100*block_to_goal_dist + 60*ee_hover_cost + 5*block_to_goal_ort
+        dist_cost = 10*robot_to_block_dist + 100*block_to_goal_dist + 60*ee_hover_cost + 15*block_to_goal_ort
 
         align_cost = torch.sum(robot_to_block[:,0:2]*block_to_goal, 1)/(robot_to_block_dist*block_to_goal_dist)
         align_cost = align_cost
@@ -523,8 +523,8 @@ class FUSION_MPPI(mppi.MPPI):
             task_cost = self.get_navigation_cost(state_pos)
             #task_cost = self.get_pull_cost(state_pos)
         elif self.robot == 'heijn':
-            task_cost = self.get_navigation_cost(state_pos)
-            #task_cost = self.get_push_cost(state_pos)
+            #task_cost = self.get_navigation_cost(state_pos)
+            task_cost = self.get_push_cost(state_pos)
         elif self.robot == 'panda':
             #task_cost = self.get_panda_cost(state_pos)
             task_cost = self.get_panda_reach_cost(state_pos)
