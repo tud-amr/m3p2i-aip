@@ -395,7 +395,7 @@ def add_store(sim, gym, env, table_asset, shelf_asset, product_asset, index):
     hageslag_h = 0.103
     box_handle = add_box(sim, gym, env, hageslag_h, hageslag_l, hageslag_l, box_pose, color_vec_crate, False, "product", index)
     box_props = gym.get_actor_rigid_body_properties(env, box_handle)
-    box_props[0].mass = 0.45 + (0.7*(np.random.rand()-0.5))
+    box_props[0].mass = np.random.uniform(0.01, 0.62)
     gym.set_actor_rigid_body_properties(env, box_handle, box_props)  
     box_props = gym.get_actor_rigid_body_properties(env, box_handle)
     print(box_props[0].mass)
@@ -474,7 +474,7 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, e
 
             # Table friction randomized   
             shape_props = gym.get_actor_rigid_shape_properties(env, table_handle)
-            shape_props[0].friction = np.random.uniform(0.1, 1)
+            shape_props[0].friction = np.random.uniform(0.01, 0.5)
             shape_props[0].torsion_friction = np.random.uniform(0.001, 0.01)
             gym.set_actor_rigid_shape_properties(env, table_handle, shape_props)
             # print(shape_props[0].friction)

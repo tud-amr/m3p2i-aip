@@ -65,6 +65,9 @@ class FUSION_MPPI(mppi.MPPI):
         self.block_goal = torch.tensor([0.4, 0, 0.6], device=self.device)
         self.cube_target_state = None
 
+        # counter
+        self.count = 0
+
         # Additional variables for the environment or robot
         if self.env_type == "arena":
             self.block_index = 7   # Pushing purple blox, index according to simulation
@@ -225,7 +228,7 @@ class FUSION_MPPI(mppi.MPPI):
         # block_to_goal_ort = torch.linalg.norm(block_to_ort, axis = 1)
         hoover_height = 0.130
         ee_hover_cost= torch.abs(ee_height - hoover_height) 
-        dist_cost = 10*robot_to_block_dist + 100*block_to_goal_dist + 60*ee_hover_cost + 10*block_to_goal_ort
+        dist_cost = 10*robot_to_block_dist + 100*block_to_goal_dist + 60*ee_hover_cost + 5*block_to_goal_ort
 
         align_cost = torch.sum(robot_to_block[:,0:2]*block_to_goal, 1)/(robot_to_block_dist*block_to_goal_dist)
         align_cost = align_cost
@@ -239,6 +242,22 @@ class FUSION_MPPI(mppi.MPPI):
         
         # minimize contact
         contatc_cost = 0.01*(0.1*torch.abs(self.net_cf_all.reshape([self.num_envs, int(self.net_cf_all.size(dim=0)/self.num_envs)])[:,self.block_index]))
+
+        # Evaluation metrics 
+        if self.count > 300:
+            Ex = torch.abs(self.block_goal[0]-block_pos[-1,0])
+            Ey = torch.abs(self.block_goal[1]-block_pos[-1,1])
+            Etheta = torch.abs(block_to_goal_ort[-1])
+            
+            metric_1 = 1.5*(Ex+Ey)+0.01*Etheta
+            print("Metric Baxter", metric_1)
+            print("Angle", Etheta)
+            if Ex < 0.025 and Ey < 0.01 and Etheta < 0.052:
+                print("Success")
+            
+            self.count = 0
+        else:
+            self.count +=1
 
         return dist_cost + contatc_cost + 3*align_cost
 
