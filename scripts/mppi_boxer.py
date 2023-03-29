@@ -18,8 +18,8 @@ spacing = 10.0
 robot = "boxer"               # choose from "point_robot", "boxer", "albert"
 environment_type = "arena"         # choose from "arena", "battery"
 control_type = "vel_control"        # choose from "vel_control", "pos_control", "force_control"
-dt = 0.02
-substeps = 1
+dt = 0.03
+substeps = 2
 device = "cuda:0"
 gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, spacing, robot, environment_type, control_type, dt=dt, substeps=substeps)
 
@@ -34,13 +34,13 @@ mppi = fusion_mppi.FUSION_MPPI(
     dynamics=None, 
     running_cost=None, 
     nx=4, 
-    noise_sigma = torch.tensor([[4, 0], [0, 65]], device=device, dtype=torch.float32),
+    noise_sigma = torch.tensor([[4, 0], [0, 15]], device=device, dtype=torch.float32),
     num_samples=num_envs, 
     horizon=15,
     lambda_=0.01, 
     device=device, 
-    u_max=torch.tensor([3.5, 35.5]),
-    u_min=torch.tensor([-3.5, -35.5]),
+    u_max=torch.tensor([1.5, 3.5]),
+    u_min=torch.tensor([-1.5, -3.5]),
     step_dependent_dynamics=True,
     terminal_state_cost=None,
     sample_null_action=True,

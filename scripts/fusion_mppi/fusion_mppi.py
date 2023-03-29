@@ -155,11 +155,14 @@ class FUSION_MPPI(mppi.MPPI):
         if self.robot == "heijn":
             align_weight = 1
             align_offset = 0.1
+            w_d = 10
         elif self.robot == "point_robot":
             align_weight = 0.5
             align_offset = 0.05
+            w_d = 1
         elif self.robot == "boxer":
             align_weight = 1
+            w_d = 1
 
         align_cost = torch.sum(robot_to_block*block_to_goal, 1)/(robot_to_block_dist*block_to_goal_dist)
         align_cost = align_weight*align_cost
@@ -167,7 +170,7 @@ class FUSION_MPPI(mppi.MPPI):
         if self.robot != 'boxer':
             align_cost += torch.abs(torch.linalg.norm(r_pos- self.block_goal[:2], axis = 1) - (torch.linalg.norm(block_pos - self.block_goal[:2], axis = 1) + align_offset))
 
-        cost = dist_cost + 3*align_cost
+        cost = w_d*dist_cost + 3*align_cost
 
         return cost
 
