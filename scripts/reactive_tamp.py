@@ -33,6 +33,7 @@ class REACTIVE_TAMP:
         self.actors_per_env = states_dict["actors_per_env"]
         self.bodies_per_env = states_dict["bodies_per_env"]
         self.robot_pos = states_dict["robot_pos"]
+        self.block_pos = states_dict["block_pos"]
 
         # Choose the task planner
         self.task = params.task
@@ -90,7 +91,16 @@ class REACTIVE_TAMP:
 
         # Update params in the motion planner
         self.motion_planner.update_params(self.params)
-    
+
+        # Check task succeeds or not 
+        if self.task_planner.task in ['navigation', 'go_recharge']:
+            task_success = torch.norm(robot_pos - self.task_planner.curr_goal) < 0.1
+        elif self.task_planner.task in ['push', 'pull', 'hybrid']:
+            task_success = torch.norm(self.block_pos[0, :] - self.task_planner.curr_goal) < 0.15
+        else:
+            task_success = False
+        return task_success
+
     def reset(self, i, reset_flag):
         if reset_flag:
             self.task_planner.reset_plan()
@@ -133,13 +143,13 @@ class REACTIVE_TAMP:
 
                     # Update TAMP interface
                     stay_still = True if i < 50 else False
-                    self.tamp_interface(self.robot_pos[0, :], stay_still)
+                    task_success = self.tamp_interface(self.robot_pos[0, :], stay_still)
 
                     # Update gym in mppi
                     self.motion_planner.update_gym(self.gym, self.sim, self.viewer)
 
                     # Stay still if the task planner has no task
-                    if self.task_planner.task == "None" or stay_still:
+                    if self.task_planner.task == "None" or stay_still or task_success:
                         actions = torch.zeros(self.motion_planner.u_per_command, self.motion_planner.nu, device="cuda:0")
                         self.motion_freq = 0 # should be filtered later
                     # Compute optimal action and send to real simulator
