@@ -320,7 +320,7 @@ def update_dyn_obs(gym, sim, num_actors, num_envs, count):
     root_positions = root_tensor[:, 0:3] # [56, 3]
     root_linvels = root_tensor[:, 7:10]
 
-    offsets = torch.tensor([0.01, 0.01, 0], dtype=torch.float32, device="cuda:0").repeat(num_actors, 1)
+    offsets = torch.tensor([0.02, 0.02, 0], dtype=torch.float32, device="cuda:0").repeat(num_actors, 1)
     size = 200
     if count % size > size/4 and count % size < size/4*3:
         root_positions += offsets
