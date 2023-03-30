@@ -22,9 +22,10 @@ class REACTIVE_TAMP:
         self.visualize_rollouts = params.visualize_rollouts
         self.num_envs = params.num_envs
         self.spacing = params.spacing
+        self.dt = params.dt
         self.robot = params.robot
         self.environment_type = params.environment_type
-        self.gym, self.sim, self.viewer, envs, _ = sim_init.make(self.allow_viewer, self.num_envs, self.spacing, self.robot, self.environment_type)
+        self.gym, self.sim, self.viewer, envs, _ = sim_init.make(self.allow_viewer, self.num_envs, self.spacing, self.robot, self.environment_type, dt=self.dt)
 
         # Acquire states
         states_dict = sim_init.acquire_states(self.gym, self.sim, self.params)

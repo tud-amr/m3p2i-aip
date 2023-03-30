@@ -30,6 +30,7 @@ class SIM():
         self.bodies_per_env = states_dict["bodies_per_env"]
         self.block_pos = states_dict["block_pos"]
         self.robot_pos = states_dict["robot_pos"]
+        self.robot_vel = states_dict["robot_vel"]
         self.initial_root_states = self.root_states.clone()
         self.initial_dof_states = self.dof_states.clone()
 
@@ -124,9 +125,14 @@ class SIM():
                 self.gym.set_dof_velocity_target_tensor(self.sim, gymtorch.unwrap_tensor(self.action))
 
                 if self.suction_active:  
+                    pos_dir = self.block_pos - self.robot_pos
+                    # True means the velocity moves towards block, otherwise means pull direction
+                    flag_towards_block = torch.sum(self.robot_vel*pos_dir, 1) > 0
                     # simulation of a magnetic/suction effect to attach to the box
                     suction_force, _, _ = skill_utils.calculate_suction(self.block_pos, self.robot_pos, self.num_envs, self.kp_suction, self.block_index, self.bodies_per_env)
                     # print(suction_force)
+                    # Set no suction force if robot moves towards the block
+                    suction_force[flag_towards_block] = 0
                     # Apply suction/magnetic force
                     self.gym.apply_rigid_body_force_tensors(self.sim, gymtorch.unwrap_tensor(torch.reshape(suction_force, (self.num_envs*self.bodies_per_env, 3))), None, gymapi.ENV_SPACE)
 

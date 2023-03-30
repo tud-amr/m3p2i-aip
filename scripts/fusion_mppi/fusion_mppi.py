@@ -1,5 +1,6 @@
 import fusion_mppi.mppi as mppi
 import torch, math
+import time
 from isaacgym import gymtorch, gymapi
 from utils import sim_init, skill_utils
 
@@ -96,14 +97,17 @@ class FUSION_MPPI(mppi.MPPI):
     
     def update_task(self, task, goal):
         self.task = task
-        if self.task == 'navigation' or self.task == 'go_recharge':
+        if self.task in ['navigation', 'go_recharge']:
             self.nav_goal = goal
-        elif self.task == 'push' or self.task == 'pull':
+        elif self.task in ['push', 'pull', 'hybrid']:
             self.block_goal = goal
     
     def update_params(self, params):
         self.params = params
-        self.suction_active = self.params.suction_active
+        if self.task == 'hybrid':
+            self.params.suction_active = True
+        else:
+            self.suction_active = self.params.suction_active
 
     def get_navigation_cost(self):
         return torch.clamp(torch.linalg.norm(self.robot_pos - self.nav_goal, axis=1)-0.05, min=0, max=1999) 
@@ -128,19 +132,30 @@ class FUSION_MPPI(mppi.MPPI):
         return cost
     
     def get_pull_cost(self):
+        pos_dir = self.block_pos - self.robot_pos
+        # True means the velocity moves towards block, otherwise means pull direction
+        flag_towards_block = torch.sum(self.robot_vel*pos_dir, 1) > 0
+
+        # simulation of a magnetic/suction effect to attach to the box
+        suction_force, dir, mask = skill_utils.calculate_suction(self.block_pos, self.robot_pos, self.num_envs, self.kp_suction, self.block_index, self.bodies_per_env)
+        # Set no suction force if robot moves towards the block
+        suction_force[flag_towards_block] = 0
+        # Apply suction/magnetic force
+        self.gym.apply_rigid_body_force_tensors(self.sim, gymtorch.unwrap_tensor(torch.reshape(suction_force, (self.num_envs*self.bodies_per_env, 3))), None, gymapi.ENV_SPACE)
+
         robot_to_block = self.robot_pos - self.block_pos
         block_to_goal = self.block_goal - self.block_pos
 
         robot_to_block_dist = torch.linalg.norm(robot_to_block, axis = 1)
         block_to_goal_dist = torch.linalg.norm(block_to_goal, axis = 1)
-        dist_cost = robot_to_block_dist + block_to_goal_dist * 5
+        dist_cost = robot_to_block_dist + block_to_goal_dist # * 5
 
         # Force the robot to be in the middle between block and goal,
         # align_cost is actually the 1-cos(theta)
         align_cost = torch.sum(robot_to_block*block_to_goal, 1)/(robot_to_block_dist*block_to_goal_dist)
         align_cost = (1-align_cost) * 5
 
-        cost = dist_cost + align_cost
+        cost = dist_cost + align_cost # [num_envs]
         return cost
 
     def get_push_not_goal_cost(self):
@@ -179,17 +194,17 @@ class FUSION_MPPI(mppi.MPPI):
     @mppi.handle_batch_input
     def _dynamics(self, state, u, t):
         # Apply suction force
-        if self.suction_active:
-            pos_dir = self.block_pos - self.robot_pos
-            # True means the velocity moves towards block, otherwise means pull direction
-            # flag_towards_block = torch.sum(dof_vel*pos_dir, 1) > 0
+        # if self.suction_active:
+            # pos_dir = self.block_pos - self.robot_pos
+            # # True means the velocity moves towards block, otherwise means pull direction
+            # flag_towards_block = torch.sum(self.robot_vel*pos_dir, 1) > 0
 
-            # simulation of a magnetic/suction effect to attach to the box
-            suction_force, dir, mask = skill_utils.calculate_suction(self.block_pos, self.robot_pos, self.num_envs, self.kp_suction, self.block_index, self.bodies_per_env)
-            # Set no suction force if robot moves towards the block
+            # # simulation of a magnetic/suction effect to attach to the box
+            # suction_force, dir, mask = skill_utils.calculate_suction(self.block_pos, self.robot_pos, self.num_envs, self.kp_suction, self.block_index, self.bodies_per_env)
+            # # Set no suction force if robot moves towards the block
             # suction_force[flag_towards_block] = 0
-            # Apply suction/magnetic force
-            self.gym.apply_rigid_body_force_tensors(self.sim, gymtorch.unwrap_tensor(torch.reshape(suction_force, (self.num_envs*self.bodies_per_env, 3))), None, gymapi.ENV_SPACE)
+            # # Apply suction/magnetic force
+            # self.gym.apply_rigid_body_force_tensors(self.sim, gymtorch.unwrap_tensor(torch.reshape(suction_force, (self.num_envs*self.bodies_per_env, 3))), None, gymapi.ENV_SPACE)
             
             # # Modify allowed velocities if suction is active, just to have a cone backwards
             # rnd_theta = (torch.rand(self.num_envs)*2-1)*120*math.pi/180       # Random angles in a cone of 120 deg
@@ -214,9 +229,15 @@ class FUSION_MPPI(mppi.MPPI):
         # Use inverse kinematics if the MPPI action space is different than dof velocity space
         u_ = self._ik(u)
         self.gym.set_dof_velocity_target_tensor(self.sim, gymtorch.unwrap_tensor(u_))
-
+        
+        time_1 = time.monotonic()
         # Step the simulation
-        sim_init.step(self.gym, self.sim)
+        sim_init.step(self.gym, self.sim)  # very essential 0.002s
+
+        time_2 = time.monotonic()
+        gap_2 = format(time_2-time_1, '.5f')
+        # print('very gap 2', gap_2) # 
+
         sim_init.refresh_states(self.gym, self.sim)
         sim_init.step_rendering(self.gym, self.sim, self.viewer, sync_frame_time=True)
 
@@ -225,7 +246,6 @@ class FUSION_MPPI(mppi.MPPI):
                               self.robot_vel[:, 0], 
                               self.robot_pos[:, 1], 
                               self.robot_vel[:, 1]], dim=1) # [num_envs, 4]
-
         return states, u
 
     def get_motion_cost(self, state, u):
@@ -274,6 +294,8 @@ class FUSION_MPPI(mppi.MPPI):
             task_cost = self.get_pull_cost()
         elif self.task == 'push_not_goal':
             task_cost = self.get_push_not_goal_cost()
+        elif self.task == 'hybrid':
+            task_cost = torch.cat((self.get_push_cost()[:int(self.num_envs/2)], self.get_pull_cost()[int(self.num_envs/2):]), dim=0)
 
         total_cost = task_cost + self.get_motion_cost(state, u)
         
