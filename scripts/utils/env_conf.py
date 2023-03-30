@@ -351,6 +351,17 @@ def add_obstacles(sim, gym, env, environment_type, index):
 
         box1_handle = add_box(sim, gym, env,0.4, 0.4, 0.1, box1_pose, color_vec_box1, False, "box1", index)
         box2_handle = add_box(sim, gym, env,0.4, 0.4, 0.1, box2_pose, color_vec_box2, False, "box2", index)
+
+        # Set properties
+        # shape_props = gym.get_actor_rigid_shape_properties(env, box2_handle)
+        # shape_props[0].friction = np.random.uniform(0.01, 0.5)
+        # shape_props[0].torsion_friction = np.random.uniform(0.001, 0.01)
+        # gym.set_actor_rigid_shape_properties(env, box2_handle, shape_props)
+
+        # box2_props = gym.get_actor_rigid_body_properties(env, box2_handle)
+        # box2_props[0].mass = 0.1 # Set 1kg mass
+        # gym.set_actor_rigid_body_properties(env, box2_handle, box2_props)      
+        
         box3_handle = add_box(sim, gym, env,0.4, 0.4, 0.1, box3_pose, color_vec_box3, False, "box3", index)
 
         goal_region1 = add_box(sim, gym, env, 1, 1, 0.01, goal1_pose, color_vec_box1, True, "goal_region1", -2) # No collisions with goal region
@@ -381,7 +392,7 @@ def add_obstacles(sim, gym, env, environment_type, index):
 
         # Set AH crate mass 
         crate_props = gym.get_actor_rigid_body_properties(env, crate_handle)
-        crate_props[0].mass = 1. # Set 1kg mass
+        crate_props[0].mass = 1.0 # Set 1kg mass
         gym.set_actor_rigid_body_properties(env, crate_handle, crate_props)      
     else:
         print("Invalid environment type")

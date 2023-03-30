@@ -92,7 +92,6 @@ class FUSION_MPPI(mppi.MPPI):
                 self.block_index = 2
                 self.ee_index = 12
                 self.block_goal = torch.tensor([0.5, 0.0, 0.138], device=self.device)
-                self.block_goal_ort = torch.tensor([0.0, 0.0, 0.0, 1], device=self.device)
             for i in range(self.num_envs):
                 self.block_indexes[i] = self.block_index + i*self.bodies_per_env
                 self.ee_indexes[i] = self.ee_index + i*self.bodies_per_env
@@ -120,7 +119,8 @@ class FUSION_MPPI(mppi.MPPI):
             for i in range(self.num_envs):
                 self.ee_indexes[i] = self.ee_index + i*self.bodies_per_env
                 self.goal_indexes[i] = self.goal_index + i*self.bodies_per_env
-               
+        
+        self.block_goal_ort = torch.tensor([0.0, 0.0, 0.0, 1], device=self.device)
         self.block_not_goal = torch.tensor([-2, 1], device=self.device)
         self.nav_goal = torch.tensor([3, 3], device=self.device)
         self.panda_hand_goal = torch.tensor([0.5, 0.0, 0.7, 1, 0, 0, 0], device=self.device)
@@ -140,13 +140,15 @@ class FUSION_MPPI(mppi.MPPI):
 
     def get_push_cost(self, r_pos):
         block_pos = torch.cat((torch.split(torch.clone(self.root_positions[:,0:2]), int(torch.clone(self.root_positions[:,0:2]).size(dim=0)/self.num_envs))),1)[self.block_index,:].reshape(self.num_envs,2)
-        
+        block_ort = torch.cat((torch.split(torch.clone(self.root_ort), int(torch.clone(self.root_ort).size(dim=0)/self.num_envs))),1)[self.block_index,:].reshape(self.num_envs,4)
+
         robot_to_block = r_pos - block_pos
         block_to_goal = self.block_goal[0:2] - block_pos
-
+        block_to_goal_ort = self.orientation_error(self.block_goal_ort, block_ort)
+        
         robot_to_block_dist = torch.linalg.norm(robot_to_block, axis = 1)
         block_to_goal_dist = torch.linalg.norm(block_to_goal, axis = 1)
-        dist_cost = robot_to_block_dist + block_to_goal_dist 
+        dist_cost = robot_to_block_dist + block_to_goal_dist #+ 1*block_to_goal_ort
 
         # Force the robot behind block and goal,
         # align_cost is actually the cos(theta)
@@ -154,11 +156,11 @@ class FUSION_MPPI(mppi.MPPI):
         # Tuning per robot
         if self.robot == "heijn":
             align_weight = 1
-            align_offset = 0.1
-            w_d = 10
+            # align_offset = 0.1
+            w_d = 5
         elif self.robot == "point_robot":
             align_weight = 0.5
-            align_offset = 0.05
+            # align_offset = 0.05
             w_d = 1
         elif self.robot == "boxer":
             align_weight = 1
@@ -167,9 +169,11 @@ class FUSION_MPPI(mppi.MPPI):
         align_cost = torch.sum(robot_to_block*block_to_goal, 1)/(robot_to_block_dist*block_to_goal_dist)
         align_cost = align_weight*align_cost
         
-        if self.robot != 'boxer':
-            align_cost += torch.abs(torch.linalg.norm(r_pos- self.block_goal[:2], axis = 1) - (torch.linalg.norm(block_pos - self.block_goal[:2], axis = 1) + align_offset))
-
+        # if self.robot != 'boxer':
+        #     align_cost += torch.abs(torch.linalg.norm(r_pos- self.block_goal[:2], axis = 1) - (torch.linalg.norm(block_pos - self.block_goal[:2], axis = 1) + align_offset))
+        
+        # print('dist', dist_cost[-1])
+        # print('align', align_cost[-1])
         cost = w_d*dist_cost + 3*align_cost
 
         return cost
@@ -509,7 +513,7 @@ class FUSION_MPPI(mppi.MPPI):
         self.net_cf = torch.sum(torch.abs(torch.cat((self.net_cf[:, 0].unsqueeze(1), self.net_cf[:, 1].unsqueeze(1)), 1)),1)
         # The last actors are allowed to collide with eachother (movabable obstacles and robot), check depending on the amount of actors
         if self.env_type == 'arena':   
-            obst_up_to = 6
+            obst_up_to = 7
         elif self.env_type == 'lab':
             obst_up_to = 4 
         elif self.env_type == 'store':
@@ -540,9 +544,9 @@ class FUSION_MPPI(mppi.MPPI):
             #task_cost = self.get_navigation_cost(state[:, :2])
             task_cost = self.get_push_cost(state[:, :2])
         elif self.robot == 'point_robot':
-            #task_cost = self.get_push_cost(state_pos)
+            task_cost = self.get_push_cost(state_pos)
             #task_cost = self.get_push_not_goal_cost(state_pos)
-            task_cost = self.get_navigation_cost(state_pos)
+            #task_cost = self.get_navigation_cost(state_pos)
             #task_cost = self.get_pull_cost(state_pos)
         elif self.robot == 'heijn':
             #task_cost = self.get_navigation_cost(state_pos)

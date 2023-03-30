@@ -12,7 +12,7 @@ torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 
 # Make the environment and simulation
 allow_viewer = False
-visualize_rollouts = True
+visualize_rollouts = False
 num_envs = 50
 spacing = 10.0
 robot = "point_robot"               # choose from "point_robot", "boxer", "albert"
@@ -36,7 +36,7 @@ mppi = fusion_mppi.FUSION_MPPI(
     nx=4, 
     noise_sigma = torch.tensor([[1, 0], [0, 1]], device="cuda:0", dtype=torch.float32),
     num_samples=num_envs, 
-    horizon=20,
+    horizon=18,
     lambda_=0.1, 
     device="cuda:0", 
     u_max=torch.tensor([1.5, 1.5]),
