@@ -3,6 +3,7 @@ import torch, math
 from isaacgym import gymtorch, gymapi, torch_utils
 from utils import sim_init, skill_utils
 import numpy as np
+import pytorch3d.transforms
 
 class FUSION_MPPI(mppi.MPPI):
     def __init__(self, dynamics, running_cost, nx, noise_sigma, num_samples=100, horizon=15, device="cpu", 
@@ -61,6 +62,7 @@ class FUSION_MPPI(mppi.MPPI):
         self.actors_per_env = actors_per_env
         self.env_type = env_type
         self.device = device
+        self.ort_goal_euler = torch.tensor([0, 0, 0], device=self.device)
 
         self.block_goal = torch.tensor([0.4, 0, 0.6], device=self.device)
         self.cube_target_state = None
@@ -226,30 +228,23 @@ class FUSION_MPPI(mppi.MPPI):
         block_ort = torch.cat((torch.split(torch.clone(self.root_ort), int(torch.clone(self.root_ort).size(dim=0)/self.num_envs))),1)[self.block_index,:].reshape(self.num_envs,4)
         robot_to_block = r_pos - block_pos
         block_to_goal = self.block_goal[0:2] - block_pos[:,0:2]
-        # block_to_ort = self.block_goal_ort - block_ort
 
         block_to_goal_ort = self.orientation_error(self.block_goal_ort, block_ort)
-        # print(block_to_ort.size())
+
         robot_to_block_dist = torch.linalg.norm(robot_to_block[:, 0:2], axis = 1)
         block_to_goal_dist = torch.linalg.norm(block_to_goal, axis = 1)
-        # block_to_goal_ort = torch.linalg.norm(block_to_ort, axis = 1)
+
         hoover_height = 0.130
         ee_hover_cost= torch.abs(ee_height - hoover_height) 
-        dist_cost = 10*robot_to_block_dist + 100*block_to_goal_dist + 60*ee_hover_cost + 5*block_to_goal_ort
+        dist_cost = 10*robot_to_block_dist + 100*block_to_goal_dist  + 5*block_to_goal_ort
+
+        robot_euler = pytorch3d.transforms.matrix_to_euler_angles(pytorch3d.transforms.quaternion_to_matrix(r_ort), "ZYX")
+        ee_align_cost = torch.linalg.norm(robot_euler - self.ort_goal_euler, axis=1)
 
         align_cost = torch.sum(robot_to_block[:,0:2]*block_to_goal, 1)/(robot_to_block_dist*block_to_goal_dist)
-        align_cost = align_cost
+        posture_cost = align_cost + ee_align_cost + 20*ee_hover_cost
         
-        # if self.robot != 'boxer':
-        #     align_cost += torch.abs(torch.linalg.norm(r_pos- self.block_goal[:2], axis = 1) - (torch.linalg.norm(block_pos - self.block_goal[:2], axis = 1) + align_offset))
-        
-        if self.robot == "panda" or 'panda_no_hand':
-            # Encourage gripper to stay upright and close to table
-            align_cost += torch.linalg.norm(r_ort - self.panda_hand_goal[3:7], axis = 1) 
-        
-        # minimize contact
-        contatc_cost = 0.01*(0.1*torch.abs(self.net_cf_all.reshape([self.num_envs, int(self.net_cf_all.size(dim=0)/self.num_envs)])[:,self.block_index]))
-
+    
         # Evaluation metrics 
         if self.count > 300:
             Ex = torch.abs(self.block_goal[0]-block_pos[-1,0])
@@ -266,7 +261,7 @@ class FUSION_MPPI(mppi.MPPI):
         else:
             self.count +=1
 
-        return dist_cost + contatc_cost + 3*align_cost
+        return dist_cost + 3*posture_cost
 
     def get_pull_cost(self, r_pos):
         block_pos = torch.cat((torch.split(torch.clone(self.root_positions[:,0:2]), int(torch.clone(self.root_positions[:,0:2]).size(dim=0)/self.num_envs))),1)[self.block_index,:].reshape(self.num_envs,2)

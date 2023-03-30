@@ -571,10 +571,11 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, e
         # panda_stick_rigid_body_names = ['panda_link0', 'panda_link1', 'panda_link2', 'panda_link3', 'panda_link4', 'panda_link5', 'panda_link6', 'panda_link7', 'panda_ee_finger', 'panda_ee_tip']
         # if gym.get_asset_rigid_body_names(robot_asset) == panda_stick_rigid_body_names:
         #     shape_props = gym.get_actor_rigid_shape_properties(env, robot_handle)
-        #     for index in range(len(shape_props)-2):
-        #         shape_props[index].friction = 1000000000.
-        #         shape_props[index].torsion_friction = 100000000.
-        #         shape_props[index].rolling_friction = 100000000.
+        #     # print(len(shape_props))
+        #     for index in range(len(shape_props)):
+        #         shape_props[index].friction = 0.1
+        #         shape_props[index].torsion_friction = 0.1
+        #         shape_props[index].rolling_friction = 0.1
         #     gym.set_actor_rigid_shape_properties(env, robot_handle, shape_props)
 
         # Set friction of rotacasters to zero for boxer
