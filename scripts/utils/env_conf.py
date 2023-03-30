@@ -3,6 +3,9 @@ import math
 import torch
 import numpy as np
 
+# Flag for comparison
+compare = True
+
 box1_pose = gymapi.Transform()
 box1_pose.p = gymapi.Vec3(1, -2, 0)
 
@@ -70,7 +73,8 @@ box_pose = gymapi.Transform()
 box_pose.p.x = table_pose.p.x + 0.2*np.random.rand()
 box_pose.p.y = table_pose.p.y + 0.3*np.random.rand()
 box_pose.p.z = table_dims.z + 0.5 * box_size
-box_pose.r = gymapi.Quat.from_axis_angle(gymapi.Vec3(0, 0, 1), np.random.uniform(-math.pi, math.pi))
+if not compare:
+    box_pose.r = gymapi.Quat.from_axis_angle(gymapi.Vec3(0, 0, 1), np.random.uniform(-math.pi, math.pi))
 
 product_pose = gymapi.Transform()
 product_pose.p.x = table_pose.p.x 
@@ -404,9 +408,29 @@ def add_store(sim, gym, env, table_asset, shelf_asset, product_asset, index):
     shelf_handle = gym.create_actor(env, shelf_asset, shelf_pose, "shelf", index, 0)
     hageslag_l = 0.062
     hageslag_h = 0.103
-    box_handle = add_box(sim, gym, env, hageslag_h, hageslag_l, hageslag_l, box_pose, color_vec_crate, False, "product", index)
+
+    if compare == True:
+        # Comparison parameters
+
+        # First pose
+        box_pose.p.x = 0.4
+        box_pose.p.y = 0
+        
+        # Second pose
+        # box_pose.p.x = 0.5
+        # box_pose.p.y = 0
+
+        box_dim = 0.1
+        box_height = 0.05
+        box_handle = add_box(sim, gym, env, box_dim, box_dim, box_height, box_pose, color_vec_crate, False, "product", index)
+    else:
+        box_handle = add_box(sim, gym, env, hageslag_h, hageslag_l, hageslag_l, box_pose, color_vec_crate, False, "product", index)
+    
     box_props = gym.get_actor_rigid_body_properties(env, box_handle)
     box_props[0].mass = np.random.uniform(0.01, 0.62)
+    if compare: 
+        box_props[0].mass = np.random.uniform(0.1, 0.3)
+
     gym.set_actor_rigid_body_properties(env, box_handle, box_props)  
     box_props = gym.get_actor_rigid_body_properties(env, box_handle)
     print(box_props[0].mass)
@@ -430,6 +454,10 @@ def get_default_franka_state(gym, robot_asset):
     default_dof_state = np.zeros(franka_num_dofs, gymapi.DofState.dtype)
     default_dof_state["pos"] = default_dof_pos
     default_dof_state["pos"][3] = -2
+    
+    if compare:
+        default_dof_state["pos"][0] = -.3
+
     print(default_dof_state["pos"])
 
     return default_dof_state

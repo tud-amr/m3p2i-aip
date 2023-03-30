@@ -67,6 +67,12 @@ class FUSION_MPPI(mppi.MPPI):
         self.block_goal = torch.tensor([0.4, 0, 0.6], device=self.device)
         self.cube_target_state = None
 
+        # Comparison with baselines
+        self.block_goal_pose_emdn = torch.tensor([0.5, 0.3], device=self.device)
+        self.block_goal_ort_emdn_1 = torch.tensor([0.0, 0.0, 0.0, 1], device=self.device)
+        self.block_goal_ort_emdn_2 = torch.tensor([0, 0, -0.8509035, 0.525322 ], device=self.device)
+
+        self.block_goal_ort = torch.tensor([0.0, 0.0, 0.0, 1], device=self.device)
         # counter
         self.count = 0
 
@@ -122,7 +128,7 @@ class FUSION_MPPI(mppi.MPPI):
                 self.ee_indexes[i] = self.ee_index + i*self.bodies_per_env
                 self.goal_indexes[i] = self.goal_index + i*self.bodies_per_env
         
-        self.block_goal_ort = torch.tensor([0.0, 0.0, 0.0, 1], device=self.device)
+        
         self.block_not_goal = torch.tensor([-2, 1], device=self.device)
         self.nav_goal = torch.tensor([3, 3], device=self.device)
         self.panda_hand_goal = torch.tensor([0.5, 0.0, 0.7, 1, 0, 0, 0], device=self.device)
@@ -227,28 +233,33 @@ class FUSION_MPPI(mppi.MPPI):
         block_pos = torch.cat((torch.split(torch.clone(self.root_positions[:,0:3]), int(torch.clone(self.root_positions[:,0:3]).size(dim=0)/self.num_envs))),1)[self.block_index,:].reshape(self.num_envs,3)
         block_ort = torch.cat((torch.split(torch.clone(self.root_ort), int(torch.clone(self.root_ort).size(dim=0)/self.num_envs))),1)[self.block_index,:].reshape(self.num_envs,4)
         robot_to_block = r_pos - block_pos
-        block_to_goal = self.block_goal[0:2] - block_pos[:,0:2]
 
-        block_to_goal_ort = self.orientation_error(self.block_goal_ort, block_ort)
+        # block_to_goal = self.block_goal[0:2] - block_pos[:,0:2]
+        block_to_goal = self.block_goal_pose_emdn - block_pos[:,0:2]
+
+        block_to_goal_ort = self.orientation_error(self.block_goal_ort_emdn_1, block_ort)
 
         robot_to_block_dist = torch.linalg.norm(robot_to_block[:, 0:2], axis = 1)
         block_to_goal_dist = torch.linalg.norm(block_to_goal, axis = 1)
 
         hoover_height = 0.130
         ee_hover_cost= torch.abs(ee_height - hoover_height) 
-        dist_cost = 10*robot_to_block_dist + 100*block_to_goal_dist  + 5*block_to_goal_ort
+        dist_cost = 20*robot_to_block_dist + 100*block_to_goal_dist  + 10*block_to_goal_ort
 
         robot_euler = pytorch3d.transforms.matrix_to_euler_angles(pytorch3d.transforms.quaternion_to_matrix(r_ort), "ZYX")
         ee_align_cost = torch.linalg.norm(robot_euler - self.ort_goal_euler, axis=1)
 
         align_cost = torch.sum(robot_to_block[:,0:2]*block_to_goal, 1)/(robot_to_block_dist*block_to_goal_dist)
-        posture_cost = align_cost + ee_align_cost + 20*ee_hover_cost
+        posture_cost = align_cost + 4*ee_align_cost + 20*ee_hover_cost
         
     
         # Evaluation metrics 
         if self.count > 300:
-            Ex = torch.abs(self.block_goal[0]-block_pos[-1,0])
-            Ey = torch.abs(self.block_goal[1]-block_pos[-1,1])
+            # Comparison
+            # Ex = torch.abs(self.block_goal[0]-block_pos[-1,0])
+            # Ey = torch.abs(self.block_goal[1]-block_pos[-1,1])
+            Ex = torch.abs(self.block_goal_pose_emdn[0]-block_pos[-1,0])
+            Ey = torch.abs(self.block_goal_pose_emdn[1]-block_pos[-1,1])
             Etheta = torch.abs(block_to_goal_ort[-1])
             
             metric_1 = 1.5*(Ex+Ey)+0.01*Etheta
@@ -256,7 +267,7 @@ class FUSION_MPPI(mppi.MPPI):
             print("Angle", Etheta)
             if Ex < 0.025 and Ey < 0.01 and Etheta < 0.052:
                 print("Success")
-            
+
             self.count = 0
         else:
             self.count +=1

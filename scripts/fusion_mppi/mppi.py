@@ -219,12 +219,16 @@ class MPPI():
         self.states = None
         self.actions = None
 
+        # Defaults
+        # self.knot_scale = 4
+        # self.degree = 2
+
         # Halton sampling 
-        self.knot_scale = 4             # From mppi config storm
+        self.knot_scale = 2             # From mppi config storm
         self.seed_val = 0               # From mppi config storm
         self.n_knots = self.T//self.knot_scale
         self.ndims = self.n_knots * self.nu
-        self.degree = 2                 # From sample_lib storm
+        self.degree = 1                # From sample_lib storm
         self.Z_seq = torch.zeros(1, self.T, self.nu, **self.tensor_args)
         self.cov_action = torch.diagonal(noise_sigma, 0)
         self.scale_tril = torch.sqrt(self.cov_action)

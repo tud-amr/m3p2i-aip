@@ -18,7 +18,7 @@ spacing = 2.0
 robot = "panda_no_hand"                     # choose from "point_robot", "boxer", "albert", "panda"
 environment_type = "store"          # choose from "arena", "battery", "store"
 control_type = "vel_control"        # choose from "vel_control", "pos_control", "force_control"
-dt = 0.01
+dt = 0.04
 substeps = 1
 
 gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, spacing, robot, environment_type, control_type, dt=dt, substeps=substeps)
@@ -28,8 +28,8 @@ actors_per_env = int(num_actors/num_envs)
 bodies_per_env = gym.get_env_rigid_body_count(envs[0])
 
 # For storm mppi mode
-sigma = 20
-max_vel = 0.8
+sigma = 0.8
+max_vel = 0.4
 
 # Creater mppi object
 mppi = fusion_mppi.FUSION_MPPI(
@@ -44,7 +44,7 @@ mppi = fusion_mppi.FUSION_MPPI(
                                 [0, 0, 0, 0, 0, sigma, 0],
                                 [0, 0, 0, 0, 0, 0, sigma]], device="cuda:0", dtype=torch.float32),
     num_samples=num_envs, 
-    horizon=12,
+    horizon=8,
     lambda_=0.05, 
     device="cuda:0", 
     u_max=torch.tensor([max_vel, max_vel, max_vel, max_vel, max_vel, max_vel, max_vel]),
@@ -55,7 +55,7 @@ mppi = fusion_mppi.FUSION_MPPI(
     use_priors=False,
     use_vacuum = False,
     robot_type=robot,
-    u_per_command=12,
+    u_per_command=4,
     actors_per_env=actors_per_env,
     env_type=environment_type,
     bodies_per_env=bodies_per_env,
