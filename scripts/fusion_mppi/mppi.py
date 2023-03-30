@@ -288,6 +288,9 @@ class MPPI():
         root_positions = self.root_states[:, :3]
         dyn_obs_pos = self.shaped_root_states[:, 5, :2]
         dyn_obs_vel = self.shaped_root_states[:, 5, 7:9]
+
+        time_1 = time.monotonic()
+        
         for t in range(T):
             u = self.u_scale * perturbed_actions[:, t].repeat(self.M, 1, 1)
             
@@ -300,8 +303,8 @@ class MPPI():
             if self.use_priors:
                 u = self._priors_command(state, u, t, root_positions)
 
-            state, u = self._dynamics(state, u, t)
-            c = self._running_cost(state, u)
+            state, u = self._dynamics(state, u, t) # !!!! very inefficient
+            c = self._running_cost(state, u) # [1, 100]
             # Update action if there were changes in fusion mppi due for instance to suction constraints
             self.perturbed_action[:,t] = u
             cost_samples += c
@@ -317,6 +320,10 @@ class MPPI():
             # Save total states/actions
             states.append(state)
             actions.append(u)
+        
+        time_2 = time.monotonic()
+        gap_2 = format(time_2-time_1, '.5f')
+        print('cost gap 2', gap_2) # 0.02684
 
         # Actions is K x T x nu
         # States is K x T x nx
@@ -399,6 +406,7 @@ class MPPI():
         return u
 
     def _compute_total_cost_batch(self):
+        time_0 = time.monotonic()
         # parallelize sampling across trajectories
         # resample noise each time we take an action
         self.noise = self.noise_dist.sample((self.K, self.T))
@@ -408,8 +416,16 @@ class MPPI():
         # naively bound control
         self.perturbed_action = self._bound_action(self.perturbed_action)
 
+        time_1 = time.monotonic()
+        gap_1 = format(time_1-time_0, '.5f')
+        # print('batch gap 1', gap_1) # 0.00011
+
         self.cost_total, self.states, self.actions = self._compute_rollout_costs(self.perturbed_action)
-        self.actions /= self.u_scale
+        # self.actions /= self.u_scale
+
+        time_2 = time.monotonic()
+        gap_2 = format(time_2-time_1, '.5f')
+        print('batch gap 2', gap_2) # 0.02701
 
         # bounded noise after bounding (some got cut off, so we don't penalize that in action cost)
         self.noise = self.perturbed_action - self.U
