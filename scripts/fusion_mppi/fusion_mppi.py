@@ -69,8 +69,8 @@ class FUSION_MPPI(mppi.MPPI):
 
         # Comparison with baselines
         self.block_goal_pose_emdn = torch.tensor([0.5, 0.3], device=self.device)
-        self.block_goal_ort_emdn_1 = torch.tensor([0.0, 0.0, 0.0, 1], device=self.device)
-        self.block_goal_ort_emdn_2 = torch.tensor([0, 0, -0.8509035, 0.525322 ], device=self.device)
+        self.block_goal_ort_emdn_1 = torch.tensor([0.0, 0.0, 0.0, 1.0], device=self.device)
+        self.block_goal_ort_emdn_2 = torch.tensor([ 0, 0, 0.7071068, 0.7071068], device=self.device)
 
         self.block_goal_ort = torch.tensor([0.0, 0.0, 0.0, 1], device=self.device)
         # counter
@@ -242,17 +242,24 @@ class FUSION_MPPI(mppi.MPPI):
         robot_to_block_dist = torch.linalg.norm(robot_to_block[:, 0:2], axis = 1)
         block_to_goal_dist = torch.linalg.norm(block_to_goal, axis = 1)
 
+        # print(block_to_goal_ort)
+        # block_euler = pytorch3d.transforms.matrix_to_euler_angles(pytorch3d.transforms.quaternion_to_matrix(block_ort), "ZYX")
+
+        block_to_goal_ort = torch.nan_to_num(block_to_goal_ort, nan=1.0)
+
+        # block_yaw = torch.atan2(2.0 * (block_ort[:,-1] * block_ort[:,2] + block_ort[:,0] * block_ort[:,1]), block_ort[:,-1] * block_ort[:,-1] + block_ort[:,0] * block_ort[:,0] - block_ort[:,1] * block_ort[:,1] - block_ort[:,2] * block_ort[:,2])
+
         hoover_height = 0.130
         ee_hover_cost= torch.abs(ee_height - hoover_height) 
-        dist_cost = 20*robot_to_block_dist + 100*block_to_goal_dist  + 10*block_to_goal_ort
+        dist_cost = 20*robot_to_block_dist + 100*block_to_goal_dist + 10*block_to_goal_ort
 
         robot_euler = pytorch3d.transforms.matrix_to_euler_angles(pytorch3d.transforms.quaternion_to_matrix(r_ort), "ZYX")
+
         ee_align_cost = torch.linalg.norm(robot_euler - self.ort_goal_euler, axis=1)
 
         align_cost = torch.sum(robot_to_block[:,0:2]*block_to_goal, 1)/(robot_to_block_dist*block_to_goal_dist)
         posture_cost = align_cost + 4*ee_align_cost + 20*ee_hover_cost
         
-    
         # Evaluation metrics 
         if self.count > 300:
             # Comparison

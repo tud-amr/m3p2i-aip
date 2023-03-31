@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import math
 
 # Make the environment and simulation
-log_data = False                    # Set true for plots of control inputs and other stats
+log_data = False                # Set true for plots of control inputs and other stats
 allow_viewer = True
 num_envs = 1 
 spacing = 10.0
@@ -181,7 +181,7 @@ if log_data:
         label = ['x_vel', 'y_vel', 'theta_vel']
     elif robot == "boxer":
         label = ['r_vel', 'l_vel']
-    elif robot == "panda":
+    elif robot == "panda" or "panda_no_hand":
         label = ['joint1', 'joint2', 'joint3', 'joint4', 'joint5', 'joint6', 'joint7', 'left_f', 'right_f']
     elif robot == "omni_panda":
         label = ['x_vel', 'y_vel', 'theta_vel','joint1', 'joint2', 'joint3', 'joint4', 'joint5', 'joint6', 'joint7', 'left_f', 'right_f']
