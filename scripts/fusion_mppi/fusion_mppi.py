@@ -77,7 +77,7 @@ class FUSION_MPPI(mppi.MPPI):
         self.block_goal_pose_ur5_r= torch.tensor([0.7, -0.2, 0.5,  0, 0, -0.258819, 0.9659258 ], device=self.device) # Rotation -30 deg
 
         # Select goal according to test
-        self.block_goal_pose = torch.clone(self.block_goal_pose_ur5_r)
+        self.block_goal_pose = torch.clone(self.block_goal_pose_emdn_1)
         # -----------------------------------------------------------------------------------------------------------------------------------
 
         self.block_goal_ort = torch.tensor([0.0, 0.0, 0.0, 1], device=self.device)
@@ -259,7 +259,7 @@ class FUSION_MPPI(mppi.MPPI):
 
         hoover_height = 0.130
         ee_hover_cost= torch.abs(ee_height - hoover_height) 
-        dist_cost = 20*robot_to_block_dist + 100*block_to_goal_dist #+ 10*block_to_goal_ort
+        dist_cost = 20*robot_to_block_dist + 100*block_to_goal_dist + 10*block_to_goal_ort
 
         robot_euler = pytorch3d.transforms.matrix_to_euler_angles(pytorch3d.transforms.quaternion_to_matrix(r_ort), "ZYX")
 

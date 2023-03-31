@@ -5,7 +5,7 @@ import numpy as np
 
 # Flag for comparison
 compare = True
-paper_baseline = 2 # 1: Baxter, 2: UR5
+paper_baseline = 1 # 1: Baxter, 2: UR5
 
 # Dimensions objects for comparison
 
