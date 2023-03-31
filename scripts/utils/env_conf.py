@@ -5,7 +5,7 @@ import numpy as np
 
 # Flag for comparison
 compare = True
-paper_baseline = 1 # 1: Baxter, 2: UR5
+paper_baseline = 2 # 1: Baxter, 2: UR5
 
 # Dimensions objects for comparison
 
@@ -18,7 +18,7 @@ obj_baselines = [[0.1,   0.1 ,  0.05],     # Baseline 1
                  [0.153, 0.462, 0.04],]    # Baseline 2, E
 
 # Select object for comparison with baseline 2
-obj_index = 1  # 1 to 5 as A to E
+obj_index = 5  # 1 to 5 as A to E
 
 box1_pose = gymapi.Transform()
 box1_pose.p = gymapi.Vec3(1, -2, 0)
@@ -74,7 +74,7 @@ yaxis_pose.p = gymapi.Vec3(0, 0.25, 0.01)
 franka_pose = gymapi.Transform()
 franka_pose.p = gymapi.Vec3(0, 0, 0)
 
-table_dims = gymapi.Vec3(0.6, 1.0, 0.108)
+table_dims = gymapi.Vec3(0.8, 1.0, 0.108)
 table_pose = gymapi.Transform()
 table_pose.p = gymapi.Vec3(0.5, 0.0, 0.5 * table_dims.z)
 
@@ -441,7 +441,7 @@ def add_store(sim, gym, env, table_asset, shelf_asset, product_asset, index):
                                  box_pose, color_vec_crate, False, "product", index)
         elif paper_baseline == 2:
 
-            box_pose.p.x = 0.6 
+            box_pose.p.x = 0.4
             box_pose.p.y = 0
 
             box_handle = add_box(sim, gym, env, 
@@ -486,8 +486,14 @@ def get_default_franka_state(gym, robot_asset):
     default_dof_state["pos"] = default_dof_pos
     default_dof_state["pos"][3] = -2
     
-    if compare and paper_baseline == 1:
-        default_dof_state["pos"][0] = -.3
+    if compare:
+        if paper_baseline == 1:
+            default_dof_state["pos"][0] = -0.20
+            default_dof_state["pos"][1] = -0.271
+            default_dof_state["pos"][3] = -2.26
+        elif paper_baseline == 2:
+            default_dof_state["pos"][1] = -0.94
+            default_dof_state["pos"][3] = -2.80
 
     print(default_dof_state["pos"])
 
