@@ -86,7 +86,7 @@ class REACTIVE_TAMP:
         self.params = self.task_planner.update_params(self.params)
 
         # Update task and goal in the motion planner
-        print('task:', self.task_planner.task, 'goal:', self.task_planner.curr_goal)
+        # print('task:', self.task_planner.task, 'goal:', self.task_planner.curr_goal)
         self.motion_planner.update_task(self.task_planner.task, self.task_planner.curr_goal)
 
         # Update params in the motion planner

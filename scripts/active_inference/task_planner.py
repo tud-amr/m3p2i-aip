@@ -27,7 +27,7 @@ class PLANNER_SIMPLE:
         # self.curr_goal = torch.tensor([3, 3], device="cuda:0")
         # push or pull
         self.task = "hybrid"
-        self.curr_goal = torch.tensor([0, 0], device="cuda:0")
+        self.curr_goal = torch.tensor([-3.75, -3.75], device="cuda:0")
     
     def reset_plan(self):
         self.task = "None"

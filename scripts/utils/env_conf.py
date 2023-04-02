@@ -9,7 +9,8 @@ box1_pose = gymapi.Transform()
 box1_pose.p = gymapi.Vec3(1, -2, 0)
 
 box2_pose = gymapi.Transform()
-box2_pose.p = gymapi.Vec3(-2, 1, 0)
+box2_pose.p = gymapi.Vec3(-2, 1, 0)       # may push first
+# box2_pose.p = gymapi.Vec3(3.75, -3.75, 0) # at corner, pull first
 
 box3_pose = gymapi.Transform()
 box3_pose.p = gymapi.Vec3(3, 0, 0)

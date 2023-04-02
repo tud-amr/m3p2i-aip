@@ -323,7 +323,7 @@ class MPPI():
         
         time_2 = time.monotonic()
         gap_2 = format(time_2-time_1, '.5f')
-        print('cost gap 2', gap_2) # 0.02684
+        # print('cost gap 2', gap_2) # 0.02684
 
         # Actions is K x T x nu
         # States is K x T x nx
@@ -425,7 +425,7 @@ class MPPI():
 
         time_2 = time.monotonic()
         gap_2 = format(time_2-time_1, '.5f')
-        print('batch gap 2', gap_2) # 0.02701
+        # print('batch gap 2', gap_2) # 0.02701
 
         # bounded noise after bounding (some got cut off, so we don't penalize that in action cost)
         self.noise = self.perturbed_action - self.U
