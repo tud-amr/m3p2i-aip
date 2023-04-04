@@ -72,15 +72,17 @@ class FUSION_MPPI(mppi.MPPI):
         self.block_goal_pose_emdn_1 = torch.tensor([0.5, 0.3, 0.5, 0.0, 0.0, 0.0, 1.0], device=self.device)
         self.block_goal_pose_emdn_2 = torch.tensor([0.5, 0.3, 0.5, 0, 0, 0.7071068, 0.7071068], device=self.device) # Rotation 90 deg
 
-        self.block_goal_pose_ur5_c = torch.tensor([0.7, -0.05, 0.5, 0, 0, 0, 1], device=self.device)
-        self.block_goal_pose_ur5_l= torch.tensor([0.7, 0.2, 0.5,  0, 0, 0.258819, 0.9659258 ], device=self.device) # Rotation 30 deg
-        self.block_goal_pose_ur5_r= torch.tensor([0.7, -0.2, 0.5,  0, 0, -0.258819, 0.9659258 ], device=self.device) # Rotation -30 deg
+        self.block_goal_pose_ur5_c = torch.tensor([0.65, 0, 0.5, 0, 0, 0, 1], device=self.device)
+        self.block_goal_pose_ur5_l= torch.tensor([0.65, 0.2, 0.5,  0, 0, 0.258819, 0.9659258 ], device=self.device) # Rotation 30 deg
+        self.block_goal_pose_ur5_r= torch.tensor([0.65, -0.2, 0.5,  0, 0, -0.258819, 0.9659258 ], device=self.device) # Rotation -30 deg
 
         # Select goal according to test
         self.block_goal_pose = torch.clone(self.block_goal_pose_emdn_1)
+        self.block_ort_goal = torch.clone(self.block_goal_pose[3:7])
+        self.success = False
+        self.ee_goal = torch.tensor([0.4, 0., 0.3], device=self.device)
         # -----------------------------------------------------------------------------------------------------------------------------------
 
-        self.block_goal_ort = torch.tensor([0.0, 0.0, 0.0, 1], device=self.device)
         # Counter for periodic pinting
         self.count = 0
 
@@ -140,7 +142,7 @@ class FUSION_MPPI(mppi.MPPI):
         self.block_not_goal = torch.tensor([-2, 1], device=self.device)
         self.nav_goal = torch.tensor([3, 3], device=self.device)
         self.panda_hand_goal = torch.tensor([0.5, 0.0, 0.7, 1, 0, 0, 0], device=self.device)
-        self.joint_comfy = torch.tensor([0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1.58, 0., 1.86, 0.], device=self.device)
+        self.joint_comfy = torch.tensor([ 0., -0.94, 0., -2.8, 0., 1.8675001, 0.], device=self.device)
     def update_gym(self, gym, sim, viewer=None):
         self.gym = gym
         self.sim = sim
@@ -160,7 +162,6 @@ class FUSION_MPPI(mppi.MPPI):
 
         robot_to_block = r_pos - block_pos
         block_to_goal = self.block_goal[0:2] - block_pos
-        block_to_goal_ort = self.orientation_error(self.block_goal_ort, block_ort)
         
         robot_to_block_dist = torch.linalg.norm(robot_to_block, axis = 1)
         block_to_goal_dist = torch.linalg.norm(block_to_goal, axis = 1)
@@ -234,6 +235,7 @@ class FUSION_MPPI(mppi.MPPI):
         return error_batch
 
     def get_panda_push_cost(self, joint_pos):
+        
         r_pose = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))[self.ee_indexes, 0:7]
         r_pos = r_pose[:,0:3]
         r_ort = r_pose[:,3:7]
@@ -242,9 +244,14 @@ class FUSION_MPPI(mppi.MPPI):
         block_ort = torch.cat((torch.split(torch.clone(self.root_ort), int(torch.clone(self.root_ort).size(dim=0)/self.num_envs))),1)[self.block_index,:].reshape(self.num_envs,4)
         robot_to_block = r_pos - block_pos
 
+        robot_euler = pytorch3d.transforms.matrix_to_euler_angles(pytorch3d.transforms.quaternion_to_matrix(r_ort), "ZYX")
+        ee_align_cost = torch.linalg.norm(robot_euler - self.ort_goal_euler, axis=1)
+        
+        if self.success == True:
+            return torch.linalg.norm(r_pos-self.ee_goal, axis = 1) + ee_align_cost
+
         # block_to_goal = self.block_goal[0:2] - block_pos[:,0:2]
         block_to_goal = self.block_goal_pose[0:2] - block_pos[:,0:2]
-
         block_to_goal_ort = self.orientation_error(self.block_goal_pose[3:7], block_ort)
 
         robot_to_block_dist = torch.linalg.norm(robot_to_block[:, 0:2], axis = 1)
@@ -255,15 +262,14 @@ class FUSION_MPPI(mppi.MPPI):
 
         block_to_goal_ort = torch.nan_to_num(block_to_goal_ort, nan=1.0)
 
-        # block_yaw = torch.atan2(2.0 * (block_ort[:,-1] * block_ort[:,2] + block_ort[:,0] * block_ort[:,1]), block_ort[:,-1] * block_ort[:,-1] + block_ort[:,0] * block_ort[:,0] - block_ort[:,1] * block_ort[:,1] - block_ort[:,2] * block_ort[:,2])
+        block_yaw = torch.atan2(2.0 * (block_ort[:,-1] * block_ort[:,2] + block_ort[:,0] * block_ort[:,1]), block_ort[:,-1] * block_ort[:,-1] + block_ort[:,0] * block_ort[:,0] - block_ort[:,1] * block_ort[:,1] - block_ort[:,2] * block_ort[:,2])
+        goal_yaw = torch.atan2(2.0 * (self.block_ort_goal[-1] * self.block_ort_goal[2] + self.block_ort_goal[0] * self.block_ort_goal[1]), self.block_ort_goal[-1] * self.block_ort_goal[-1] + self.block_ort_goal[0] * self.block_ort_goal[0] - self.block_ort_goal[1] * self.block_ort_goal[1] - self.block_ort_goal[2] * self.block_ort_goal[2])
 
         hoover_height = 0.130
         ee_hover_cost= torch.abs(ee_height - hoover_height) 
-        dist_cost = 20*robot_to_block_dist + 100*block_to_goal_dist + 10*block_to_goal_ort
+        dist_cost = 0.2*robot_to_block_dist + 100*block_to_goal_dist + 10*block_to_goal_ort
 
-        robot_euler = pytorch3d.transforms.matrix_to_euler_angles(pytorch3d.transforms.quaternion_to_matrix(r_ort), "ZYX")
-
-        ee_align_cost = torch.linalg.norm(robot_euler - self.ort_goal_euler, axis=1)
+        
 
         align_cost = torch.sum(robot_to_block[:,0:2]*block_to_goal, 1)/(robot_to_block_dist*block_to_goal_dist)
         posture_cost = align_cost + 4*ee_align_cost + 20*ee_hover_cost
@@ -275,13 +281,16 @@ class FUSION_MPPI(mppi.MPPI):
             # Ey = torch.abs(self.block_goal[1]-block_pos[-1,1])
             Ex = torch.abs(self.block_goal_pose[0]-block_pos[-1,0])
             Ey = torch.abs(self.block_goal_pose[1]-block_pos[-1,1])
-            Etheta = torch.abs(block_to_goal_ort[-1])
-            
+            # Etheta = torch.abs(block_to_goal_ort[-1])
+            Etheta = torch.abs(block_yaw[-1] - goal_yaw)
             metric_1 = 1.5*(Ex+Ey)+0.01*Etheta
             print("Metric Baxter", metric_1)
             print("Angle", Etheta)
-            if Ex < 0.025 and Ey < 0.01 and Etheta < 0.052:
+
+            # Ex < 0.025 and Ey < 0.01 and Etheta < 0.052:
+            if Ex < 0.05 and Ey < 0.025 and Etheta < 0.17:
                 print("Success")
+                self.success = True
 
             self.count = 0
         else:
