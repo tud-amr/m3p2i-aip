@@ -13,12 +13,12 @@ torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 # Make the environment and simulation
 allow_viewer = False
 visualize_rollouts = False
-num_envs = 400
+num_envs = 500
 spacing = 2.0
 robot = "panda_no_hand"                     # choose from "point_robot", "boxer", "albert", "panda"
 environment_type = "store"          # choose from "arena", "battery", "store"
 control_type = "vel_control"        # choose from "vel_control", "pos_control", "force_control"
-dt = 0.04
+dt = 0.02
 substeps = 1
 
 gym, sim, viewer, envs, robot_handles = sim_init.make(allow_viewer, num_envs, spacing, robot, environment_type, control_type, dt=dt, substeps=substeps)

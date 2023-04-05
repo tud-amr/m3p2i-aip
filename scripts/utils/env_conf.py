@@ -11,14 +11,14 @@ paper_baseline = 2 # 1: Baxter, 2: UR5
 
                 #  l      w      h      mu     m      x
 obj_baselines = [[0.1,   0.1 ,  0.05, 0.150, 0.150, 0.40],     # Baseline 1
-                 [0.116, 0.116, 0.05, 0.637, 0.016, 0.35],     # Baseline 2, A
-                 [0.168, 0.237, 0.03, 0.232, 0.615, 0.40],     # Baseline 2, B
-                 [0.198, 0.198, 0.08, 0.198, 0.565, 0.50],     # Baseline 2, C
-                 [0.166, 0.228, 0.10, 0.312, 0.587, 0.41],     # Baseline 2, D
-                 [0.153, 0.462, 0.04, 0.181, 0.506, 0.4],]    # Baseline 2, E
+                 [0.116, 0.116, 0.06, 0.637, 0.016, 0.37],     # Baseline 2, A
+                 [0.168, 0.237, 0.05, 0.232, 0.615, 0.4],     # Baseline 2, B
+                 [0.198, 0.198, 0.06, 0.198, 0.565, 0.42],     # Baseline 2, C
+                 [0.166, 0.228, 0.08, 0.312, 0.587, 0.42],     # Baseline 2, D
+                 [0.153, 0.462, 0.05, 0.181, 0.506, 0.4],]    # Baseline 2, E
 
 # Select object for comparison with baseline 2
-obj_index = 1  # 1 to 5 as A to E
+obj_index = 5  # 1 to 5 as A to E
 
 box1_pose = gymapi.Transform()
 box1_pose.p = gymapi.Vec3(1, -2, 0)
@@ -445,8 +445,8 @@ def add_store(sim, gym, env, table_asset, shelf_asset, product_asset, index):
             box_pose.p.y = 0
 
             box_handle = add_box(sim, gym, env, 
-                                 obj_baselines[obj_index][0]+ np.random.uniform(-0.001, 0.001),     # Add randomness to sizes
-                                 obj_baselines[obj_index][1]+ np.random.uniform(-0.001, 0.001), 
+                                 obj_baselines[obj_index][0]+ np.random.uniform(-0.005, 0.005),     # Add randomness to sizes
+                                 obj_baselines[obj_index][1]+ np.random.uniform(-0.005, 0.005), 
                                  obj_baselines[obj_index][2], 
                                  box_pose, color_vec_crate, False, "product", index)
         else:
@@ -460,7 +460,7 @@ def add_store(sim, gym, env, table_asset, shelf_asset, product_asset, index):
         if paper_baseline == 1:
             box_props[0].mass = np.random.uniform(0.1, 0.3)
         elif paper_baseline == 2:
-            box_props[0].mass = obj_baselines[obj_index][4] # np.random.uniform(0.01, 0.65)
+            box_props[0].mass = obj_baselines[obj_index][4] + np.random.uniform(-0.3*obj_baselines[obj_index][4], 0.3*obj_baselines[obj_index][4])
 
     gym.set_actor_rigid_body_properties(env, box_handle, box_props)  
     box_props = gym.get_actor_rigid_body_properties(env, box_handle)
@@ -554,7 +554,7 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, e
             shape_props[0].torsion_friction = np.random.uniform(0.001, 0.01)
 
             if compare and paper_baseline == 2:
-                shape_props[0].friction = obj_baselines[obj_index][3] # np.random.uniform(0.1, 0.65)
+                shape_props[0].friction = obj_baselines[obj_index][3] + np.random.uniform(-0.3*obj_baselines[obj_index][3], 0.3*obj_baselines[obj_index][3])
 
             gym.set_actor_rigid_shape_properties(env, table_handle, shape_props)
             # print(shape_props[0].friction)

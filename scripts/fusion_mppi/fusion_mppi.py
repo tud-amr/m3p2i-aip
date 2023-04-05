@@ -73,11 +73,11 @@ class FUSION_MPPI(mppi.MPPI):
         self.block_goal_pose_emdn_2 = torch.tensor([0.5, 0.3, 0.5, 0, 0, 0.7071068, 0.7071068], device=self.device) # Rotation 90 deg
 
         self.block_goal_pose_ur5_c = torch.tensor([0.65, 0, 0.5, 0, 0, 0, 1], device=self.device)
-        self.block_goal_pose_ur5_l= torch.tensor([0.65, 0.2, 0.5,  0, 0, 0.258819, 0.9659258 ], device=self.device) # Rotation 30 deg
-        self.block_goal_pose_ur5_r= torch.tensor([0.65, -0.2, 0.5,  0, 0, -0.258819, 0.9659258 ], device=self.device) # Rotation -30 deg
+        self.block_goal_pose_ur5_l= torch.tensor([0.7, 0.2, 0.5,  0, 0, 0.258819, 0.9659258 ], device=self.device) # Rotation 30 deg
+        self.block_goal_pose_ur5_r= torch.tensor([0.7, -0.2, 0.5,  0, 0, -0.258819, 0.9659258 ], device=self.device) # Rotation -30 deg
 
         # Select goal according to test
-        self.block_goal_pose = torch.clone(self.block_goal_pose_emdn_1)
+        self.block_goal_pose = torch.clone(self.block_goal_pose_ur5_l)
         self.block_ort_goal = torch.clone(self.block_goal_pose[3:7])
         self.success = False
         self.ee_goal = torch.tensor([0.4, 0., 0.3], device=self.device)
@@ -245,14 +245,14 @@ class FUSION_MPPI(mppi.MPPI):
         robot_to_block = r_pos - block_pos
 
         robot_euler = pytorch3d.transforms.matrix_to_euler_angles(pytorch3d.transforms.quaternion_to_matrix(r_ort), "ZYX")
-        ee_align_cost = torch.linalg.norm(robot_euler - self.ort_goal_euler, axis=1)
+        ee_align_cost = torch.linalg.norm(robot_euler[:,0:2] - self.ort_goal_euler[0:2], axis=1)
         
         if self.success == True:
             return torch.linalg.norm(r_pos-self.ee_goal, axis = 1) + ee_align_cost
 
         # block_to_goal = self.block_goal[0:2] - block_pos[:,0:2]
         block_to_goal = self.block_goal_pose[0:2] - block_pos[:,0:2]
-        block_to_goal_ort = self.orientation_error(self.block_goal_pose[3:7], block_ort)
+        # block_to_goal_ort = self.orientation_error(self.block_goal_pose[3:7], block_ort)
 
         robot_to_block_dist = torch.linalg.norm(robot_to_block[:, 0:2], axis = 1)
         block_to_goal_dist = torch.linalg.norm(block_to_goal, axis = 1)
@@ -260,19 +260,20 @@ class FUSION_MPPI(mppi.MPPI):
         # print(block_to_goal_ort)
         # block_euler = pytorch3d.transforms.matrix_to_euler_angles(pytorch3d.transforms.quaternion_to_matrix(block_ort), "ZYX")
 
-        block_to_goal_ort = torch.nan_to_num(block_to_goal_ort, nan=1.0)
+        # block_to_goal_ort = torch.nan_to_num(block_to_goal_ort, nan=1.0)
 
         block_yaw = torch.atan2(2.0 * (block_ort[:,-1] * block_ort[:,2] + block_ort[:,0] * block_ort[:,1]), block_ort[:,-1] * block_ort[:,-1] + block_ort[:,0] * block_ort[:,0] - block_ort[:,1] * block_ort[:,1] - block_ort[:,2] * block_ort[:,2])
         goal_yaw = torch.atan2(2.0 * (self.block_ort_goal[-1] * self.block_ort_goal[2] + self.block_ort_goal[0] * self.block_ort_goal[1]), self.block_ort_goal[-1] * self.block_ort_goal[-1] + self.block_ort_goal[0] * self.block_ort_goal[0] - self.block_ort_goal[1] * self.block_ort_goal[1] - self.block_ort_goal[2] * self.block_ort_goal[2])
+        block_to_goal_ort = torch.abs(block_yaw - goal_yaw)
 
-        hoover_height = 0.130
+
+        hoover_height = 0.135
         ee_hover_cost= torch.abs(ee_height - hoover_height) 
-        dist_cost = 0.2*robot_to_block_dist + 100*block_to_goal_dist + 10*block_to_goal_ort
+        dist_cost = 10*robot_to_block_dist + 220*block_to_goal_dist + 160*block_to_goal_ort # + 50*torch.linalg.norm(self.block_goal_pose[1] - block_pos[:,1])
 
-        
+        align_cost = torch.sum(robot_to_block[:,0:2]*block_to_goal, 1)/(robot_to_block_dist*block_to_goal_dist)+1
 
-        align_cost = torch.sum(robot_to_block[:,0:2]*block_to_goal, 1)/(robot_to_block_dist*block_to_goal_dist)
-        posture_cost = align_cost + 4*ee_align_cost + 20*ee_hover_cost
+        posture_cost = 120*align_cost + 1*ee_align_cost + 160*ee_hover_cost
         
         # Evaluation metrics 
         if self.count > 300:
@@ -285,6 +286,8 @@ class FUSION_MPPI(mppi.MPPI):
             Etheta = torch.abs(block_yaw[-1] - goal_yaw)
             metric_1 = 1.5*(Ex+Ey)+0.01*Etheta
             print("Metric Baxter", metric_1)
+            print("Ex", Ex)
+            print("Ey", Ey)
             print("Angle", Etheta)
 
             # Ex < 0.025 and Ey < 0.01 and Etheta < 0.052:
