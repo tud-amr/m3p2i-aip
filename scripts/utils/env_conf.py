@@ -4,6 +4,7 @@ import torch
 import numpy as np
 
 # Flag for comparison
+# -------------------------------------------------------------------------------
 compare = True
 paper_baseline = 2 # 1: Baxter, 2: UR5
 
@@ -19,6 +20,7 @@ obj_baselines = [[0.1,   0.1 ,  0.05, 0.150, 0.150, 0.40],     # Baseline 1
 
 # Select object for comparison with baseline 2
 obj_index = 5  # 1 to 5 as A to E
+# -------------------------------------------------------------------------------
 
 box1_pose = gymapi.Transform()
 box1_pose.p = gymapi.Vec3(1, -2, 0)
@@ -422,7 +424,9 @@ def add_store(sim, gym, env, table_asset, shelf_asset, product_asset, index):
     shelf_handle = gym.create_actor(env, shelf_asset, shelf_pose, "shelf", index, 0)
     hageslag_l = 0.062
     hageslag_h = 0.103
-
+    
+    # Comparison
+    # ------------------------------------------------------------------------------------------------------------------
     if compare == True:
         if paper_baseline == 1:
             # Comparison parameters

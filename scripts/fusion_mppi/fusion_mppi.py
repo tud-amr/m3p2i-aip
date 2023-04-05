@@ -76,15 +76,15 @@ class FUSION_MPPI(mppi.MPPI):
         self.block_goal_pose_ur5_l= torch.tensor([0.7, 0.2, 0.5,  0, 0, 0.258819, 0.9659258 ], device=self.device) # Rotation 30 deg
         self.block_goal_pose_ur5_r= torch.tensor([0.7, -0.2, 0.5,  0, 0, -0.258819, 0.9659258 ], device=self.device) # Rotation -30 deg
 
+        self.hoover_height = 0.135
+
         # Select goal according to test
-        self.block_goal_pose = torch.clone(self.block_goal_pose_ur5_c)
+        self.block_goal_pose = torch.clone(self.block_goal_pose_ur5_l)
         self.block_ort_goal = torch.clone(self.block_goal_pose[3:7])
         self.success = False
         self.ee_goal = torch.tensor([0.4, 0., 0.3], device=self.device)
-        # -----------------------------------------------------------------------------------------------------------------------------------
-
-        # Counter for periodic pinting
         self.count = 0
+        # -----------------------------------------------------------------------------------------------------------------------------------
 
         # Additional variables for the environment or robot
         if self.env_type == "arena":
@@ -195,102 +195,56 @@ class FUSION_MPPI(mppi.MPPI):
 
         return cost
 
-    def orientation_error(self, q1, q2_batch):
-        """
-        Computes the orientation error between a single quaternion and a batch of quaternions.
-        
-        Parameters:
-        -----------
-        q1 : torch.Tensor
-            A tensor of shape (4,) representing the first quaternion.
-        q2_batch : torch.Tensor
-            An tensor of shape (batch_size, 4) representing the second set of quaternions.
-            
-        Returns:
-        --------
-        error_batch : torch.Tensor
-            An tensor of shape (batch_size,) containing the orientation error between the first quaternion and each quaternion in the batch.
-        """
-        
-        # Expand the first quaternion to match the batch size of the second quaternion
-        q1_batch = q1.expand(q2_batch.shape[0], -1)
-        
-        # Normalize the quaternions
-        q1_batch = q1_batch / torch.norm(q1_batch, dim=1, keepdim=True)
-        q2_batch = q2_batch / torch.norm(q2_batch, dim=1, keepdim=True)
-        
-        # Compute the dot product between the quaternions in the batch
-        dot_product_batch = torch.sum(q1_batch * q2_batch, dim=1)
-        
-        # Compute the angle between the quaternions in the batch
-        # chatgpt
-        #angle_batch = 2 * torch.acos(torch.abs(dot_product_batch))
-        # method2
-        angle_batch = torch.acos(2*torch.square(dot_product_batch)-1)
-        # method 3
-        # angle_batch = 1 - torch.square(dot_product_batch)
-        # Return the orientation error for each quaternion in the batch
-        error_batch = angle_batch
-        #print(error_batch[-1])
-        return error_batch
-
     def get_panda_push_cost(self, joint_pos):
         
+        # Collect data
         r_pose = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))[self.ee_indexes, 0:7]
         r_pos = r_pose[:,0:3]
         r_ort = r_pose[:,3:7]
         ee_height = r_pose[:,2]
         block_pos = torch.cat((torch.split(torch.clone(self.root_positions[:,0:3]), int(torch.clone(self.root_positions[:,0:3]).size(dim=0)/self.num_envs))),1)[self.block_index,:].reshape(self.num_envs,3)
         block_ort = torch.cat((torch.split(torch.clone(self.root_ort), int(torch.clone(self.root_ort).size(dim=0)/self.num_envs))),1)[self.block_index,:].reshape(self.num_envs,4)
-        robot_to_block = r_pos - block_pos
-
-        robot_euler = pytorch3d.transforms.matrix_to_euler_angles(pytorch3d.transforms.quaternion_to_matrix(r_ort), "ZYX")
-        ee_align_cost = torch.linalg.norm(robot_euler[:,0:2] - self.ort_goal_euler[0:2], axis=1)
         
-        if self.success == True:
-            return torch.linalg.norm(r_pos-self.ee_goal, axis = 1) + ee_align_cost
-
-        # block_to_goal = self.block_goal[0:2] - block_pos[:,0:2]
-        block_to_goal = self.block_goal_pose[0:2] - block_pos[:,0:2]
-        # block_to_goal_ort = self.orientation_error(self.block_goal_pose[3:7], block_ort)
-
+        # Distances robot
+        robot_to_block = r_pos - block_pos
         robot_to_block_dist = torch.linalg.norm(robot_to_block[:, 0:2], axis = 1)
+        robot_euler = pytorch3d.transforms.matrix_to_euler_angles(pytorch3d.transforms.quaternion_to_matrix(r_ort), "ZYX")
+        
+        
+        # Distances block
+        block_to_goal = self.block_goal_pose[0:2] - block_pos[:,0:2]
         block_to_goal_dist = torch.linalg.norm(block_to_goal, axis = 1)
-
-        # print(block_to_goal_ort)
-        # block_euler = pytorch3d.transforms.matrix_to_euler_angles(pytorch3d.transforms.quaternion_to_matrix(block_ort), "ZYX")
-
-        # block_to_goal_ort = torch.nan_to_num(block_to_goal_ort, nan=1.0)
-
+        # Compute yaw from quaternion with formula directly
         block_yaw = torch.atan2(2.0 * (block_ort[:,-1] * block_ort[:,2] + block_ort[:,0] * block_ort[:,1]), block_ort[:,-1] * block_ort[:,-1] + block_ort[:,0] * block_ort[:,0] - block_ort[:,1] * block_ort[:,1] - block_ort[:,2] * block_ort[:,2])
         goal_yaw = torch.atan2(2.0 * (self.block_ort_goal[-1] * self.block_ort_goal[2] + self.block_ort_goal[0] * self.block_ort_goal[1]), self.block_ort_goal[-1] * self.block_ort_goal[-1] + self.block_ort_goal[0] * self.block_ort_goal[0] - self.block_ort_goal[1] * self.block_ort_goal[1] - self.block_ort_goal[2] * self.block_ort_goal[2])
         block_to_goal_ort = torch.abs(block_yaw - goal_yaw)
 
+        # Costs
+        dist_cost = 10*robot_to_block_dist + 220*block_to_goal_dist + 190*block_to_goal_ort
 
-        hoover_height = 0.135
-        ee_hover_cost= torch.abs(ee_height - hoover_height) 
-        dist_cost = 10*robot_to_block_dist + 220*block_to_goal_dist + 190*block_to_goal_ort # + 50*torch.linalg.norm(self.block_goal_pose[1] - block_pos[:,1])
+        ee_align_cost = torch.linalg.norm(robot_euler[:,0:2] - self.ort_goal_euler[0:2], axis=1)
+        
+        ee_hover_cost= torch.abs(ee_height - self.hoover_height) 
 
         align_cost = torch.sum(robot_to_block[:,0:2]*block_to_goal, 1)/(robot_to_block_dist*block_to_goal_dist)+1
 
-        posture_cost = 150*align_cost + 1*ee_align_cost + 180*ee_hover_cost
+        posture_cost = 150*align_cost + ee_align_cost + 180*ee_hover_cost
         
         # Evaluation metrics 
+        # ------------------------------------------------------------------------
         if self.count > 300:
-            # Comparison
-            # Ex = torch.abs(self.block_goal[0]-block_pos[-1,0])
-            # Ey = torch.abs(self.block_goal[1]-block_pos[-1,1])
+            
             Ex = torch.abs(self.block_goal_pose[0]-block_pos[-1,0])
             Ey = torch.abs(self.block_goal_pose[1]-block_pos[-1,1])
-            # Etheta = torch.abs(block_to_goal_ort[-1])
             Etheta = torch.abs(block_yaw[-1] - goal_yaw)
+            
             metric_1 = 1.5*(Ex+Ey)+0.01*Etheta
             print("Metric Baxter", metric_1)
             print("Ex", Ex)
             print("Ey", Ey)
             print("Angle", Etheta)
 
-            # Ex < 0.025 and Ey < 0.01 and Etheta < 0.052:
+            # Ex < 0.025 and Ey < 0.01 and Etheta < 0.052:   # Stricter metric
             if Ex < 0.05 and Ey < 0.025 and Etheta < 0.17:
                 print("Success")
                 self.success = True
@@ -298,7 +252,12 @@ class FUSION_MPPI(mppi.MPPI):
             self.count = 0
         else:
             self.count +=1
-
+        
+        # Move to cartesian pose after succesful pushing
+        if self.success == True:
+            return torch.linalg.norm(r_pos-self.ee_goal, axis = 1) + ee_align_cost
+        # ------------------------------------------------------------------------
+        
         return dist_cost + 3*posture_cost
 
     def get_pull_cost(self, r_pos):
