@@ -28,8 +28,8 @@ actors_per_env = int(num_actors/num_envs)
 bodies_per_env = gym.get_env_rigid_body_count(envs[0])
 
 # For storm mppi mode
-sigma = 1.
-max_vel = 0.6
+sigma = 0.8
+max_vel = 0.4
 
 # Creater mppi object
 mppi = fusion_mppi.FUSION_MPPI(

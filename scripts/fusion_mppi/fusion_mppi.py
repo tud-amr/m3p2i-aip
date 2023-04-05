@@ -77,7 +77,7 @@ class FUSION_MPPI(mppi.MPPI):
         self.block_goal_pose_ur5_r= torch.tensor([0.7, -0.2, 0.5,  0, 0, -0.258819, 0.9659258 ], device=self.device) # Rotation -30 deg
 
         # Select goal according to test
-        self.block_goal_pose = torch.clone(self.block_goal_pose_ur5_l)
+        self.block_goal_pose = torch.clone(self.block_goal_pose_ur5_c)
         self.block_ort_goal = torch.clone(self.block_goal_pose[3:7])
         self.success = False
         self.ee_goal = torch.tensor([0.4, 0., 0.3], device=self.device)
@@ -269,11 +269,11 @@ class FUSION_MPPI(mppi.MPPI):
 
         hoover_height = 0.135
         ee_hover_cost= torch.abs(ee_height - hoover_height) 
-        dist_cost = 10*robot_to_block_dist + 220*block_to_goal_dist + 160*block_to_goal_ort # + 50*torch.linalg.norm(self.block_goal_pose[1] - block_pos[:,1])
+        dist_cost = 10*robot_to_block_dist + 220*block_to_goal_dist + 190*block_to_goal_ort # + 50*torch.linalg.norm(self.block_goal_pose[1] - block_pos[:,1])
 
         align_cost = torch.sum(robot_to_block[:,0:2]*block_to_goal, 1)/(robot_to_block_dist*block_to_goal_dist)+1
 
-        posture_cost = 120*align_cost + 1*ee_align_cost + 160*ee_hover_cost
+        posture_cost = 150*align_cost + 1*ee_align_cost + 180*ee_hover_cost
         
         # Evaluation metrics 
         if self.count > 300:
