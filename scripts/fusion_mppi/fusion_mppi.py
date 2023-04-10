@@ -111,24 +111,28 @@ class FUSION_MPPI(mppi.MPPI):
 
     def get_navigation_cost(self):
         return torch.clamp(torch.linalg.norm(self.robot_pos - self.nav_goal, axis=1)-0.05, min=0, max=1999) 
+    
+    def calculate_dist(self):
+        self.robot_to_block = self.robot_pos - self.block_pos
+        self.block_to_goal = self.block_goal - self.block_pos
+
+        self.robot_to_block_dist = torch.linalg.norm(self.robot_to_block, axis = 1)
+        self.block_to_goal_dist = torch.linalg.norm(self.block_to_goal, axis = 1)
+        
+        self.dist_cost = self.robot_to_block_dist + self.block_to_goal_dist * 5
+        self.cos_theta = torch.sum(self.robot_to_block*self.block_to_goal, 1)/(self.robot_to_block_dist*self.block_to_goal_dist)
 
     def get_push_cost(self):
-        robot_to_block = self.robot_pos - self.block_pos
-        block_to_goal = self.block_goal - self.block_pos
+        # Calculate dist cost
+        self.calculate_dist()
 
-        robot_to_block_dist = torch.linalg.norm(robot_to_block, axis = 1)
-        block_to_goal_dist = torch.linalg.norm(block_to_goal, axis = 1)
-        # robot_to_goal_dist = torch.linalg.norm(self.robot_pos- self.block_goal, axis = 1)
-        dist_cost = robot_to_block_dist + block_to_goal_dist * 5
-
-        # Force the robot behind block and goal,
-        # align_cost is actually the cos(theta)+1
-        align_cost = torch.sum(robot_to_block*block_to_goal, 1)/(robot_to_block_dist*block_to_goal_dist)
-        align_cost = self.align_weight[self.robot] * (align_cost+1) * 5
+        # Force the robot behind block and goal, align_cost is actually cos(theta)+1
+        align_cost = self.align_weight[self.robot] * (self.cos_theta + 1) * 5
         # print('push align', align_cost[:10])
         # if self.robot != 'boxer':
-        #     align_cost += torch.abs(robot_to_goal_dist - block_to_goal_dist - self.align_offset[self.robot])
-        cost = dist_cost #+ align_cost
+        #     align_cost += torch.abs(self.robot_to_goal_dist - self.block_to_goal_dist - self.align_offset[self.robot])
+
+        cost = self.dist_cost #+ align_cost
 
         return cost
     
@@ -146,21 +150,15 @@ class FUSION_MPPI(mppi.MPPI):
         # Apply suction/magnetic force
         self.gym.apply_rigid_body_force_tensors(self.sim, gymtorch.unwrap_tensor(torch.reshape(suction_force, (self.num_envs*self.bodies_per_env, 3))), None, gymapi.ENV_SPACE)
 
-        robot_to_block = self.robot_pos - self.block_pos
-        block_to_goal = self.block_goal - self.block_pos
+        # Calculate dist cost
+        self.calculate_dist()
 
-        robot_to_block_dist = torch.linalg.norm(robot_to_block, axis = 1)
-        block_to_goal_dist = torch.linalg.norm(block_to_goal, axis = 1)
-        dist_cost = robot_to_block_dist + block_to_goal_dist * 5
-        # print('block to goal', block_to_goal_dist * 5)
-
-        # Force the robot to be in the middle between block and goal,
-        # align_cost is actually the 1-cos(theta)
-        align_cost = torch.sum(robot_to_block*block_to_goal, 1)/(robot_to_block_dist*block_to_goal_dist)
-        align_cost = (1-align_cost) * 5
+        # Force the robot to be in the middle between block and goal, align_cost is actually 1-cos(theta)
+        align_cost = (1 - self.cos_theta) * 5
         # print('pull align', align_cost[-10:])
 
-        cost = dist_cost #+ align_cost # [num_envs]
+        cost = self.dist_cost #+ align_cost # [num_envs]
+
         return cost
 
     def get_push_not_goal_cost(self):
