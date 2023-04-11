@@ -49,6 +49,8 @@ class SIM():
         self.task_freq_array = np.array([])
         self.motion_freq_array = np.array([])
         self.action_seq = torch.zeros(self.dofs_per_robot, device="cuda:0")
+        self.robot_pos_seq = self.robot_pos.clone()
+        self.block_pos_seq = self.block_pos.clone()
 
         # Set server address
         self.server_address = './uds_socket'
@@ -108,12 +110,9 @@ class SIM():
 
                 # Visualize optimal trajectory
                 #sim_init.visualize_traj(gym, viewer, envs[0], actions, dof_states)
-
-                # Get action sequence
-                self.action = skill_utils.apply_fk(self.robot, actions[0])
-                self.action_seq = torch.cat((self.action_seq, self.action), 0)
                 
-                # Apply optimal action
+                # Apply forward kikematics and optimal action
+                self.action = skill_utils.apply_fk(self.robot, actions[0])
                 self.gym.set_dof_velocity_target_tensor(self.sim, gymtorch.unwrap_tensor(self.action))
 
                 if self.suction_active:  
@@ -137,8 +136,11 @@ class SIM():
                 sim_init.step(self.gym, self.sim)
                 sim_init.refresh_states(self.gym, self.sim)
 
-                # Step rendering
+                # Step rendering and store data
                 self.sim_time = np.append(self.sim_time, t_prev)
+                self.action_seq = torch.cat((self.action_seq, self.action), 0)
+                self.robot_pos_seq = torch.cat((self.robot_pos_seq, self.robot_pos), 0)
+                self.block_pos_seq = torch.cat((self.block_pos_seq, self.block_pos), 0)
                 t_now = time.monotonic()
                 # print('Whole freq', format(1/(t_now-t_prev), '.2f'))
                 if (t_now - t_prev) < self.dt:
@@ -146,36 +148,52 @@ class SIM():
                 else:
                     sim_init.step_rendering(self.gym, self.sim, self.viewer, sync_frame_time=False)
                 t_prev = t_now
-
                 self.next_fps_report, self.frame_count, self.t1 = sim_init.time_logging(self.gym, self.sim, self.next_fps_report, self.frame_count, self.t1, self.num_envs, freq_data)
 
     def plot(self):
         # Saving and plotting
         self.sim_time-= self.sim_time[0]
         self.sim_time = np.append(0, self.sim_time)
+        ctrl_input = self.action_seq.reshape(len(self.sim_time), self.dofs_per_robot).cpu().numpy()
+        robot_pos_array = self.robot_pos_seq.cpu().numpy()
+        block_pos_array = self.block_pos_seq.cpu().numpy()
+        dist_array = np.linalg.norm(robot_pos_array - block_pos_array, axis=1)
 
-        num_dof = int(list(self.action.size())[0])
-        self.action_seq = self.action_seq.reshape(len(self.sim_time), num_dof)
-        ctrl_input = np.zeros([len(self.sim_time), num_dof])
-
-        fig, axs = plt.subplots(num_dof)
-        fig.suptitle('Control Inputs')
+        # Draw the control inputs
+        fig1, axs1 = plt.subplots(self.dofs_per_robot)
+        fig1.suptitle('Control Inputs')
         plot_colors = ['hotpink','darkviolet','mediumblue']
-
-        if self.robot == "point_robot" or self.robot == "heijn":
+        if self.robot in ['point_robot', 'heijn']:
             label = ['x_vel', 'y_vel', 'theta_vel']
-        elif self.robot == "boxer":
+        elif self.robot == 'boxer':
             label = ['r_vel', 'l_vel']
+        for j in range(self.dofs_per_robot):
+            axs1[j].plot(self.sim_time, ctrl_input[:,j], color=plot_colors[j], marker=".")
+            axs1[j].legend([label[j]])
+        axs1[-1].set(xlabel = 'Time [s]')
 
-        for j in range(num_dof):
-            ctrl_input[:,j] = self.action_seq[:,j].tolist()
-            axs[j].plot(self.sim_time, ctrl_input[:,j], color=plot_colors[j], marker=".")
-            axs[j].legend([label[j]])
-            axs[j].set(xlabel = 'Time [s]')
+        # Draw the pos of robot and block
+        fig2, axs2 = plt.subplots(3)
+        fig2.suptitle('Robot and Block Pos')
+        label_pos = ['x_pos', 'y_pos', 'dist']
+        for i in range(2):
+            axs2[i].plot(self.sim_time, robot_pos_array[:, i], color=plot_colors[0], marker=".")
+            axs2[i].plot(self.sim_time, block_pos_array[:, i], color=plot_colors[1], marker=".")
+            axs2[i].legend([label_pos[i]])
+        axs2[-1].set(xlabel = 'Time [s]')
+        axs2[2].plot(self.sim_time, dist_array, color=plot_colors[2], marker=".")
+        axs2[2].legend([label_pos[2]])
 
-        print("Avg. simulation frequency ", format(len(self.action_seq)/self.sim_time[-1], '.2f'))
-        print("Avg. task planner frequency", format(np.average(self.task_freq_array), '.2f'))
-        print("Avg. motion planner frequency", format(np.average(self.motion_freq_array[np.nonzero(self.motion_freq_array)]), '.2f'))
+        # Calculate metrics
+        print('Avg. simulation frequency', format(len(self.action_seq)/self.sim_time[-1], '.2f'))
+        print('Avg. task planner frequency', format(np.average(self.task_freq_array), '.2f'))
+        print('Avg. motion planner frequency', format(np.average(self.motion_freq_array[np.nonzero(self.motion_freq_array)]), '.2f'))
+        robot_path_array = robot_pos_array[1:, :] - robot_pos_array[:-1, :]
+        block_path_array = block_pos_array[1:, :] - block_pos_array[:-1, :]
+        robot_path_length = np.sum(np.linalg.norm(robot_path_array, axis=1))
+        block_path_length = np.sum(np.linalg.norm(block_path_array, axis=1))
+        print('Robot path length', format(robot_path_length, '.2f'))
+        print('Block path length', format(block_path_length, '.2f'))
         plt.show()
 
     def destroy(self):
