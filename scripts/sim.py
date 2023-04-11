@@ -31,6 +31,7 @@ class SIM():
         self.block_pos = states_dict["block_pos"]
         self.robot_pos = states_dict["robot_pos"]
         self.robot_vel = states_dict["robot_vel"]
+        self.dofs_per_robot = states_dict["dofs_per_robot"]
         self.initial_root_states = self.root_states.clone()
         self.initial_dof_states = self.dof_states.clone()
 
@@ -39,7 +40,7 @@ class SIM():
         self.block_index = params.block_index
         self.kp_suction = params.kp_suction
 
-        # Time logging
+        # Data logging
         self.frame_count = 0
         self.next_fps_report = 2.0
         self.t1 = 0
@@ -47,6 +48,7 @@ class SIM():
         self.sim_time = np.array([])
         self.task_freq_array = np.array([])
         self.motion_freq_array = np.array([])
+        self.action_seq = torch.zeros(self.dofs_per_robot, device="cuda:0")
 
         # Set server address
         self.server_address = './uds_socket'
@@ -107,18 +109,8 @@ class SIM():
                 # Visualize optimal trajectory
                 #sim_init.visualize_traj(gym, viewer, envs[0], actions, dof_states)
 
-                self.action = actions[0]
-                if self.robot == 'boxer':
-                    r = 0.08
-                    L = 2*0.157
-                    # Diff drive fk
-                    action_fk = self.action.clone()
-                    action_fk[0] = (self.action[0] / r) - ((L*self.action[1])/(2*r))
-                    action_fk[1] = (self.action[0] / r) + ((L*self.action[1])/(2*r))
-                    self.action = action_fk
-
-                if self.count == 0:
-                    self.action_seq = torch.zeros_like(self.action)
+                # Get action sequence
+                self.action = skill_utils.apply_fk(self.robot, actions[0])
                 self.action_seq = torch.cat((self.action_seq, self.action), 0)
                 
                 # Apply optimal action

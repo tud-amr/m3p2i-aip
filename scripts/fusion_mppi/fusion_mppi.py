@@ -165,18 +165,6 @@ class FUSION_MPPI(mppi.MPPI):
         non_goal_cost = torch.clamp((1/torch.linalg.norm(self.block_not_goal - self.block_pos,axis = 1)), min=0, max=10)
         return torch.linalg.norm(self.robot_pos - self.block_pos, axis = 1) + non_goal_cost
 
-    @mppi.handle_batch_input
-    def _ik(self, u):
-        if self.robot == 'boxer':
-            r = 0.08
-            L = 2*0.157
-            # Diff drive fk
-            u_ik = u.clone()
-            u_ik[:, 0] = (u[:, 0] / r) - ((L*u[:, 1])/(2*r))
-            u_ik[:, 1] = (u[:, 0] / r) + ((L*u[:, 1])/(2*r))
-            return u_ik
-        else: return u
-
     def _predict_dyn_obs(self, factor, robot_state, dyn_obs_pos, dyn_obs_vel, t):
         robot_pos = robot_state[:, [0, 2]] # K x 2
         # Obs boundary [-2.5, 1.5] <--> [-1.5, 2.5]
@@ -230,7 +218,7 @@ class FUSION_MPPI(mppi.MPPI):
             # u[-1,:] = old_last_u
 
         # Use inverse kinematics if the MPPI action space is different than dof velocity space
-        u_ = self._ik(u)
+        u_ = skill_utils.apply_ik(self.robot, u)
         self.gym.set_dof_velocity_target_tensor(self.sim, gymtorch.unwrap_tensor(u_))
         
         time_1 = time.monotonic()

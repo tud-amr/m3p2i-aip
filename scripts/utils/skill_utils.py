@@ -38,5 +38,36 @@ def calculate_suction(block_pos, robot_pos, num_envs, kp_suction, block_index, b
 
     return forces, -unit_force, mask
 
+# Apply forward kinematics
+def apply_fk(robot, u):
+    '''
+    u has the size of [dofs_per_robot]
+    '''
+    if robot == 'boxer':
+        r = 0.08
+        L = 2 * 0.157
+        # Diff drive fk
+        u_fk = u.clone()
+        u_fk[0] = (u[0] / r) - ((L * u[1]) / (2 * r))
+        u_fk[1] = (u[0] / r) + ((L * u[1]) / (2 * r))
+        return u_fk
+    else:
+        return u
+
+# Apply inverse kinematics
+def apply_ik(robot, u):
+    '''
+    u has the size of [num_envs, dofs_per_robot]
+    '''
+    if robot == 'boxer':
+        r = 0.08
+        L = 2 * 0.157
+        # Diff drive fk
+        u_ik = u.clone()
+        u_ik[:, 0] = (u[:, 0] / r) - ((L * u[:, 1]) / (2 * r))
+        u_ik[:, 1] = (u[:, 0] / r) + ((L * u[:, 1]) / (2 * r))
+        return u_ik
+    else: 
+        return u
 
  
