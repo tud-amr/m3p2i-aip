@@ -179,12 +179,13 @@ class SIM():
         for j in range(self.dofs_per_robot):
             axs1[j].plot(self.sim_time, ctrl_input[:,j], color=plot_colors[j], marker=".")
             axs1[j].legend([label[j]])
+            axs1[j].set_ylabel('v [m/s]', rotation=0)
         axs1[-1].set(xlabel = 'Time [s]')
 
         # Draw the pos of robot and block
         fig2, axs2 = plt.subplots(2)
         fig2.suptitle('Robot and Block Pos')
-        label_pos = ['x_pos', 'y_pos']
+        label_pos = ['x [m]', 'y [m]']
         for i in range(2):
             axs2[i].plot(self.sim_time, robot_pos_array[:, i], color=plot_colors[0], marker=".", label='robot')
             if draw_block:
@@ -200,13 +201,38 @@ class SIM():
             label_dis = ['robot_to_block', 'block_to_goal']
             axs3[0].plot(self.sim_time, robot_to_block, color=plot_colors[0], marker=".")
             axs3[0].legend([label_dis[0]])
+            axs3[0].set_ylabel('[m]', rotation=0)
             axs3[1].plot(self.sim_time, block_to_goal, color=plot_colors[1], marker=".")
             axs3[1].legend([label_dis[1]])
+            axs3[1].set_ylabel('[m]', rotation=0)
+            axs3[1].set_xlabel('Time [s]')
         else:
             fig, ax = plt.subplots()
             fig.suptitle('Distance')
             ax.plot(self.sim_time, robot_to_goal, color=plot_colors[0], marker=".")
             ax.legend('robot_to_goal')
+            ax.set_ylabel('[m]', rotation=0)
+            ax.set_xlabel('Time [s]')
+
+        # Draw the trajectory
+        fig4, axs4 = plt.subplots()
+        fig4.suptitle('Trajectory')
+        for i in range(robot_pos_array.shape[0]):
+            circle_rob = plt.Circle((robot_pos_array[i, 0], robot_pos_array[i, 1]), 0.4, color='tomato', fill=False)
+            axs4.add_patch(circle_rob)
+            if draw_block:
+                circle_blo = plt.Circle((block_pos_array[i, 0], block_pos_array[i, 1]), 0.2, color='deepskyblue', fill=False)
+                axs4.add_patch(circle_blo)
+        axs4.plot(robot_pos_array[:, 0], robot_pos_array[:, 1], 'o', color='r', markersize=0.6, label='robot')
+        if draw_block:
+            axs4.plot(block_pos_array[:, 0], block_pos_array[:, 1], 'o', color='b', markersize=0.6, label='block')
+        axs4.plot(0, 0, "D", color='black', label='start')
+        axs4.plot(self.curr_goal[0], self.curr_goal[1], "X", color='green', label='goal')
+        axs4.set_xlabel('x [m]')
+        axs4.set_ylabel('y [m]', rotation=0)
+        axs4.axis('equal')
+        plt.legend()
+        plt.show()
 
         # Calculate metrics
         print('Avg. simulation frequency', format(len(self.action_seq)/self.sim_time[-1], '.2f'))
@@ -218,7 +244,6 @@ class SIM():
         block_path_length = np.sum(np.linalg.norm(block_path_array, axis=1))
         print('Robot path length', format(robot_path_length, '.2f'))
         print('Block path length', format(block_path_length, '.2f'))
-        plt.show()
 
     def destroy(self):
         # Destroy the simulation
