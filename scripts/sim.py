@@ -74,11 +74,11 @@ class SIM():
                 # Reset the simulation when pressing 'R'
                 reset_flag = self.reset()
                 s.sendall(data_transfer.numpy_to_bytes(int(reset_flag)))
-                message = s.recv(1024)
+                self.task = s.recv(1024).decode('utf-8')
 
                 # Send dof states to mppi and receive message
                 s.sendall(data_transfer.torch_to_bytes(self.dof_states))
-                message = s.recv(1024)
+                self.curr_planner_task = s.recv(1024).decode('utf-8')
 
                 # Send root states and receive optimal actions
                 s.sendall(data_transfer.torch_to_bytes(self.root_states))
@@ -92,6 +92,7 @@ class SIM():
                 self.task_freq_array = np.append(self.task_freq_array, freq_data[0])
                 self.motion_freq_array = np.append(self.motion_freq_array, freq_data[1])
                 self.suction_active = int(freq_data[2])
+                self.curr_goal = np.array([freq_data[3], freq_data[4]])
 
                 # Clear lines at the beginning
                 self.gym.clear_lines(self.viewer)
@@ -157,7 +158,13 @@ class SIM():
         ctrl_input = self.action_seq.reshape(len(self.sim_time), self.dofs_per_robot).cpu().numpy()
         robot_pos_array = self.robot_pos_seq.cpu().numpy()
         block_pos_array = self.block_pos_seq.cpu().numpy()
-        dist_array = np.linalg.norm(robot_pos_array - block_pos_array, axis=1)
+        robot_to_block = np.linalg.norm(robot_pos_array - block_pos_array, axis=1)
+        block_to_goal = np.linalg.norm(block_pos_array - self.curr_goal, axis=1)
+        robot_to_goal = np.linalg.norm(robot_pos_array - self.curr_goal, axis=1)
+        if self.curr_planner_task in ['navigation', 'go_recharge']:
+            draw_block = False
+        elif self.curr_planner_task in ['push', 'pull', 'hybrid']:
+            draw_block = True
 
         # Draw the control inputs
         fig1, axs1 = plt.subplots(self.dofs_per_robot)
@@ -173,16 +180,31 @@ class SIM():
         axs1[-1].set(xlabel = 'Time [s]')
 
         # Draw the pos of robot and block
-        fig2, axs2 = plt.subplots(3)
+        fig2, axs2 = plt.subplots(2)
         fig2.suptitle('Robot and Block Pos')
-        label_pos = ['x_pos', 'y_pos', 'dist']
+        label_pos = ['x_pos', 'y_pos']
         for i in range(2):
-            axs2[i].plot(self.sim_time, robot_pos_array[:, i], color=plot_colors[0], marker=".")
-            axs2[i].plot(self.sim_time, block_pos_array[:, i], color=plot_colors[1], marker=".")
-            axs2[i].legend([label_pos[i]])
+            axs2[i].plot(self.sim_time, robot_pos_array[:, i], color=plot_colors[0], marker=".", label='robot')
+            if draw_block:
+                axs2[i].plot(self.sim_time, block_pos_array[:, i], color=plot_colors[1], marker=".", label='block')
+            axs2[i].set_ylabel(label_pos[i], rotation=0)
         axs2[-1].set(xlabel = 'Time [s]')
-        axs2[2].plot(self.sim_time, dist_array, color=plot_colors[2], marker=".")
-        axs2[2].legend([label_pos[2]])
+        plt.legend()
+
+        # Draw the distance
+        if draw_block:
+            fig3, axs3 = plt.subplots(2)
+            fig3.suptitle('Distance')
+            label_dis = ['robot_to_block', 'block_to_goal']
+            axs3[0].plot(self.sim_time, robot_to_block, color=plot_colors[0], marker=".")
+            axs3[0].legend([label_dis[0]])
+            axs3[1].plot(self.sim_time, block_to_goal, color=plot_colors[1], marker=".")
+            axs3[1].legend([label_dis[1]])
+        else:
+            fig, ax = plt.subplots()
+            fig.suptitle('Distance')
+            ax.plot(self.sim_time, robot_to_goal, color=plot_colors[0], marker=".")
+            ax.legend('robot_to_goal')
 
         # Calculate metrics
         print('Avg. simulation frequency', format(len(self.action_seq)/self.sim_time[-1], '.2f'))

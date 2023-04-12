@@ -122,13 +122,13 @@ class REACTIVE_TAMP:
                     res = conn.recv(1024)
                     reset_flag = data_transfer.bytes_to_numpy(res)
                     i = self.reset(i, reset_flag)
-                    conn.sendall(b"next please")
+                    conn.sendall(bytes(self.task, 'utf-8'))
 
                     # Receive dof states
                     res = conn.recv(2**14)
                     r = copy.copy(res)
                     _dof_states = data_transfer.bytes_to_torch(r).repeat(self.num_envs, 1)
-                    conn.sendall(b"next please")
+                    conn.sendall(bytes(self.task_planner.task, 'utf-8'))
 
                     # Receive root states
                     res = conn.recv(2**14)
@@ -163,7 +163,9 @@ class REACTIVE_TAMP:
 
                     # Send freq data
                     message = conn.recv(1024)
-                    freq_data = np.array([self.task_freq, self.motion_freq, self.params.suction_active], dtype = float)
+                    # print(self.task_planner.curr_goal[0].item())
+                    freq_data = np.array([self.task_freq, self.motion_freq, self.params.suction_active,
+                                          self.task_planner.curr_goal[0].item(),  self.task_planner.curr_goal[1].item()], dtype = float)
                     conn.sendall(data_transfer.numpy_to_bytes(freq_data))
 
                     # Visualize rollouts
