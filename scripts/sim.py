@@ -62,6 +62,8 @@ class SIM():
             if evt.action == "reset" and evt.value > 0:
                 self.gym.set_actor_root_state_tensor(self.sim, gymtorch.unwrap_tensor(self.initial_root_states))
                 self.gym.set_dof_state_tensor(self.sim, gymtorch.unwrap_tensor(self.initial_dof_states))
+                sim_init.step(self.gym, self.sim)
+                sim_init.refresh_states(self.gym, self.sim)
                 reset_flag = True
         return reset_flag
 
