@@ -51,6 +51,8 @@ class SIM():
         self.action_seq = torch.zeros(self.dofs_per_robot, device="cuda:0")
         self.robot_pos_seq = self.robot_pos.clone()
         self.block_pos_seq = self.block_pos.clone()
+        self.suction_exist = []
+        self.suction_not_exist = []
 
         # Set server address
         self.server_address = './uds_socket'
@@ -121,15 +123,20 @@ class SIM():
                 if self.suction_active:  
                     pos_dir = self.block_pos - self.robot_pos
                     # True means the velocity moves towards block, otherwise means pull direction
-                    flag_towards_block = torch.sum(self.robot_vel*pos_dir, 1) > 0
+                    flag_towards_block = torch.sum(self.robot_vel*pos_dir, 1) > 0 # [1]
                     # simulation of a magnetic/suction effect to attach to the box
                     suction_force, _, _ = skill_utils.calculate_suction(self.block_pos, self.robot_pos, self.num_envs, self.kp_suction, self.block_index, self.bodies_per_env)
-                    # print(suction_force)
                     # Set no suction force if robot moves towards the block
-                    suction_force[flag_towards_block] = 0
+                    suction_force[flag_towards_block] = 0 # [1, num_bodies, 3]
+                    # Get flag for suction exist
+                    suction_exist = suction_force.any().item()
+                    self.suction_exist.append(suction_exist)
+                    self.suction_not_exist.append(not suction_exist)
                     # Apply suction/magnetic force
                     self.gym.apply_rigid_body_force_tensors(self.sim, gymtorch.unwrap_tensor(torch.reshape(suction_force, (self.num_envs*self.bodies_per_env, 3))), None, gymapi.ENV_SPACE)
-
+                else:
+                    self.suction_exist.append(False)
+                    self.suction_not_exist.append(True)
                 # Update movement of dynamic obstacle
                 if self.environment_type == 'normal':
                     sim_init.update_dyn_obs(self.gym, self.sim, self.num_actors, self.num_envs, self.count)
@@ -167,7 +174,8 @@ class SIM():
         block_to_goal_dist = np.linalg.norm(block_to_goal, axis=1) 
         robot_to_goal_dist = np.linalg.norm(robot_to_goal, axis=1)
         cos_theta = np.sum(robot_to_block*block_to_goal, 1)/(robot_to_block_dist*block_to_goal_dist)
-        print(cos_theta)
+        self.suction_exist.insert(0, False)
+        self.suction_not_exist.insert(0, True)
         if self.curr_planner_task in ['navigation', 'go_recharge']:
             draw_block = False
         elif self.curr_planner_task in ['push', 'pull', 'hybrid']:
@@ -236,16 +244,19 @@ class SIM():
         axs4.set_xlabel('x [m]')
         axs4.set_ylabel('y [m]', rotation=0)
         axs4.axis('equal')
+        plt.legend()
 
         # Draw the cos_theta
         if draw_block:
             fig5, axs5 = plt.subplots()
             fig5.suptitle('Cos(theta)')
-            axs5.plot(self.sim_time, cos_theta, color=plot_colors[0], marker=".")
+            axs5.plot(self.sim_time, cos_theta, color='gray', marker=".", markersize=0.2)
+            axs5.scatter(self.sim_time[self.suction_exist], cos_theta[self.suction_exist], color='r', label='suction')
+            axs5.scatter(self.sim_time[self.suction_not_exist], cos_theta[self.suction_not_exist], color='b', label='no suction')
             # axs5.legend('cos(theta)')
             # axs5.set_ylabel('', rotation=0)
             axs5.set_xlabel('Time [s]')
-        plt.legend()
+            plt.legend()
         plt.show()
 
         # Calculate metrics
