@@ -160,9 +160,14 @@ class SIM():
         ctrl_input = self.action_seq.reshape(len(self.sim_time), self.dofs_per_robot).cpu().numpy()
         robot_pos_array = self.robot_pos_seq.cpu().numpy()
         block_pos_array = self.block_pos_seq.cpu().numpy()
-        robot_to_block = np.linalg.norm(robot_pos_array - block_pos_array, axis=1)
-        block_to_goal = np.linalg.norm(block_pos_array - self.curr_goal, axis=1)
-        robot_to_goal = np.linalg.norm(robot_pos_array - self.curr_goal, axis=1)
+        robot_to_block = robot_pos_array - block_pos_array
+        block_to_goal = self.curr_goal - block_pos_array
+        robot_to_goal = robot_pos_array - self.curr_goal
+        robot_to_block_dist = np.linalg.norm(robot_to_block, axis=1)
+        block_to_goal_dist = np.linalg.norm(block_to_goal, axis=1) 
+        robot_to_goal_dist = np.linalg.norm(robot_to_goal, axis=1)
+        cos_theta = np.sum(robot_to_block*block_to_goal, 1)/(robot_to_block_dist*block_to_goal_dist)
+        print(cos_theta)
         if self.curr_planner_task in ['navigation', 'go_recharge']:
             draw_block = False
         elif self.curr_planner_task in ['push', 'pull', 'hybrid']:
@@ -199,17 +204,17 @@ class SIM():
             fig3, axs3 = plt.subplots(2)
             fig3.suptitle('Distance')
             label_dis = ['robot_to_block', 'block_to_goal']
-            axs3[0].plot(self.sim_time, robot_to_block, color=plot_colors[0], marker=".")
+            axs3[0].plot(self.sim_time, robot_to_block_dist, color=plot_colors[0], marker=".")
             axs3[0].legend([label_dis[0]])
             axs3[0].set_ylabel('[m]', rotation=0)
-            axs3[1].plot(self.sim_time, block_to_goal, color=plot_colors[1], marker=".")
+            axs3[1].plot(self.sim_time, block_to_goal_dist, color=plot_colors[1], marker=".")
             axs3[1].legend([label_dis[1]])
             axs3[1].set_ylabel('[m]', rotation=0)
             axs3[1].set_xlabel('Time [s]')
         else:
             fig, ax = plt.subplots()
             fig.suptitle('Distance')
-            ax.plot(self.sim_time, robot_to_goal, color=plot_colors[0], marker=".")
+            ax.plot(self.sim_time, robot_to_goal_dist, color=plot_colors[0], marker=".")
             ax.legend('robot_to_goal')
             ax.set_ylabel('[m]', rotation=0)
             ax.set_xlabel('Time [s]')
@@ -231,6 +236,15 @@ class SIM():
         axs4.set_xlabel('x [m]')
         axs4.set_ylabel('y [m]', rotation=0)
         axs4.axis('equal')
+
+        # Draw the cos_theta
+        if draw_block:
+            fig5, axs5 = plt.subplots()
+            fig5.suptitle('Cos(theta)')
+            axs5.plot(self.sim_time, cos_theta, color=plot_colors[0], marker=".")
+            # axs5.legend('cos(theta)')
+            # axs5.set_ylabel('', rotation=0)
+            axs5.set_xlabel('Time [s]')
         plt.legend()
         plt.show()
 
