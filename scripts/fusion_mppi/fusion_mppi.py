@@ -122,7 +122,7 @@ class FUSION_MPPI(mppi.MPPI):
         self.dist_cost = self.robot_to_block_dist + self.block_to_goal_dist * 5
         self.cos_theta = torch.sum(self.robot_to_block*self.block_to_goal, 1)/(self.robot_to_block_dist*self.block_to_goal_dist)
 
-    def get_push_cost(self):
+    def get_push_cost(self, hybrid):
         # Calculate dist cost
         self.calculate_dist()
 
@@ -132,9 +132,10 @@ class FUSION_MPPI(mppi.MPPI):
         # if self.robot != 'boxer':
         #     align_cost += torch.abs(self.robot_to_goal_dist - self.block_to_goal_dist - self.align_offset[self.robot])
 
-        cost = self.dist_cost #+ align_cost
-
-        return cost
+        if hybrid:
+            return self.dist_cost # [num_envs]
+        else:
+            return self.dist_cost + align_cost # [num_envs]
     
     def get_pull_cost(self, hybrid):
         pos_dir = self.block_pos - self.robot_pos
@@ -157,9 +158,10 @@ class FUSION_MPPI(mppi.MPPI):
         align_cost = (1 - self.cos_theta) * 5
         # print('pull align', align_cost[-10:])
 
-        cost = self.dist_cost #+ align_cost # [num_envs]
-
-        return cost
+        if hybrid:
+            return self.dist_cost # [num_envs]
+        else:
+            return self.dist_cost + align_cost # [num_envs]
 
     def get_push_not_goal_cost(self):
         non_goal_cost = torch.clamp((1/torch.linalg.norm(self.block_not_goal - self.block_pos,axis = 1)), min=0, max=10)
@@ -280,13 +282,13 @@ class FUSION_MPPI(mppi.MPPI):
         if self.task == 'navigation' or self.task == 'go_recharge':
             task_cost = self.get_navigation_cost()
         elif self.task == 'push':
-            task_cost = self.get_push_cost()
+            task_cost = self.get_push_cost(False)
         elif self.task == 'pull':
             task_cost = self.get_pull_cost(False)
         elif self.task == 'push_not_goal':
             task_cost = self.get_push_not_goal_cost()
         elif self.task == 'hybrid':
-            task_cost = torch.cat((self.get_push_cost()[:int(self.num_envs/2)], self.get_pull_cost(True)[int(self.num_envs/2):]), dim=0)
+            task_cost = torch.cat((self.get_push_cost(True)[:int(self.num_envs/2)], self.get_pull_cost(True)[int(self.num_envs/2):]), dim=0)
             # print('push cost', task_cost[:10])
             # print('pull cost', task_cost[self.num_envs-10:])
 
