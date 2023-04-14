@@ -176,6 +176,9 @@ class SIM():
         cos_theta = np.sum(robot_to_block*block_to_goal, 1)/(robot_to_block_dist*block_to_goal_dist)
         self.suction_exist.insert(0, False)
         self.suction_not_exist.insert(0, True)
+        robot_block_close = robot_to_block_dist <= 0.5
+        robot_block_not_close = robot_to_block_dist > 0.5
+        print('hey', len(robot_block_close)==len(self.sim_time))
         if self.curr_planner_task in ['navigation', 'go_recharge']:
             draw_block = False
         elif self.curr_planner_task in ['push', 'pull', 'hybrid']:
@@ -251,16 +254,14 @@ class SIM():
             fig5, axs5 = plt.subplots()
             fig5.suptitle('Cos(theta)')
             axs5.plot(self.sim_time, cos_theta, color='gray', marker=".", markersize=0.2)
-            axs5.scatter(self.sim_time[self.suction_exist], cos_theta[self.suction_exist], color='r', label='suction')
-            axs5.scatter(self.sim_time[self.suction_not_exist], cos_theta[self.suction_not_exist], color='b', label='no suction')
-            # axs5.legend('cos(theta)')
-            # axs5.set_ylabel('', rotation=0)
+            axs5.scatter(self.sim_time[robot_block_close*self.suction_exist], cos_theta[robot_block_close*self.suction_exist], marker='*', color='r', label='suction')
+            axs5.scatter(self.sim_time[robot_block_close*self.suction_not_exist], cos_theta[robot_block_close*self.suction_not_exist], color='b', label='no suction')
+            axs5.scatter(self.sim_time[robot_block_not_close], cos_theta[robot_block_not_close], marker='v', color='lime', label='approaching')
             axs5.set_xlabel('Time [s]')
             plt.legend()
-        plt.show()
 
         # Calculate metrics
-        print('Avg. simulation frequency', format(len(self.action_seq)/self.sim_time[-1], '.2f'))
+        print('Avg. simulation frequency', format(len(self.sim_time)/self.sim_time[-1], '.2f'))
         print('Avg. task planner frequency', format(np.average(self.task_freq_array), '.2f'))
         print('Avg. motion planner frequency', format(np.average(self.motion_freq_array[np.nonzero(self.motion_freq_array)]), '.2f'))
         robot_path_array = robot_pos_array[1:, :] - robot_pos_array[:-1, :]
@@ -269,6 +270,7 @@ class SIM():
         block_path_length = np.sum(np.linalg.norm(block_path_array, axis=1))
         print('Robot path length', format(robot_path_length, '.2f'))
         print('Block path length', format(block_path_length, '.2f'))
+        plt.show()
 
     def destroy(self):
         # Destroy the simulation
