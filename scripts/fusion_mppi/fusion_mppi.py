@@ -158,10 +158,17 @@ class FUSION_MPPI(mppi.MPPI):
         align_cost = (1 - self.cos_theta) * 5
         # print('pull align', align_cost[-10:])
 
+        # Add the cost when the robot is close to the block and moves towards the block
+        vel_cost = torch.zeros(self.num_envs, device="cuda:0")
+        robot_block_close = self.robot_to_block_dist <= 0.5
+        vel_cost[flag_towards_block*robot_block_close] = 0.5
+        print('max', self.dist_cost.max()+align_cost.max())
+        print('min', self.dist_cost.min()+align_cost.min())
+
         if hybrid:
-            return self.dist_cost # [num_envs]
+            return self.dist_cost + vel_cost # [num_envs]
         else:
-            return self.dist_cost + align_cost # [num_envs]
+            return self.dist_cost + vel_cost + align_cost # [num_envs]
 
     def get_push_not_goal_cost(self):
         non_goal_cost = torch.clamp((1/torch.linalg.norm(self.block_not_goal - self.block_pos,axis = 1)), min=0, max=10)
