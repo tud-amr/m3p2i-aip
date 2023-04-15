@@ -149,6 +149,7 @@ class REACTIVE_TAMP:
                     self.motion_planner.update_gym(self.gym, self.sim, self.viewer)
 
                     # Stay still if the task planner has no task
+                    self.prefer_pull=-1
                     if self.task_planner.task == "None" or stay_still or task_success:
                         actions = torch.zeros(self.motion_planner.u_per_command, self.motion_planner.nu, device="cuda:0")
                         self.motion_freq = 0 # should be filtered later
@@ -158,6 +159,9 @@ class REACTIVE_TAMP:
                         actions = self.motion_planner.command(s[0])
                         motion_time_now = time.monotonic()
                         self.motion_freq = format(1/(motion_time_now-motion_time_prev), '.2f')
+                        weight_push = torch.sum(self.motion_planner.omega[:int(self.num_envs/2)]).item()
+                        weight_pull = torch.sum(self.motion_planner.omega[int(self.num_envs/2):]).item()
+                        self.prefer_pull = int(weight_pull > weight_push)
                     # print('Motion freq', self.motion_freq)
                     conn.sendall(data_transfer.torch_to_bytes(actions))
 
@@ -165,7 +169,8 @@ class REACTIVE_TAMP:
                     message = conn.recv(1024)
                     # print(self.task_planner.curr_goal[0].item())
                     freq_data = np.array([self.task_freq, self.motion_freq, self.params.suction_active,
-                                          self.task_planner.curr_goal[0].item(),  self.task_planner.curr_goal[1].item()], dtype = float)
+                                          self.task_planner.curr_goal[0].item(), self.task_planner.curr_goal[1].item(),
+                                          self.prefer_pull], dtype = float)
                     conn.sendall(data_transfer.numpy_to_bytes(freq_data))
 
                     # Visualize rollouts

@@ -53,6 +53,7 @@ class SIM():
         self.block_pos_seq = self.block_pos.clone()
         self.suction_exist = []
         self.suction_not_exist = []
+        self.prefer_pull = []
 
         # Set server address
         self.server_address = './uds_socket'
@@ -97,10 +98,11 @@ class SIM():
                 self.motion_freq_array = np.append(self.motion_freq_array, freq_data[1])
                 self.suction_active = int(freq_data[2])
                 self.curr_goal = np.array([freq_data[3], freq_data[4]])
+                self.prefer_pull.append(freq_data[5])
 
                 # Clear lines at the beginning
                 self.gym.clear_lines(self.viewer)
-                
+                    
                 # Visualize rollouts
                 if self.visualize_rollouts:
                     s.sendall(b"Visualize rollouts")
@@ -176,9 +178,9 @@ class SIM():
         cos_theta = np.sum(robot_to_block*block_to_goal, 1)/(robot_to_block_dist*block_to_goal_dist)
         self.suction_exist.insert(0, False)
         self.suction_not_exist.insert(0, True)
+        self.prefer_pull.insert(0, -1)
         robot_block_close = robot_to_block_dist <= 0.5
         robot_block_not_close = robot_to_block_dist > 0.5
-        print('hey', len(robot_block_close)==len(self.sim_time))
         if self.curr_planner_task in ['navigation', 'go_recharge']:
             draw_block = False
         elif self.curr_planner_task in ['push', 'pull', 'hybrid']:
@@ -258,6 +260,15 @@ class SIM():
             axs5.scatter(self.sim_time[robot_block_close*self.suction_not_exist], cos_theta[robot_block_close*self.suction_not_exist], color='b', label='no suction')
             axs5.scatter(self.sim_time[robot_block_not_close], cos_theta[robot_block_not_close], marker='v', color='lime', label='approaching')
             axs5.set_xlabel('Time [s]')
+            plt.legend()
+        
+        # Check weights distribution
+        if self.curr_planner_task == 'hybrid':
+            fig6, axs6 = plt.subplots()
+            fig6.suptitle('Check weights distribution')
+            axs6.scatter(self.sim_time, self.suction_exist, color='r', label='suction')
+            axs6.scatter(self.sim_time, np.array(self.prefer_pull)-0.1, color='b', label='weight')
+            axs6.set_xlabel('Time [s]')
             plt.legend()
 
         # Calculate metrics
