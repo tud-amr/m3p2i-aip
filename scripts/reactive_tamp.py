@@ -71,6 +71,7 @@ class REACTIVE_TAMP:
                             bodies_per_env = self.bodies_per_env,
                             filter_u = params.filter_u
                             )
+        self.prefer_pull = -1
         
         # Make sure the socket does not already exist
         self.server_address = './uds_socket'
@@ -90,7 +91,7 @@ class REACTIVE_TAMP:
         self.motion_planner.update_task(self.task_planner.task, self.task_planner.curr_goal)
 
         # Update params in the motion planner
-        self.motion_planner.update_params(self.params)
+        self.params = self.motion_planner.update_params(self.params, self.prefer_pull)
 
         # Check task succeeds or not 
         if self.task_planner.task in ['navigation', 'go_recharge']:
@@ -149,10 +150,10 @@ class REACTIVE_TAMP:
                     self.motion_planner.update_gym(self.gym, self.sim, self.viewer)
 
                     # Stay still if the task planner has no task
-                    self.prefer_pull=-1
                     if self.task_planner.task == "None" or stay_still or task_success:
                         actions = torch.zeros(self.motion_planner.u_per_command, self.motion_planner.nu, device="cuda:0")
                         self.motion_freq = 0 # should be filtered later
+                        self.prefer_pull=-1
                     # Compute optimal action and send to real simulator
                     else:
                         motion_time_prev = time.monotonic()

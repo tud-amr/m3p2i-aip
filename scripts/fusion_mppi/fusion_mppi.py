@@ -102,12 +102,13 @@ class FUSION_MPPI(mppi.MPPI):
         elif self.task in ['push', 'pull', 'hybrid']:
             self.block_goal = goal
     
-    def update_params(self, params):
+    def update_params(self, params, weight_prefer_pull):
         self.params = params
-        if self.task == 'hybrid':
-            self.params.suction_active = True
+        if self.task == 'hybrid' and weight_prefer_pull == 1:
+            params.suction_active = True
         else:
-            self.suction_active = self.params.suction_active
+            self.suction_active = params.suction_active
+        return params
 
     def get_navigation_cost(self):
         return torch.clamp(torch.linalg.norm(self.robot_pos - self.nav_goal, axis=1)-0.05, min=0, max=1999) 
@@ -162,8 +163,6 @@ class FUSION_MPPI(mppi.MPPI):
         vel_cost = torch.zeros(self.num_envs, device="cuda:0")
         robot_block_close = self.robot_to_block_dist <= 0.5
         vel_cost[flag_towards_block*robot_block_close] = 0.5
-        print('max', self.dist_cost.max()+align_cost.max())
-        print('min', self.dist_cost.min()+align_cost.min())
 
         if hybrid:
             return self.dist_cost + vel_cost # [num_envs]
