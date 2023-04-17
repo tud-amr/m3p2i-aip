@@ -33,7 +33,20 @@ goal2_pose.p = gymapi.Vec3(3, 3, 0)
 goal3_pose = gymapi.Transform()
 goal3_pose.p = gymapi.Vec3(3, -3, 0)
 
-docking_station_loc = torch.tensor([0, -3], dtype=torch.float32, device="cuda:0")
+corner1_pose = gymapi.Transform()
+corner1_pose.p = gymapi.Vec3(-3.75, -3.75, 0)
+
+corner2_pose = gymapi.Transform()
+corner2_pose.p = gymapi.Vec3(3.75, -3.75, 0)
+
+corner3_pose = gymapi.Transform()
+corner3_pose.p = gymapi.Vec3(-3.75, 3.75, 0)
+
+corner4_pose = gymapi.Transform()
+corner4_pose.p = gymapi.Vec3(3.75, 3.75, 0)
+
+# docking_station_loc = torch.tensor([0, -3], dtype=torch.float32, device="cuda:0") # in the middle (for aif)
+docking_station_loc = torch.tensor([-3, -3], dtype=torch.float32, device="cuda:0") # close to corner
 recharge_pose = gymapi.Transform()
 recharge_pose.p = gymapi.Vec3(docking_station_loc[0], docking_station_loc[1], 0)
 
@@ -44,8 +57,9 @@ color_vec_box3 = gymapi.Vec3(0.5, 0.1, 0.3)
 
 color_vec_fixed = gymapi.Vec3(0.8, 0.2, 0.2)
 color_vec_walls= gymapi.Vec3(0.1, 0.1, 0.1)
-color_vec_recharge= gymapi.Vec3(0.0, 0.9, 0.3)
+color_vec_recharge= gymapi.Vec3(0.3, 1, 1)
 color_vec_dyn_obs = gymapi.Vec3(0.8, 0.2, 0.2)
+color_vec_corner = gymapi.Vec3(0.0, 1, 0)
 
 color_vec_battery_ok = gymapi.Vec3(0.0, 0.7, 0.5)
 color_vec_battery_low = gymapi.Vec3(0.8, 0.5, 0.)
@@ -210,7 +224,13 @@ def add_obstacles(sim, gym, env, environment_type, index):
         recharge_region = add_box(sim, gym, env,1 , 1, 0.01, recharge_pose, color_vec_recharge, True, "goal_region", -2) # No collisions with recharge region
         # add movable squar box
         y_axis = add_box(sim, gym, env, 0.05, 0.5, 0.01, yaxis_pose, gymapi.Vec3(0.0, 1, 0.2), True, "y", -2)
-        x_axis = add_box(sim, gym, env, 0.5, 0.05, 0.01, xaxis_pose, gymapi.Vec3(1, 0.0, 0.2), True, "x", -2)        
+        x_axis = add_box(sim, gym, env, 0.5, 0.05, 0.01, xaxis_pose, gymapi.Vec3(1, 0.0, 0.2), True, "x", -2)       
+
+        # 
+        corner_region1 = add_box(sim, gym, env, 0.45, 0.45, 0.01, corner1_pose, color_vec_corner, True, "corner_region1", -2)
+        corner_region2 = add_box(sim, gym, env, 0.45, 0.45, 0.01, corner2_pose, color_vec_corner, True, "corner_region2", -2)
+        corner_region3 = add_box(sim, gym, env, 0.45, 0.45, 0.01, corner3_pose, color_vec_corner, True, "corner_region3", -2)
+        corner_region4 = add_box(sim, gym, env, 0.45, 0.45, 0.01, corner4_pose, color_vec_corner, True, "corner_region4", -2)
         
     elif environment_type == "battery":
         # add fixed obstacle
