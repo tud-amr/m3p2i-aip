@@ -23,11 +23,11 @@ class PLANNER_SIMPLE:
 
     def update_plan(self, robot_pos, stay_still):
         # # navigation
-        # self.task = "navigation"
-        # self.curr_goal = torch.tensor([3, 3], device="cuda:0")
+        self.task = "navigation"
+        self.curr_goal = torch.tensor([-3, 3], device="cuda:0")
         # push or pull
-        self.task = "hybrid"
-        self.curr_goal = torch.tensor([-3.75, -3.75], device="cuda:0")
+        # self.task = "hybrid"
+        # self.curr_goal = torch.tensor([-3.75, -3.75], device="cuda:0")
     
     def reset_plan(self):
         self.task = "None"
