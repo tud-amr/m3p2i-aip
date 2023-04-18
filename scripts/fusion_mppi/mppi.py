@@ -205,21 +205,13 @@ class MPPI():
                 self.sgf_window = 10
             self.sgf_order = 3
 
-
-        # Initialize fabrics prior
-        if self.use_priors:
-            # Create fabrics planner with single obstacle
-            goal = [3.0, 3.0]
-            weight = 1.0
-            self._fabrics_prior = fabrics_point(goal, weight)
-
     @handle_batch_input
     def _dynamics(self, state, u, t):
         return self.F(state, u, t) if self.step_dependency else self.F(state, u)
 
     @handle_batch_input
-    def _running_cost(self, state, u):
-        return self.running_cost(state, u)
+    def _running_cost(self, state, u, t):
+        return self.running_cost(state, u, t)
 
     def command(self, state):
         """
@@ -284,11 +276,6 @@ class MPPI():
 
         states = []
         actions = []
-        # Get data from fusion_mppi
-        root_positions = self.root_states[:, :3]
-        dyn_obs_pos = self.shaped_root_states[:, 5, :2]
-        dyn_obs_vel = self.shaped_root_states[:, 5, 7:9]
-
         time_1 = time.monotonic()
         
         for t in range(T):
@@ -300,19 +287,11 @@ class MPPI():
                 # Update perturbed action sequence for later use in cost computation
                 self.perturbed_action[self.K - 1][t] = u[:, self.K -1, :]
 
-            if self.use_priors:
-                u = self._priors_command(state, u, t, root_positions)
-
             state, u = self._dynamics(state, u, t) # !!!! very inefficient
-            c = self._running_cost(state, u) # [1, 100]
+            c = self._running_cost(state, u, t) # [1, 100]
             # Update action if there were changes in fusion mppi due for instance to suction constraints
             self.perturbed_action[:,t] = u
             cost_samples += c
-            
-            # Add cost of the dynamic obstacle
-            penalty_factor = 2 # the larger the factor, the more penalty to geting close to the obs
-            dyn_obs_cost = self._predict_dyn_obs(penalty_factor, state[0], dyn_obs_pos, dyn_obs_vel, t+1)
-            cost_samples += dyn_obs_cost
 
             if self.M > 1:
                 cost_var += c.var(dim=0) * (self.rollout_var_discount ** t)

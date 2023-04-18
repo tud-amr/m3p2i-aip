@@ -262,8 +262,8 @@ class MPPI():
         return self.F(state, u, t) if self.step_dependency else self.F(state, u)
 
     @handle_batch_input
-    def _running_cost(self, state, u):
-        return self.running_cost(state, u)
+    def _running_cost(self, state, u, t):
+        return self.running_cost(state, u, t)
 
     def _exp_util(self, costs, actions):
         """
@@ -410,7 +410,7 @@ class MPPI():
                 self.perturbed_action[self.K - 1][t] = u[self.K -1, :]
 
             state, u = self._dynamics(state, u, t)
-            c = self._running_cost(state, u) # every time stes you get nsamples cost, we need that as output for the discount factor
+            c = self._running_cost(state, u, t) # every time stes you get nsamples cost, we need that as output for the discount factor
             # Update action if there were changes in fusion mppi due for instance to suction constraints
             self.perturbed_action[:,t] = u
             cost_samples += c

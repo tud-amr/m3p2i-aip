@@ -93,6 +93,8 @@ class FUSION_MPPI(mppi.MPPI):
             self.block_pos = states_dict["block_pos"]
             self.robot_pos = states_dict["robot_pos"]
             self.robot_vel = states_dict["robot_vel"]
+            self.dyn_obs_pos = self.shaped_root_states[:, 5, :2]
+            self.dyn_obs_vel = self.shaped_root_states[:, 5, 7:9]
             self.flag = False
     
     def update_task(self, task, goal):
@@ -173,20 +175,19 @@ class FUSION_MPPI(mppi.MPPI):
         non_goal_cost = torch.clamp((1/torch.linalg.norm(self.block_not_goal - self.block_pos,axis = 1)), min=0, max=10)
         return torch.linalg.norm(self.robot_pos - self.block_pos, axis = 1) + non_goal_cost
 
-    def _predict_dyn_obs(self, factor, robot_state, dyn_obs_pos, dyn_obs_vel, t):
-        robot_pos = robot_state[:, [0, 2]] # K x 2
+    def _predict_dyn_obs(self, factor, t):
         # Obs boundary [-2.5, 1.5] <--> [-1.5, 2.5]
         obs_lb = torch.tensor([-2.5, 1.5], dtype=torch.float32, device="cuda:0")
         obs_ub = torch.tensor([-1.5, 2.5], dtype=torch.float32, device="cuda:0")
-        dyn_obs_vel = torch.clamp(dyn_obs_vel, min = -0.001, max = 0.001)
-        pred_pos = dyn_obs_pos + t * dyn_obs_vel * 10
+        self.dyn_obs_vel = torch.clamp(self.dyn_obs_vel, min = -0.001, max = 0.001)
+        pred_pos = self.dyn_obs_pos + t * self.dyn_obs_vel * 10
         # Check the prec_pos and boundary
         exceed_ub = pred_pos[:, 1] > obs_ub[1]
         exceed_lb = pred_pos[:, 1] < obs_lb[1]
         pred_pos[exceed_ub] = 2 * obs_ub - pred_pos[exceed_ub]
         pred_pos[exceed_lb] = 2 * obs_lb - pred_pos[exceed_lb]
         # Compute the cost
-        dyn_obs_cost = factor * torch.exp(-torch.norm(pred_pos - robot_pos, dim=1))
+        dyn_obs_cost = factor * torch.exp(-torch.norm(pred_pos - self.robot_pos, dim=1))
 
         return dyn_obs_cost
 
@@ -247,7 +248,7 @@ class FUSION_MPPI(mppi.MPPI):
                               self.robot_vel[:, 1]], dim=1) # [num_envs, 4]
         return states, u
 
-    def get_motion_cost(self, state, u):
+    def get_motion_cost(self, state, u, t):
         # State: for each environment, the current state containing position and velocity
         # Action: same but for control input
         
@@ -281,10 +282,14 @@ class FUSION_MPPI(mppi.MPPI):
         acc_cost = 0.0001*torch.linalg.norm(torch.square((u[0:1]-past_u[0:1])/0.05), dim=1)
         past_u = torch.clone(u)
 
-        return w_c*coll_cost + acc_cost # + w_u*control_cost
+        # Avoid dynamic obstacle
+        penalty_factor = 2 # the larger the factor, the more penalty to geting close to the obs
+        dyn_obs_cost = self._predict_dyn_obs(penalty_factor, t+1)
+
+        return w_c*coll_cost + acc_cost + dyn_obs_cost # + w_u*control_cost
 
     @mppi.handle_batch_input
-    def _running_cost(self, state, u):
+    def _running_cost(self, state, u, t):
         if self.task == 'navigation' or self.task == 'go_recharge':
             task_cost = self.get_navigation_cost()
         elif self.task == 'push':
@@ -298,6 +303,6 @@ class FUSION_MPPI(mppi.MPPI):
             # print('push cost', task_cost[:10])
             # print('pull cost', task_cost[self.num_envs-10:])
 
-        total_cost = task_cost + self.get_motion_cost(state, u)
+        total_cost = task_cost + self.get_motion_cost(state, u, t)
         
         return  total_cost
