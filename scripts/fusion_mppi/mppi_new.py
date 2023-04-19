@@ -335,21 +335,17 @@ class MPPI():
         if self.mppi_mode == 'simple':
             self.U = torch.roll(self.U, -1, dims=0)
 
-            cost_total = self._compute_total_cost_batch_simple()
+            cost_total = self._compute_total_cost_batch_simple() # [K]
 
             beta = torch.min(cost_total)
             self.cost_total_non_zero = _ensure_non_zero(cost_total, beta, 1 / self.lambda_)
 
             eta = torch.sum(self.cost_total_non_zero)
-            self.omega = (1. / eta) * self.cost_total_non_zero
+            self.omega = (1. / eta) * self.cost_total_non_zero # [K]
             
-            self.U += torch.sum(self.omega.view(-1, 1, 1) * self.noise, dim=0)
+            self.U += torch.sum(self.omega.view(-1, 1, 1) * self.noise, dim=0) # [K, 1, 1] * [K, T, nu] --> [T, nu] sum over K
 
             action = self.U[:self.u_per_command]
-
-            # Reduce dimensionality if we only need the first command
-            if self.u_per_command == 1:
-                action = action[0]
 
             # Lambda update
             # eta_max = 10
@@ -514,7 +510,7 @@ class MPPI():
         action_cost = self.get_action_cost()
 
         # Action perturbation cost
-        perturbation_cost = torch.sum(self.U * action_cost, dim=(1, 2))
+        perturbation_cost = torch.sum(self.U * action_cost, dim=(1, 2)) # [K, T, nu] * [K, T, nu] --> [K] sum over T and nu
         self.cost_total += perturbation_cost
         return self.cost_total
 
