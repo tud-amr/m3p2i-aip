@@ -1,4 +1,4 @@
-import fusion_mppi.mppi_new as mppi
+import fusion_mppi.mppi as mppi
 import torch, math
 import time
 from isaacgym import gymtorch, gymapi
