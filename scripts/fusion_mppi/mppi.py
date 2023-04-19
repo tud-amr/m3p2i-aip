@@ -265,64 +265,6 @@ class MPPI():
     def _running_cost(self, state, u, t):
         return self.running_cost(state, u, t)
 
-    def _exp_util(self, costs, actions):
-        """
-           Calculate weights using exponential utility given cost
-        """
-        traj_costs = cost_to_go(costs, self.gamma_seq)
-        traj_costs = traj_costs[:,0]
-        # print(traj_costs)
-        #control_costs = self._control_costs(actions)
-        total_costs = traj_costs - torch.min(traj_costs) #+ self.beta * control_costs
-        
-        # Normalization of the weights
-        exp_ = torch.exp((-1.0/self.beta) * total_costs)
-        eta = torch.sum(exp_)       # tells how many significant samples we have, more or less
-        w = 1/eta*exp_
-        # print(self.beta)
-        eta_u_bound = 20
-        eta_l_bound = 10
-        beta_lm = 0.9
-        beta_um = 1.2
-        # beta update 
-        if eta > eta_u_bound:
-            self.beta = self.beta*beta_lm
-        elif eta < eta_l_bound:
-            self.beta = self.beta*beta_um
-        
-        # w = torch.softmax((-1.0/self.beta) * total_costs, dim=0)
-        self.total_costs = total_costs
-        return w
-
-    def get_samples(self, sample_shape, **kwargs): 
-        """
-        Gets as input the desired number of samples and returns the actual samples. 
-
-        Depending on the method, the samples can be Halton or Random. Halton samples a 
-        number of knots, later interpolated with a spline
-        """
-        if(self.sample_method=='halton'):
-            self.knot_points = generate_gaussian_halton_samples(
-                sample_shape,               # Number of samples
-                self.ndims,                 # n_knots * nu (knots per number of actions)
-                use_ghalton=True,
-                seed_val=self.seed_val,     # seed val is 0 
-                device=self.tensor_args['device'],
-                float_dtype=self.tensor_args['dtype'])
-            
-            # Sample splines from knot points:
-            # iteratre over action dimension:
-            knot_samples = self.knot_points.view(sample_shape, self.nu, self.n_knots) # n knots is T/knot_scale (30/4 = 7)
-            self.samples = torch.zeros((sample_shape, self.T, self.nu), **self.tensor_args)
-            for i in range(sample_shape):
-                for j in range(self.nu):
-                    self.samples[i,:,j] = bspline(knot_samples[i,j,:], n=self.T, degree=self.degree)
-
-        elif(self.sample_method == 'random'):
-            self.samples = self.noise_dist.sample((self.K, self.T))
-        
-        return self.samples
-
     def command(self, state):
         """
             Given a state, returns the best action sequence
@@ -434,6 +376,142 @@ class MPPI():
             self.noise = self._update_distribution(cost_horizon, actions)
 
         return cost_total, states, actions, ee_states
+
+    #################### Random Sampling ####################
+    def _compute_total_cost_batch_simple(self):
+        """
+            Samples random noise and computes perturbed action sequence at each iteration. Returns total cost
+        """
+        # Resample noise each time we take an action
+        self.noise = self.noise_dist.sample((self.K, self.T))
+        # Broadcast own control to noise over samples; now it's K x T x nu
+        self.perturbed_action = self.U + self.noise
+        
+        # Naively bound control
+        self.perturbed_action = self._bound_action(self.perturbed_action)
+
+        self.cost_total, self.states, self.actions, self.ee_states = self._compute_rollout_costs(self.perturbed_action)
+        self.actions /= self.u_scale
+
+        # Bounded noise after bounding (some got cut off, so we don't penalize that in action cost)
+        self.noise = self.perturbed_action - self.U
+
+        action_cost = self.get_action_cost()
+
+        # Action perturbation cost
+        perturbation_cost = torch.sum(self.U * action_cost, dim=(1, 2)) # [K, T, nu] * [K, T, nu] --> [K] sum over T and nu
+        self.cost_total += perturbation_cost
+        return self.cost_total
+
+    def get_action_cost(self):
+        if self.noise_abs_cost:
+            action_cost = self.lambda_ * torch.abs(self.noise) @ self.noise_sigma_inv
+            # NOTE: The original paper does self.lambda_ * torch.abs(self.noise) @ self.noise_sigma_inv, but this biases
+            # the actions with low noise if all states have the same cost. With abs(noise) we prefer actions close to the
+            # nomial trajectory.
+        else:
+            action_cost = self.lambda_ * self.noise @ self.noise_sigma_inv # Like original paper
+        return action_cost
+
+    def _bound_action(self, action):
+        if self.u_max is not None:
+            action = torch.max(torch.min(action, self.u_max), self.u_min)
+        return action
+
+    #################### Halton Sampling ####################
+    def _compute_total_cost_batch_halton(self):
+        """
+            Samples Halton splines once and then shifts mean according to control distribution. If random sampling is selected 
+            then samples random noise at each step. Mean of control distribution is updated using gradient
+        """
+        if self.sample_method == 'random':
+            self.delta = self.get_samples(self.K, base_seed=0)
+        elif self.delta == None and self.sample_method == 'halton':
+            self.delta = self.get_samples(self.K, base_seed=0)
+            #add zero-noise seq so mean is always a part of samples
+
+        # Add zero-noise seq so mean is always a part of samples
+        self.delta[-1,:,:] = self.Z_seq
+        # Keeps the size but scales values
+        scaled_delta = torch.matmul(self.delta, torch.diag(self.scale_tril)).view(self.delta.shape[0], self.T, self.nu)
+        
+        # First time mean is zero then it is updated in the distribution
+        act_seq = self.mean_action + scaled_delta
+
+        # Scales action within bounds. act_seq is the same as perturbed actions
+        act_seq = scale_ctrl(act_seq, self.u_min, self.u_max, squash_fn=self.squash_fn)
+        act_seq[self.nu, :, :] = self.best_traj
+        
+        self.perturbed_action = torch.clone(act_seq)
+
+        self.cost_total, self.states, self.actions, self.ee_states = self._compute_rollout_costs(self.perturbed_action)
+
+        self.actions /= self.u_scale
+
+        action_cost = self.get_action_cost()
+
+        # Action perturbation cost
+        perturbation_cost = torch.sum(self.mean_action * action_cost, dim=(1, 2))
+        self.cost_total += perturbation_cost
+        return self.cost_total
+
+    def _exp_util(self, costs, actions):
+        """
+           Calculate weights using exponential utility given cost
+        """
+        traj_costs = cost_to_go(costs, self.gamma_seq)
+        traj_costs = traj_costs[:,0]
+        # print(traj_costs)
+        #control_costs = self._control_costs(actions)
+        total_costs = traj_costs - torch.min(traj_costs) #+ self.beta * control_costs
+        
+        # Normalization of the weights
+        exp_ = torch.exp((-1.0/self.beta) * total_costs)
+        eta = torch.sum(exp_)       # tells how many significant samples we have, more or less
+        w = 1/eta*exp_
+        # print(self.beta)
+        eta_u_bound = 20
+        eta_l_bound = 10
+        beta_lm = 0.9
+        beta_um = 1.2
+        # beta update 
+        if eta > eta_u_bound:
+            self.beta = self.beta*beta_lm
+        elif eta < eta_l_bound:
+            self.beta = self.beta*beta_um
+        
+        # w = torch.softmax((-1.0/self.beta) * total_costs, dim=0)
+        self.total_costs = total_costs
+        return w
+
+    def get_samples(self, sample_shape, **kwargs): 
+        """
+        Gets as input the desired number of samples and returns the actual samples. 
+
+        Depending on the method, the samples can be Halton or Random. Halton samples a 
+        number of knots, later interpolated with a spline
+        """
+        if(self.sample_method=='halton'):
+            self.knot_points = generate_gaussian_halton_samples(
+                sample_shape,               # Number of samples
+                self.ndims,                 # n_knots * nu (knots per number of actions)
+                use_ghalton=True,
+                seed_val=self.seed_val,     # seed val is 0 
+                device=self.tensor_args['device'],
+                float_dtype=self.tensor_args['dtype'])
+            
+            # Sample splines from knot points:
+            # iteratre over action dimension:
+            knot_samples = self.knot_points.view(sample_shape, self.nu, self.n_knots) # n knots is T/knot_scale (30/4 = 7)
+            self.samples = torch.zeros((sample_shape, self.T, self.nu), **self.tensor_args)
+            for i in range(sample_shape):
+                for j in range(self.nu):
+                    self.samples[i,:,j] = bspline(knot_samples[i,j,:], n=self.T, degree=self.degree)
+
+        elif(self.sample_method == 'random'):
+            self.samples = self.noise_dist.sample((self.K, self.T))
+        
+        return self.samples
  
     def _update_distribution(self, costs, actions):
         """
@@ -478,79 +556,3 @@ class MPPI():
             self.scale_tril = torch.sqrt(self.cov_action)
 
         return delta
-
-    def get_action_cost(self):
-        if self.noise_abs_cost:
-            action_cost = self.lambda_ * torch.abs(self.noise) @ self.noise_sigma_inv
-            # NOTE: The original paper does self.lambda_ * torch.abs(self.noise) @ self.noise_sigma_inv, but this biases
-            # the actions with low noise if all states have the same cost. With abs(noise) we prefer actions close to the
-            # nomial trajectory.
-        else:
-            action_cost = self.lambda_ * self.noise @ self.noise_sigma_inv # Like original paper
-        return action_cost
-
-    def _compute_total_cost_batch_simple(self):
-        """
-            Samples random noise and computes perturbed action sequence at each iteration. Returns total cost
-        """
-        # Resample noise each time we take an action
-        self.noise = self.noise_dist.sample((self.K, self.T))
-        # Broadcast own control to noise over samples; now it's K x T x nu
-        self.perturbed_action = self.U + self.noise
-        
-        # Naively bound control
-        self.perturbed_action = self._bound_action(self.perturbed_action)
-
-        self.cost_total, self.states, self.actions, self.ee_states = self._compute_rollout_costs(self.perturbed_action)
-        self.actions /= self.u_scale
-
-        # Bounded noise after bounding (some got cut off, so we don't penalize that in action cost)
-        self.noise = self.perturbed_action - self.U
-
-        action_cost = self.get_action_cost()
-
-        # Action perturbation cost
-        perturbation_cost = torch.sum(self.U * action_cost, dim=(1, 2)) # [K, T, nu] * [K, T, nu] --> [K] sum over T and nu
-        self.cost_total += perturbation_cost
-        return self.cost_total
-
-    def _compute_total_cost_batch_halton(self):
-        """
-            Samples Halton splines once and then shifts mean according to control distribution. If random sampling is selected 
-            then samples random noise at each step. Mean of control distribution is updated using gradient
-        """
-        if self.sample_method == 'random':
-            self.delta = self.get_samples(self.K, base_seed=0)
-        elif self.delta == None and self.sample_method == 'halton':
-            self.delta = self.get_samples(self.K, base_seed=0)
-            #add zero-noise seq so mean is always a part of samples
-
-        # Add zero-noise seq so mean is always a part of samples
-        self.delta[-1,:,:] = self.Z_seq
-        # Keeps the size but scales values
-        scaled_delta = torch.matmul(self.delta, torch.diag(self.scale_tril)).view(self.delta.shape[0], self.T, self.nu)
-        
-        # First time mean is zero then it is updated in the distribution
-        act_seq = self.mean_action + scaled_delta
-
-        # Scales action within bounds. act_seq is the same as perturbed actions
-        act_seq = scale_ctrl(act_seq, self.u_min, self.u_max, squash_fn=self.squash_fn)
-        act_seq[self.nu, :, :] = self.best_traj
-        
-        self.perturbed_action = torch.clone(act_seq)
-
-        self.cost_total, self.states, self.actions, self.ee_states = self._compute_rollout_costs(self.perturbed_action)
-
-        self.actions /= self.u_scale
-
-        action_cost = self.get_action_cost()
-
-        # Action perturbation cost
-        perturbation_cost = torch.sum(self.mean_action * action_cost, dim=(1, 2))
-        self.cost_total += perturbation_cost
-        return self.cost_total
-
-    def _bound_action(self, action):
-        if self.u_max is not None:
-            action = torch.max(torch.min(action, self.u_max), self.u_min)
-        return action
