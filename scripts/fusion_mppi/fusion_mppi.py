@@ -79,7 +79,7 @@ class FUSION_MPPI(mppi.MPPI):
         self.hoover_height = 0.135
 
         # Select goal according to test
-        self.block_goal_pose = torch.clone(self.block_goal_pose_ur5_l)
+        self.block_goal_pose = torch.clone(self.block_goal_pose_ur5_r)
         self.block_ort_goal = torch.clone(self.block_goal_pose[3:7])
         self.success = False
         self.ee_goal = torch.tensor([0.4, 0., 0.3], device=self.device)
@@ -220,7 +220,7 @@ class FUSION_MPPI(mppi.MPPI):
         block_to_goal_ort = torch.abs(block_yaw - goal_yaw)
 
         # Costs
-        dist_cost = 10*robot_to_block_dist + 220*block_to_goal_dist + 190*block_to_goal_ort
+        dist_cost = 10*robot_to_block_dist + 220*block_to_goal_dist + 210*block_to_goal_ort
 
         ee_align_cost = torch.linalg.norm(robot_euler[:,0:2] - self.ort_goal_euler[0:2], axis=1)
         
