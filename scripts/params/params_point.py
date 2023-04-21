@@ -7,7 +7,7 @@ task = "reactive"                   # "simple", "patrolling", "reactive"
 num_envs = 100
 nx = 4
 noise_sigma = torch.tensor([[4, 0], [0, 4]], device="cuda:0", dtype=torch.float32)
-horizon = 10
+horizon = 12
 lambda_ = 0.8
 device = "cuda:0" 
 u_max = torch.tensor([3, 3], device="cuda:0", dtype=torch.float32)
@@ -16,7 +16,7 @@ step_dependent_dynamics = True
 terminal_state_cost = None
 sample_null_action = True
 use_priors = False
-u_per_command = 10
+u_per_command = 12
 filter_u = True
 
 # Parameters in the sim file
