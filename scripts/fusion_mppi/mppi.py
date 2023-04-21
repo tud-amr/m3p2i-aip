@@ -256,6 +256,10 @@ class MPPI():
         self.update_cov = False
         self.step_size_cov = 0.7
         self.kappa = 0.005
+    
+    def set_mode(self, mppi_mode, sample_method):
+        self.mppi_mode = mppi_mode
+        self.sample_method = sample_method
 
     @handle_batch_input
     def _dynamics(self, state, u, t):

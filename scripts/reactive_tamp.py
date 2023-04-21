@@ -71,6 +71,10 @@ class REACTIVE_TAMP:
                             bodies_per_env = self.bodies_per_env,
                             filter_u = params.filter_u
                             )
+        self.motion_planner.set_mode(
+            mppi_mode = 'simple',     # 'halton-spline', 'simple'
+            sample_method = 'random'  # 'halton', 'random'
+        )
         self.prefer_pull = -1
         
         # Make sure the socket does not already exist
