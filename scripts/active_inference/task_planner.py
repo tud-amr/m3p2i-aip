@@ -33,6 +33,15 @@ class PLANNER_SIMPLE:
         self.task = "None"
         self.curr_goal = "None"     
 
+    def check_task_success(self, robot_pos, block_pos):
+        if self.task in ['navigation', 'go_recharge']:
+            task_success = torch.norm(robot_pos - self.curr_goal) < 0.1
+        elif self.task in ['push', 'pull', 'hybrid']:
+            task_success = torch.norm(block_pos - self.curr_goal) < 0.15
+        else:
+            task_success = False
+        return task_success
+
 class PLANNER_PATROLLING(PLANNER_SIMPLE):
     def __init__(self, goals) -> None:
         self.task = "navigation"

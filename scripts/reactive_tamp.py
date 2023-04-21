@@ -93,13 +93,8 @@ class REACTIVE_TAMP:
         # Update params in the motion planner
         self.params = self.motion_planner.update_params(self.params, self.prefer_pull)
 
-        # Check task succeeds or not 
-        if self.task_planner.task in ['navigation', 'go_recharge']:
-            task_success = torch.norm(robot_pos - self.task_planner.curr_goal) < 0.1
-        elif self.task_planner.task in ['push', 'pull', 'hybrid']:
-            task_success = torch.norm(self.block_pos[0, :] - self.task_planner.curr_goal) < 0.15
-        else:
-            task_success = False
+        # Check task succeeds or not
+        task_success = self.task_planner.check_task_success(robot_pos, self.block_pos[0, :])
         return task_success
 
     def reset(self, i, reset_flag):
