@@ -112,6 +112,14 @@ class FUSION_MPPI(mppi.MPPI):
             self.suction_active = params.suction_active
         return params
 
+    def get_weights_preference(self):
+        if self.task == 'hybrid':
+            weight_push = torch.sum(self.weights[:int(self.num_envs/2)]).item()
+            weight_pull = torch.sum(self.weights[int(self.num_envs/2):]).item()
+            return int(weight_pull > weight_push)
+        else:
+            return -1
+
     def get_navigation_cost(self):
         return torch.clamp(torch.linalg.norm(self.robot_pos - self.nav_goal, axis=1)-0.05, min=0, max=1999) 
     

@@ -160,9 +160,7 @@ class REACTIVE_TAMP:
                         actions = self.motion_planner.command(s[0])
                         motion_time_now = time.monotonic()
                         self.motion_freq = format(1/(motion_time_now-motion_time_prev), '.2f')
-                        weight_push = torch.sum(self.motion_planner.weights[:int(self.num_envs/2)]).item()
-                        weight_pull = torch.sum(self.motion_planner.weights[int(self.num_envs/2):]).item()
-                        self.prefer_pull = int(weight_pull > weight_push)
+                        self.prefer_pull = self.motion_planner.get_weights_preference()
                     # print('Motion freq', self.motion_freq)
                     conn.sendall(data_transfer.torch_to_bytes(actions))
 
