@@ -215,7 +215,7 @@ class MPPI():
         self.state = None
         self.cost_total = None
         self.cost_total_non_zero = None
-        self.omega = None
+        self.weights = None
         self.states = None
         self.actions = None
 
@@ -283,9 +283,9 @@ class MPPI():
             self.cost_total_non_zero = _ensure_non_zero(cost_total, beta, 1 / self.lambda_)
 
             eta = torch.sum(self.cost_total_non_zero)
-            self.omega = (1. / eta) * self.cost_total_non_zero # [K]
+            self.weights = (1. / eta) * self.cost_total_non_zero # [K]
             
-            self.U += torch.sum(self.omega.view(-1, 1, 1) * self.noise, dim=0) # [K, 1, 1] * [K, T, nu] --> [T, nu] sum over K
+            self.U += torch.sum(self.weights.view(-1, 1, 1) * self.noise, dim=0) # [K, 1, 1] * [K, T, nu] --> [T, nu] sum over K
 
             action = self.U[:self.u_per_command]
 
@@ -468,7 +468,7 @@ class MPPI():
         # Normalization of the weights
         exp_ = torch.exp((-1.0/self.beta) * total_costs)
         eta = torch.sum(exp_)       # tells how many significant samples we have, more or less
-        w = 1/eta*exp_
+        self.weights = 1 / eta * exp_
         # print(self.beta)
         eta_u_bound = 20
         eta_l_bound = 10
@@ -482,7 +482,6 @@ class MPPI():
         
         # w = torch.softmax((-1.0/self.beta) * total_costs, dim=0)
         self.total_costs = total_costs
-        return w
 
     def get_samples(self, sample_shape, **kwargs): 
         """
@@ -519,7 +518,7 @@ class MPPI():
             So far only mean is updated, eventually one could also update the covariance
         """
 
-        w = self._exp_util(costs, actions)
+        self._exp_util(costs, actions)
         
         # Compute also top n best actions to plot
         # top_values, top_idx = torch.topk(self.total_costs, 10)
@@ -528,11 +527,11 @@ class MPPI():
         # self.top_trajs = torch.index_select(actions, 0, top_idx).squeeze(0)
 
         # Update best action
-        best_idx = torch.argmax(w)
+        best_idx = torch.argmax(self.weights)
         self.best_idx = best_idx
         self.best_traj = torch.index_select(actions, 0, best_idx).squeeze(0)
        
-        weighted_seq = w * actions.T
+        weighted_seq = self.weights * actions.T
 
         sum_seq = torch.sum(weighted_seq.T, dim=0)
         new_mean = sum_seq
@@ -546,7 +545,7 @@ class MPPI():
         #Update Covariance
         if self.update_cov:
             #Diagonal covariance of size AxA
-            weighted_delta = w * (delta ** 2).T
+            weighted_delta = self.weights * (delta ** 2).T
             # cov_update = torch.diag(torch.mean(torch.sum(weighted_delta.T, dim=0), dim=0))
             cov_update = torch.mean(torch.sum(weighted_delta.T, dim=0), dim=0)
     
