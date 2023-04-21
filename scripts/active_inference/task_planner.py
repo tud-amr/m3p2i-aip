@@ -10,9 +10,9 @@ sys.path.append('../')
 from utils import path_utils
 
 class PLANNER_SIMPLE:
-    def __init__(self) -> None:
-        self.task = "None"
-        self.curr_goal = "None"
+    def __init__(self, task, goal) -> None:
+        self.task = task
+        self.curr_goal = torch.tensor(goal, device="cuda:0")
     
     def update_params(self, params):
         if self.task == "pull":
@@ -22,16 +22,10 @@ class PLANNER_SIMPLE:
         return params
 
     def update_plan(self, robot_pos, stay_still):
-        # # navigation
-        self.task = "navigation"
-        self.curr_goal = torch.tensor([-3, 3], device="cuda:0")
-        # push or pull
-        # self.task = "hybrid"
-        # self.curr_goal = torch.tensor([-3.75, -3.75], device="cuda:0")
+        pass
     
-    def reset_plan(self):
-        self.task = "None"
-        self.curr_goal = "None"     
+    def reset_plan(self):    
+        pass
 
     def check_task_success(self, robot_pos, block_pos):
         if self.task in ['navigation', 'go_recharge']:
@@ -45,7 +39,7 @@ class PLANNER_SIMPLE:
 class PLANNER_PATROLLING(PLANNER_SIMPLE):
     def __init__(self, goals) -> None:
         self.task = "navigation"
-        self.goals = goals
+        self.goals = torch.tensor(goals, device="cuda:0")
         self.goal_id = 0
         self.curr_goal = self.goals[self.goal_id]
     
@@ -62,7 +56,7 @@ class PLANNER_PATROLLING(PLANNER_SIMPLE):
 
 class PLANNER_AIF(PLANNER_SIMPLE):
     def __init__(self) -> None:
-        PLANNER_SIMPLE.__init__(self)
+        PLANNER_SIMPLE.__init__(self, "navigation", [0, 0])
         # Define the required mdp structures 
         mdp_isAt = isaac_state_action_templates.MDPIsAt()
         mdp_battery = isaac_int_req_templates.MDPBatteryTask()  

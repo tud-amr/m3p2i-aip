@@ -38,13 +38,13 @@ class REACTIVE_TAMP:
         # Choose the task planner
         self.task = params.task
         if self.task == "patrolling":
-            self.task_planner = task_planner.PLANNER_PATROLLING(goals = torch.tensor([[-3, -3], [3, -3], [3, 3], [-3, 3]], device="cuda:0"))
+            self.task_planner = task_planner.PLANNER_PATROLLING(goals = [[-3, -3], [3, -3], [3, 3], [-3, 3]])
         elif self.task == "reactive":
             self.task_planner = task_planner.PLANNER_AIF()
             # start plotting battery level
             plot_class.start_dash_server()
         elif self.task == "simple":
-            self.task_planner = task_planner.PLANNER_SIMPLE()
+            self.task_planner = task_planner.PLANNER_SIMPLE("navigation", [-3, 3])  # "hybrid", [-3.75, -3.75]
 
         # Choose the motion planner
         self.motion_planner = fusion_mppi.FUSION_MPPI(
