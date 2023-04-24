@@ -24,6 +24,7 @@ class REACTIVE_TAMP:
         self.spacing = params.spacing
         self.dt = params.dt
         self.robot = params.robot
+        self.mobile_robot = True if self.robot in ['point_robot', 'heijn', 'boxer'] else False
         self.environment_type = params.environment_type
         self.gym, self.sim, self.viewer, envs, _ = sim_init.make(self.allow_viewer, self.num_envs, self.spacing, self.robot, self.environment_type, dt=self.dt)
 
@@ -172,9 +173,9 @@ class REACTIVE_TAMP:
                     conn.sendall(data_transfer.numpy_to_bytes(freq_data))
 
                     # Visualize rollouts
-                    if self.visualize_rollouts:
+                    if self.visualize_rollouts and self.motion_freq != 0 and self.mobile_robot:
                         # Get the rollouts trajectory
-                        rollouts = self.motion_planner.states[0, :, :, :].cpu().clone().numpy()
+                        rollouts = self.motion_planner.states.cpu().clone().numpy()
                         current_traj = np.zeros((self.motion_planner.T, 2))
                         K = self.motion_planner.K
                         res = conn.recv(1024)

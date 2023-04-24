@@ -17,6 +17,7 @@ class SIM():
         self.num_envs = params.sim_num_envs
         self.spacing = params.spacing
         self.robot = params.robot
+        self.mobile_robot = True if self.robot in ['point_robot', 'heijn', 'boxer'] else False
         self.environment_type = params.environment_type
         self.dt = params.dt
         self.visualize_rollouts = params.visualize_rollouts
@@ -104,7 +105,7 @@ class SIM():
                 self.gym.clear_lines(self.viewer)
                     
                 # Visualize rollouts
-                if self.visualize_rollouts:
+                if self.visualize_rollouts and freq_data[1] != 0 and self.mobile_robot:
                     s.sendall(b"Visualize rollouts")
                     K = s.recv(1024)
                     K = int(data_transfer.bytes_to_numpy(K))
