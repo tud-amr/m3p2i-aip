@@ -535,10 +535,8 @@ class MPPI():
         self.best_idx = best_idx
         self.best_traj = torch.index_select(actions, 0, best_idx).squeeze(0)
        
-        weighted_seq = self.weights * actions.T
-
-        sum_seq = torch.sum(weighted_seq.T, dim=0)
-        new_mean = sum_seq
+        weighted_seq = self.weights.view(-1, 1, 1) * actions
+        new_mean = torch.sum(weighted_seq, dim=0)
 
         # Gradient update for the mean
         self.mean_action = (1.0 - self.step_size_mean) * self.mean_action +\
