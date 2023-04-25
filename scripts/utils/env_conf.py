@@ -11,7 +11,8 @@ paper_baseline = 2 # 1: Baxter, 2: UR5
 # Dimensions objects for comparison
 
                 #  l      w      h      mu     m      x
-obj_baselines = [[0.1,   0.1 ,  0.05, 0.150, 0.150, 0.40],     # Baseline 1
+obj_baselines = [[0.04,   0.04 ,  0.04, 0.550, 0.100, 0.40],
+                 [0.1,   0.1 ,  0.05, 0.150, 0.150, 0.40],     # Baseline 1
                  [0.116, 0.116, 0.06, 0.637, 0.016, 0.37],     # Baseline 2, A
                  [0.168, 0.237, 0.05, 0.232, 0.615, 0.4],     # Baseline 2, B
                  [0.198, 0.198, 0.06, 0.198, 0.565, 0.42],     # Baseline 2, C
@@ -19,7 +20,7 @@ obj_baselines = [[0.1,   0.1 ,  0.05, 0.150, 0.150, 0.40],     # Baseline 1
                  [0.153, 0.462, 0.05, 0.181, 0.506, 0.4],]    # Baseline 2, E
 
 # Select object for comparison with baseline 2
-obj_index = 5  # 1 to 5 as A to E
+obj_index = 0  # 1 to 5 as A to E
 # -------------------------------------------------------------------------------
 
 box1_pose = gymapi.Transform()

@@ -97,7 +97,8 @@ class FUSION_MPPI(mppi.MPPI):
             self.ee_indexes = np.zeros(self.num_envs)
             if robot_type == 'panda':
                 self.block_index = 2
-                self.ee_index = 12
+                self.ee_index = 11
+                self.block_goal = torch.tensor([0.4, 0., 0.6], device=self.device)
             elif robot_type == 'omni_panda':
                 self.block_index = 2
                 self.ee_index = 15
@@ -544,8 +545,8 @@ class FUSION_MPPI(mppi.MPPI):
             #task_cost = self.get_navigation_cost(state_pos)
             task_cost = self.get_push_cost(state_pos)
         elif self.robot == 'panda':
-            #task_cost = self.get_panda_cost(state_pos)
-            task_cost = self.get_panda_reach_cost(state_pos)
+            task_cost = self.get_panda_cost(state_pos)
+            #task_cost = self.get_panda_reach_cost(state_pos)
         elif self.robot == 'panda_no_hand':
             task_cost = self.get_panda_push_cost(state_pos)
         elif self.robot == 'omni_panda':
