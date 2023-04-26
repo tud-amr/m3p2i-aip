@@ -122,11 +122,13 @@ def acquire_states(gym, sim, params, flag="none"):
     gym.refresh_dof_state_tensor(sim)
     gym.refresh_rigid_body_state_tensor(sim)
 
-    # Get 2D pos of block and robot
-    if params.block_index != "None":
+    # Get states of block, cube and robot
+    block_pos, cube_state, cube_goal_state, robot_pos, robot_vel, robot_states= ["None"] * 6
+    if params.environment_type == "cube":
+        cube_state = shaped_root_states[:, 3, :]
+        cube_goal_state = shaped_root_states[:, 4, :]
+    elif params.block_index != "None":
         block_pos = shaped_root_states[:, params.block_index, :2] # [num_envs, 2]
-    else:
-        block_pos = "None"
     if params.robot in ["boxer", "albert", "husky"]:
         robot_pos = shaped_root_states[:, -1, :2]   # [num_envs, 2]
         robot_vel = shaped_root_states[:, -1, 7:9]  # [num_envs, 2]
@@ -135,10 +137,6 @@ def acquire_states(gym, sim, params, flag="none"):
         robot_pos = dof_states[:, 0].reshape([num_envs, dofs_per_robot])[:, :2] # [num_envs, 2]
         robot_vel = dof_states[:, 1].reshape([num_envs, dofs_per_robot])[:, :2] # [num_envs, 2]
         robot_states = dof_states.reshape([num_envs, dofs_per_robot*2]) # [num_envs, 4] or [num_envs, 6] for each row [pos1, vel1, pos2, vel2...]
-    else:
-        robot_pos = "None"
-        robot_vel = "None"
-        robot_states = "None"
     states_dict = {"dof_states": dof_states,
                    "root_states": root_states,
                    "shaped_root_states": shaped_root_states,
@@ -151,7 +149,9 @@ def acquire_states(gym, sim, params, flag="none"):
                    "bodies_per_env": bodies_per_env, 
                    "robot_pos": robot_pos,
                    "block_pos": block_pos,
-                   "robot_vel": robot_vel}
+                   "robot_vel": robot_vel,
+                   "cube_state": cube_state,
+                   "cube_goal_state": cube_goal_state}
 
     # Print relevant info
     if params.print_flag:
