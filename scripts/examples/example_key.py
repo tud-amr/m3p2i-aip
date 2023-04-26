@@ -13,13 +13,13 @@ class Params:
         self.num_envs = 1
         self.spacing = 10.0
         self.robot = "franka"          # "point_robot", "boxer", "husky", "albert", and "heijn"
-        self.environment_type = "normal"    # "normal", "battery"
+        self.environment_type = "cube"    # "normal", "battery"
         self.control_type = "vel_control"   # "vel_control", "pos_control", "force_control"
 
 
         # Helper variables
         self.suction_active = False       # Activate suction or not when close to purple box
-        self.block_index = 7
+        self.block_index = "None"
         self.kp_suction = 400
 
         # Time logging

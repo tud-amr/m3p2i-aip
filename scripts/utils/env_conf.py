@@ -81,22 +81,28 @@ def add_box(sim, gym, env, width, height, depth, pose, color, isFixed, name, ind
     gym.set_rigid_body_color(env, box_handle, 0, gymapi.MESH_VISUAL_AND_COLLISION, color)
     return box_handle
 
-def add_arena(sim, gym, env, square_size, wall_thikhness, origin_x, origin_y, index):
+def add_arena(sim, gym, env, environment_type, origin_x, origin_y, index):
     wall_pose = gymapi.Transform()
     color_vec_walls= gymapi.Vec3(0.1, 0.1, 0.1)
+    if environment_type in ["normal", "battery"]:
+        square_size = 8
+        wall_thickness = 0.1
+    if environment_type == "lab":
+        square_size = 5
+        wall_thickness = 0.05
     # Add 4 walls
     wall_pose.p = gymapi.Vec3(square_size/2+origin_x, origin_y, 0.0)
     wall_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1)
-    add_box(sim, gym, env, wall_thikhness, square_size, 0.2, wall_pose, color_vec_walls, True, "wall1", index)
+    add_box(sim, gym, env, wall_thickness, square_size, 0.2, wall_pose, color_vec_walls, True, "wall1", index)
     wall_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1)
     wall_pose.p = gymapi.Vec3(-square_size/2+origin_x, origin_y, 0.0)
-    add_box(sim, gym, env, wall_thikhness, square_size, 0.2, wall_pose, color_vec_walls, True, "wall2", index)
+    add_box(sim, gym, env, wall_thickness, square_size, 0.2, wall_pose, color_vec_walls, True, "wall2", index)
     wall_pose.p = gymapi.Vec3(origin_x, square_size/2+origin_y, 0.0)
     wall_pose.r = gymapi.Quat(0.0, 0.0, 0.707107, 0.707107)
-    add_box(sim, gym, env, wall_thikhness, square_size, 0.2, wall_pose, color_vec_walls, True, "wall3", index)
+    add_box(sim, gym, env, wall_thickness, square_size, 0.2, wall_pose, color_vec_walls, True, "wall3", index)
     wall_pose.p = gymapi.Vec3(origin_x, -square_size/2+origin_y, 0.0)
     wall_pose.r = gymapi.Quat(0.0, 0.0, 0.707107, 0.707107)
-    add_box(sim, gym, env, wall_thikhness, square_size, 0.2, wall_pose, color_vec_walls, True, "wall4", index)
+    add_box(sim, gym, env, wall_thickness, square_size, 0.2, wall_pose, color_vec_walls, True, "wall4", index)
 
 def load_robot(robot, gym, sim):
     if robot == "albert":
@@ -256,7 +262,74 @@ def add_obstacles(sim, gym, env, environment_type, index):
         gym.set_actor_rigid_body_properties(env, crate_handle, crate_props)      
     else:
         print("Invalid environment type")
+
+def add_franka_arena(gym, sim, env, robot_asset, i):
+    # Create table asset
+    table_pos = [0.0, 0.0, 1.0]
+    table_thickness = 0.05
+    table_opts = gymapi.AssetOptions()
+    table_opts.fix_base_link = True
+    table_asset = gym.create_box(sim, *[1.2, 1.2, table_thickness], table_opts)
     
+    # Create table stand asset
+    table_stand_height = 0.1
+    table_stand_pos = [-0.5, 0.0, 1.0 + table_thickness / 2 + table_stand_height / 2]
+    table_stand_opts = gymapi.AssetOptions()
+    table_stand_opts.fix_base_link = True
+    table_stand_asset = gym.create_box(sim, *[0.2, 0.2, table_stand_height], table_opts)
+
+    # Create cubeA asset
+    cubeA_opts = gymapi.AssetOptions()
+    cubeA_size = 0.050
+    cubeA_asset = gym.create_box(sim, *([cubeA_size] * 3), cubeA_opts)
+    cubeA_color = gymapi.Vec3(0.6, 0.1, 0.0)
+
+    # Create cubeB asset
+    cubeB_opts = gymapi.AssetOptions()
+    cubeB_size = 0.070
+    cubeB_asset = gym.create_box(sim, *([cubeB_size] * 3), cubeB_opts)
+    cubeB_color = gymapi.Vec3(0.0, 0.4, 0.1)
+
+    # Define start pose for franka
+    franka_start_pose = gymapi.Transform()
+    franka_start_pose.p = gymapi.Vec3(-0.45, 0.0, 1.0 + table_thickness / 2 + table_stand_height)
+    franka_start_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
+
+    # Define start pose for table
+    table_start_pose = gymapi.Transform()
+    table_start_pose.p = gymapi.Vec3(*table_pos)
+    table_start_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
+    table_surface_pos = np.array(table_pos) + np.array([0, 0, table_thickness / 2])
+    # self.reward_settings["table_height"] = self._table_surface_pos[2]
+
+    # Define start pose for table stand
+    table_stand_start_pose = gymapi.Transform()
+    table_stand_start_pose.p = gymapi.Vec3(*table_stand_pos)
+    table_stand_start_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
+
+    # Define start pose for cubes
+    cubeA_start_pose = gymapi.Transform()
+    cubeA_start_pose.p = gymapi.Vec3(0, 0, 1.0)
+    cubeA_start_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
+    cubeB_start_pose = gymapi.Transform()
+    cubeB_start_pose.p = gymapi.Vec3(0.1, 0.2, 1.06)
+    cubeB_start_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
+
+    # Create franka robot
+    franka_actor = gym.create_actor(env, robot_asset, franka_start_pose, "franka", i, 0, 0)
+
+    # Create table
+    table_actor = gym.create_actor(env, table_asset, table_start_pose, "table", i, 1, 0)
+    table_stand_actor = gym.create_actor(env, table_stand_asset, table_stand_start_pose, "table_stand",i, 1, 0)
+    
+    # Create cubes
+    cubeA_id = gym.create_actor(env, cubeA_asset, cubeA_start_pose, "cubeA", i, 2, 0)
+    cubeB_id = gym.create_actor(env, cubeB_asset, cubeB_start_pose, "cubeB", i, 4, 0)
+    gym.set_rigid_body_color(env, cubeA_id, 0, gymapi.MESH_VISUAL, cubeA_color)
+    gym.set_rigid_body_color(env, cubeB_id, 0, gymapi.MESH_VISUAL, cubeB_color)
+
+    return franka_actor
+                                            
 def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, environment_type, control_type = "vel_control"):
     # Some common handles for later use
     envs = []
@@ -264,32 +337,25 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, e
     print("Creating %d environments" % num_envs)
     num_per_row = int(math.sqrt(num_envs))
     gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(1.5, 6, 8), gymapi.Vec3(1.5, 0, 0))
+
     for i in range(num_envs):
         # Create env
         env = gym.create_env(sim, gymapi.Vec3(-spacing, 0.0, -spacing), gymapi.Vec3(spacing, spacing, spacing), num_per_row)
         envs.append(env)
-        
-        if environment_type == "normal" or environment_type == "battery":
-            wall_size = 8
-            wall_thickness = 0.1
-        if environment_type == "lab":
-            wall_size = 5
-            wall_thickness = 0.05
 
-        add_arena(sim, gym, env, wall_size, wall_thickness, 0, 0, i) # Wall size, wall thickness, origin_x, origin_y, index
-        
-        # Add obstacles
-        add_obstacles(sim, gym, env, environment_type, index = i)
-
-        # Add robot
-        robot_handle = gym.create_actor(env, robot_asset, pose, "robot", i, 1)
+        if environment_type in ["normal" ,"battery", "lab"]:
+            add_arena(sim, gym, env, environment_type, 0, 0, i) # origin_x, origin_y, index
+            add_obstacles(sim, gym, env, environment_type, index = i)
+            robot_handle = gym.create_actor(env, robot_asset, pose, "robot", i, 1)
+            if environment_type == "battery":
+                gym.set_rigid_body_color(env, robot_handle, -1, gymapi.MESH_VISUAL_AND_COLLISION, color_vec_battery_ok)
+        elif environment_type == "cube":
+            robot_handle = add_franka_arena(gym, sim, env, robot_asset, i)
         robot_handles.append(robot_handle)
-        if environment_type == "battery":
-            gym.set_rigid_body_color(env, robot_handle, -1, gymapi.MESH_VISUAL_AND_COLLISION, color_vec_battery_ok)
 
         # Update point bot dynamics / control mode
         props = gym.get_asset_dof_properties(robot_asset)
-        if True:#environment_type == "cube":
+        if environment_type == "cube":
             # Set franka dof properties
             props["driveMode"][7:].fill(gymapi.DOF_MODE_VEL)
             props["stiffness"][7:].fill(800.0)
@@ -309,7 +375,6 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, e
         else:
             print("Invalid control type!")
         gym.set_actor_dof_properties(env, robot_handle, props)
-        print('pr', props['driveMode'])
 
         # Set friction of rotacasters to zero for boxer
         boxer_rigid_body_names = ['base_link_ori', 'base_link', 'chassis_link', 'rotacastor_left_link', 'rotacastor_right_link', 'wheel_left_link', 'wheel_right_link', 'ee_link']
