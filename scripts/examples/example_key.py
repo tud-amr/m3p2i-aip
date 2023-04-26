@@ -12,13 +12,13 @@ class Params:
         self.allow_viewer = True
         self.num_envs = 1
         self.spacing = 10.0
-        self.robot = "point_robot"          # "point_robot", "boxer", "husky", "albert", and "heijn"
+        self.robot = "franka"          # "point_robot", "boxer", "husky", "albert", and "heijn"
         self.environment_type = "normal"    # "normal", "battery"
         self.control_type = "vel_control"   # "vel_control", "pos_control", "force_control"
 
 
         # Helper variables
-        self.suction_active = True       # Activate suction or not when close to purple box
+        self.suction_active = False       # Activate suction or not when close to purple box
         self.block_index = 7
         self.kp_suction = 400
 

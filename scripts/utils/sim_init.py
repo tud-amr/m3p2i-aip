@@ -135,7 +135,10 @@ def acquire_states(gym, sim, params, flag="none"):
         robot_pos = dof_states[:, 0].reshape([num_envs, dofs_per_robot])[:, :2] # [num_envs, 2]
         robot_vel = dof_states[:, 1].reshape([num_envs, dofs_per_robot])[:, :2] # [num_envs, 2]
         robot_states = dof_states.reshape([num_envs, dofs_per_robot*2]) # [num_envs, 4] or [num_envs, 6] for each row [pos1, vel1, pos2, vel2...]
-
+    else:
+        robot_pos = "None"
+        robot_vel = "None"
+        robot_states = "None"
     states_dict = {"dof_states": dof_states,
                    "root_states": root_states,
                    "shaped_root_states": shaped_root_states,

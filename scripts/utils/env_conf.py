@@ -170,6 +170,7 @@ def load_franka(gym, sim):
     asset_options = gymapi.AssetOptions()
     asset_options.fix_base_link = True
     asset_options.flip_visual_attachments = True
+    asset_options.disable_gravity = True
     asset_options.armature = 0.01
     print("Loading asset '%s' from '%s'" % (franka_asset_file, asset_root))
     franka_asset = gym.load_asset(
@@ -288,7 +289,12 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, e
 
         # Update point bot dynamics / control mode
         props = gym.get_asset_dof_properties(robot_asset)
-        if control_type == "pos_control":
+        if True:#environment_type == "cube":
+            # Set franka dof properties
+            props["driveMode"][7:].fill(gymapi.DOF_MODE_VEL)
+            props["stiffness"][7:].fill(800.0)
+            props["damping"][7:].fill(40.0)
+        elif control_type == "pos_control":
             props["driveMode"].fill(gymapi.DOF_MODE_POS)
             props["stiffness"].fill(1000.0)
             props["damping"].fill(200.0)
@@ -303,6 +309,7 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, e
         else:
             print("Invalid control type!")
         gym.set_actor_dof_properties(env, robot_handle, props)
+        print('pr', props['driveMode'])
 
         # Set friction of rotacasters to zero for boxer
         boxer_rigid_body_names = ['base_link_ori', 'base_link', 'chassis_link', 'rotacastor_left_link', 'rotacastor_right_link', 'wheel_left_link', 'wheel_right_link', 'ee_link']
