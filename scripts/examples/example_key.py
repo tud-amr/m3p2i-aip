@@ -12,7 +12,7 @@ class Params:
         self.allow_viewer = True
         self.num_envs = 1
         self.spacing = 10.0
-        self.robot = "franka"          # "point_robot", "boxer", "husky", "albert", and "heijn"
+        self.robot = "panda"          # "point_robot", "boxer", "husky", "albert", "panda", and "heijn"
         self.environment_type = "cube"    # "normal", "battery"
         self.control_type = "vel_control"   # "vel_control", "pos_control", "force_control"
 

@@ -111,8 +111,8 @@ def load_robot(robot, gym, sim):
         robot_asset = load_boxer(gym, sim)
     elif robot == "point_robot":
         robot_asset = load_point_robot(gym, sim)
-    elif robot == "franka":
-        robot_asset = load_franka(gym, sim)
+    elif robot == "panda":
+        robot_asset = load_panda(gym, sim)
     elif robot == "husky":
         robot_asset = load_husky(gym, sim)
     elif robot == "heijn":
@@ -169,7 +169,7 @@ def load_heijn(gym, sim):
     robot_asset = gym.load_asset(sim, asset_root, asset_file, asset_options)
     return robot_asset
 
-def load_franka(gym, sim):
+def load_panda(gym, sim):
     # Load asset
     asset_root = path_utils.get_assets_path()
     franka_asset_file = "urdf/franka_description/robots/franka_panda.urdf"
@@ -263,7 +263,7 @@ def add_obstacles(sim, gym, env, environment_type, index):
     else:
         print("Invalid environment type")
 
-def add_franka_arena(gym, sim, env, robot_asset, i):
+def add_panda_arena(gym, sim, env, robot_asset, i):
     # Create table asset
     table_pos = [0.0, 0.0, 1.0]
     table_thickness = 0.05
@@ -290,10 +290,10 @@ def add_franka_arena(gym, sim, env, robot_asset, i):
     cubeB_asset = gym.create_box(sim, *([cubeB_size] * 3), cubeB_opts)
     cubeB_color = gymapi.Vec3(0.0, 0.4, 0.1)
 
-    # Define start pose for franka
-    franka_start_pose = gymapi.Transform()
-    franka_start_pose.p = gymapi.Vec3(-0.45, 0.0, 1.0 + table_thickness / 2 + table_stand_height)
-    franka_start_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
+    # Define start pose for panda
+    panda_start_pose = gymapi.Transform()
+    panda_start_pose.p = gymapi.Vec3(-0.45, 0.0, 1.0 + table_thickness / 2 + table_stand_height)
+    panda_start_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
 
     # Define start pose for table
     table_start_pose = gymapi.Transform()
@@ -315,8 +315,8 @@ def add_franka_arena(gym, sim, env, robot_asset, i):
     cubeB_start_pose.p = gymapi.Vec3(0.1, 0.2, 1.06)
     cubeB_start_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
 
-    # Create franka robot
-    franka_actor = gym.create_actor(env, robot_asset, franka_start_pose, "franka", i, 0, 0)
+    # Create panda robot
+    panda_actor = gym.create_actor(env, robot_asset, panda_start_pose, "panda", i, 0, 0)
 
     # Create table
     table_actor = gym.create_actor(env, table_asset, table_start_pose, "table", i, 1, 0)
@@ -328,7 +328,7 @@ def add_franka_arena(gym, sim, env, robot_asset, i):
     gym.set_rigid_body_color(env, cubeA_id, 0, gymapi.MESH_VISUAL, cubeA_color)
     gym.set_rigid_body_color(env, cubeB_id, 0, gymapi.MESH_VISUAL, cubeB_color)
 
-    return franka_actor
+    return panda_actor
                                             
 def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, environment_type, control_type = "vel_control"):
     # Some common handles for later use
@@ -350,13 +350,13 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, e
             if environment_type == "battery":
                 gym.set_rigid_body_color(env, robot_handle, -1, gymapi.MESH_VISUAL_AND_COLLISION, color_vec_battery_ok)
         elif environment_type == "cube":
-            robot_handle = add_franka_arena(gym, sim, env, robot_asset, i)
+            robot_handle = add_panda_arena(gym, sim, env, robot_asset, i)
         robot_handles.append(robot_handle)
 
         # Update point bot dynamics / control mode
         props = gym.get_asset_dof_properties(robot_asset)
         if environment_type == "cube":
-            # Set franka dof properties
+            # Set panda dof properties
             props["driveMode"][7:].fill(gymapi.DOF_MODE_VEL)
             props["stiffness"][7:].fill(800.0)
             props["damping"][7:].fill(40.0)

@@ -140,7 +140,7 @@ def acquire_states(gym, sim, params, flag="none"):
         robot_states = dof_states.reshape([num_envs, dofs_per_robot*2]) # [num_envs, 4] or [num_envs, 6] for each row [pos1, vel1, pos2, vel2...]
     
     # Get states of end effector
-    if params.robot == "franka":
+    if params.robot == "panda":
         ee_l_index = 9
         ee_r_index = 10
     else:
@@ -286,7 +286,7 @@ def keyboard_control(gym, sim, viewer, robot, num_dofs, num_envs, dof_states, co
             joint_i = torch.zeros(num_dofs, dtype=torch.float32, device="cuda:0")
             joint_i[i] = 1
             vel_targets[str(i+1)] = joint_i 
-    elif robot == "franka":
+    elif robot == "panda":
         for i in range(num_dofs):
             joint_i = torch.zeros(num_dofs, dtype=torch.float32, device="cuda:0")
             joint_i[i] = 1
