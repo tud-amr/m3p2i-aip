@@ -116,6 +116,7 @@ def acquire_states(gym, sim, params, flag="none"):
     # Acquire rigid body states
     _rb_states = gym.acquire_rigid_body_state_tensor(sim)
     rb_states = gymtorch.wrap_tensor(_rb_states)
+    shaped_rb_states = rb_states.reshape([num_envs, bodies_per_env, 13])
 
     # Refresh the states
     gym.refresh_actor_root_state_tensor(sim)
@@ -137,6 +138,15 @@ def acquire_states(gym, sim, params, flag="none"):
         robot_pos = dof_states[:, 0].reshape([num_envs, dofs_per_robot])[:, :2] # [num_envs, 2]
         robot_vel = dof_states[:, 1].reshape([num_envs, dofs_per_robot])[:, :2] # [num_envs, 2]
         robot_states = dof_states.reshape([num_envs, dofs_per_robot*2]) # [num_envs, 4] or [num_envs, 6] for each row [pos1, vel1, pos2, vel2...]
+    
+    # Get states of end effector
+    if params.robot == "franka":
+        ee_index = 10
+    else:
+        ee_index = "None"
+    ee_state = shaped_rb_states[:, ee_index, :] if ee_index != "None" else "None"
+
+    # Store in dictionary
     states_dict = {"dof_states": dof_states,
                    "root_states": root_states,
                    "shaped_root_states": shaped_root_states,
@@ -151,7 +161,8 @@ def acquire_states(gym, sim, params, flag="none"):
                    "block_pos": block_pos,
                    "robot_vel": robot_vel,
                    "cube_state": cube_state,
-                   "cube_goal_state": cube_goal_state}
+                   "cube_goal_state": cube_goal_state,
+                   "ee_state": ee_state}
 
     # Print relevant info
     if params.print_flag:
