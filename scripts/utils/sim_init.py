@@ -141,10 +141,12 @@ def acquire_states(gym, sim, params, flag="none"):
     
     # Get states of end effector
     if params.robot == "franka":
-        ee_index = 10
+        ee_l_index = 9
+        ee_r_index = 10
     else:
-        ee_index = "None"
-    ee_state = shaped_rb_states[:, ee_index, :] if ee_index != "None" else "None"
+        ee_l_index, ee_r_index = ["None"] * 2
+    ee_l_state = shaped_rb_states[:, ee_l_index, :] if ee_l_index != "None" else "None"
+    ee_r_state = shaped_rb_states[:, ee_r_index, :] if ee_r_index != "None" else "None"
 
     # Store in dictionary
     states_dict = {"dof_states": dof_states,
@@ -162,7 +164,8 @@ def acquire_states(gym, sim, params, flag="none"):
                    "robot_vel": robot_vel,
                    "cube_state": cube_state,
                    "cube_goal_state": cube_goal_state,
-                   "ee_state": ee_state}
+                   "ee_l_state": ee_l_state, 
+                   "ee_r_state": ee_r_state}
 
     # Print relevant info
     if params.print_flag:
@@ -258,51 +261,43 @@ def destroy_sim(gym, sim, viewer):
 # Control using keyboard
 def keyboard_control(gym, sim, viewer, robot, num_dofs, num_envs, dof_states, control_type = "vel_control"):
     # Set targets for different robots
+    vel_targets = {}
+    zero_vel = torch.zeros(num_dofs, dtype=torch.float32, device="cuda:0")
+    max_vel = 5
     if robot == "point_robot":
-        zero_vel = torch.zeros(num_dofs, dtype=torch.float32, device="cuda:0")
         up_vel = torch.tensor([0, -2], dtype=torch.float32, device="cuda:0").repeat(num_envs)
         down_vel = torch.tensor([0, 2], dtype=torch.float32, device="cuda:0").repeat(num_envs)
         left_vel = torch.tensor([2, 0], dtype=torch.float32, device="cuda:0").repeat(num_envs)
         right_vel = torch.tensor([-2, 0], dtype=torch.float32, device="cuda:0").repeat(num_envs)
         vel_targets = {"up":up_vel, "down":down_vel, "left":left_vel, "right":right_vel}
     elif robot == "boxer":
-        max_vel = 5
-        zero_vel = torch.zeros(1, num_dofs, dtype=torch.float32, device="cuda:0")
         left_vel = torch.tensor([-max_vel, max_vel], dtype=torch.float32, device="cuda:0").repeat(num_envs)
         down_vel = torch.tensor([-max_vel, -max_vel], dtype=torch.float32, device="cuda:0").repeat(num_envs)
         up_vel = torch.tensor([max_vel, max_vel], dtype=torch.float32, device="cuda:0").repeat(num_envs)
         right_vel = torch.tensor([max_vel, -max_vel], dtype=torch.float32, device="cuda:0").repeat(num_envs)
         vel_targets = {"up":up_vel, "down":down_vel, "left":left_vel, "right":right_vel}
     elif robot == "albert":
-        max_vel = 5
-        zero_vel = torch.zeros(num_dofs, dtype=torch.float32, device="cuda:0")
-        joint_1 = torch.tensor([1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], dtype=torch.float32, device="cuda:0").repeat(num_envs)
-        joint_2 = torch.tensor([0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], dtype=torch.float32, device="cuda:0").repeat(num_envs)
-        joint_3 = torch.tensor([0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], dtype=torch.float32, device="cuda:0").repeat(num_envs)
-        joint_4 = torch.tensor([0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0], dtype=torch.float32, device="cuda:0").repeat(num_envs)
-        joint_5 = torch.tensor([0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0], dtype=torch.float32, device="cuda:0").repeat(num_envs)
-        joint_6 = torch.tensor([0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0], dtype=torch.float32, device="cuda:0").repeat(num_envs)
-        joint_7 = torch.tensor([0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0], dtype=torch.float32, device="cuda:0").repeat(num_envs)
-        joint_8 = torch.tensor([0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0], dtype=torch.float32, device="cuda:0").repeat(num_envs)
-        joint_9 = torch.tensor([0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0], dtype=torch.float32, device="cuda:0").repeat(num_envs)
         left_vel = torch.tensor([0, 0, 0, 0, 0, 0, 0, 0, 0, -max_vel, max_vel, -max_vel, max_vel], dtype=torch.float32, device="cuda:0").repeat(num_envs)
         down_vel = torch.tensor([0, 0, 0, 0, 0, 0, 0, 0, 0, -max_vel, -max_vel, -max_vel, -max_vel], dtype=torch.float32, device="cuda:0").repeat(num_envs)
         up_vel = torch.tensor([0, 0, 0, 0, 0, 0, 0, 0, 0, max_vel, max_vel, max_vel, max_vel], dtype=torch.float32, device="cuda:0").repeat(num_envs)
         right_vel = torch.tensor([0, 0, 0, 0, 0, 0, 0, 0, 0, max_vel, -max_vel, max_vel, -max_vel], dtype=torch.float32, device="cuda:0").repeat(num_envs)
-        vel_targets = {"up":up_vel, "down":down_vel, "left":left_vel, "right":right_vel, 
-                        "1":joint_1, "2":joint_2, "3":joint_3, "4":joint_4, "5":joint_5,
-                        "6":joint_6, "7":joint_7, "8":joint_8, "9":joint_9}
+        vel_targets = {"up":up_vel, "down":down_vel, "left":left_vel, "right":right_vel}
+        for i in range(9):
+            joint_i = torch.zeros(num_dofs, dtype=torch.float32, device="cuda:0")
+            joint_i[i] = 1
+            vel_targets[str(i+1)] = joint_i 
+    elif robot == "franka":
+        for i in range(num_dofs):
+            joint_i = torch.zeros(num_dofs, dtype=torch.float32, device="cuda:0")
+            joint_i[i] = 1
+            vel_targets[str(i+1)] = joint_i 
     elif robot == "husky":
-        max_vel = 5
-        zero_vel = torch.zeros(1, num_dofs, dtype=torch.float32, device="cuda:0")
         left_vel = torch.tensor([-max_vel, max_vel, -max_vel, max_vel], dtype=torch.float32, device="cuda:0").repeat(num_envs)
         down_vel = torch.tensor([-max_vel, -max_vel, -max_vel, -max_vel], dtype=torch.float32, device="cuda:0").repeat(num_envs)
         up_vel = torch.tensor([max_vel, max_vel, max_vel, max_vel], dtype=torch.float32, device="cuda:0").repeat(num_envs)
         right_vel = torch.tensor([max_vel, -max_vel, max_vel, -max_vel], dtype=torch.float32, device="cuda:0").repeat(num_envs)
         vel_targets = {"up":up_vel, "down":down_vel, "left":left_vel, "right":right_vel}
     elif robot == "heijn":
-        max_vel = 5
-        zero_vel = torch.zeros(1, num_dofs, dtype=torch.float32, device="cuda:0")
         x_vel = torch.tensor([max_vel, 0, 0], dtype=torch.float32, device="cuda:0").repeat(num_envs)
         y_vel = torch.tensor([0, max_vel, 0], dtype=torch.float32, device="cuda:0").repeat(num_envs)
         theta_vel = torch.tensor([0, 0, max_vel], dtype=torch.float32, device="cuda:0").repeat(num_envs)
