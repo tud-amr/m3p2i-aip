@@ -1,7 +1,7 @@
 import fusion_mppi.mppi as mppi
 import torch, math
 import time
-from isaacgym import gymtorch, gymapi
+from isaacgym import gymtorch, gymapi, torch_utils
 from utils import sim_init, skill_utils
 
 class FUSION_MPPI(mppi.MPPI):
@@ -95,6 +95,10 @@ class FUSION_MPPI(mppi.MPPI):
             self.robot_vel = states_dict["robot_vel"]
             self.dyn_obs_pos = self.shaped_root_states[:, 5, :2]
             self.dyn_obs_vel = self.shaped_root_states[:, 5, 7:9]
+            self.cube_state = states_dict["cube_state"]
+            self.cube_goal_state = states_dict["cube_goal_state"]
+            self.ee_l_state = states_dict["ee_l_state"]
+            self.ee_r_state = states_dict["ee_r_state"]
             self.flag = False
     
     def update_task(self, task, goal):
@@ -199,6 +203,32 @@ class FUSION_MPPI(mppi.MPPI):
 
         return dyn_obs_cost
 
+    def get_panda_cost(self):
+        self.ee_state = (self.ee_l_state + self.ee_r_state) / 2
+        reach_cost = torch.linalg.norm(self.ee_state[:,:3] - self.cube_state[:,:3], axis = 1) 
+        goal_cost = torch.linalg.norm(self.cube_goal_state[:, :3] - self.cube_state[:,:3], axis = 1) #+ 2*torch.abs(self.block_goal[2] - block_state[:,2])
+        # reach_cost[reach_cost<0.05] = 0*reach_cost[reach_cost<0.05]
+
+        ee_roll, ee_pitch, _ = torch_utils.get_euler_xyz(self.ee_state[:,3:7])
+
+        if self.robot == 'omni_panda':
+            # get jacobian tensor
+            self.gym.refresh_jacobian_tensors(self.sim)
+            # for fixed-base franka, tensor has shape (num envs, 10, 6, 9)
+            _jacobian = self.gym.acquire_jacobian_tensor(self.sim, "franka")
+            jacobian = gymtorch.wrap_tensor(_jacobian)
+            # jacobian entries corresponding to franka hand 
+            j_eef = jacobian[:, 11, :, 3:10]
+            A = torch.bmm(j_eef, torch.transpose(j_eef, 1,2))
+            eig = torch.real(torch.linalg.eigvals(A))
+            manip_cost = torch.sqrt(torch.max(eig, dim = 1)[0]/torch.min(eig, dim = 1)[0])
+            manip_cost = torch.nan_to_num(manip_cost, nan=500)
+        else:
+            manip_cost = torch.zeros_like(reach_cost)
+
+        align_cost = torch.abs(ee_pitch) + torch.abs(ee_roll-3.14)
+        return  0.2*manip_cost + 10*reach_cost + 5*goal_cost # + align_cost multiply 10*reach_cost when using mppi_mode == storm
+
     @mppi.handle_batch_input
     def _dynamics(self, state, u, t):
         # Use inverse kinematics if the MPPI action space is different than dof velocity space
@@ -277,6 +307,8 @@ class FUSION_MPPI(mppi.MPPI):
             task_cost = torch.cat((self.get_push_cost(True)[:int(self.num_envs/2)], self.get_pull_cost(True)[int(self.num_envs/2):]), dim=0)
             # print('push cost', task_cost[:10])
             # print('pull cost', task_cost[self.num_envs-10:])
+        elif self.task == 'pick':
+            return self.get_panda_cost()
 
         total_cost = task_cost + self.get_motion_cost(state, u, t)
         
