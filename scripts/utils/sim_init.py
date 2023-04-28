@@ -128,13 +128,14 @@ def acquire_states(gym, sim, params, flag="none"):
     if params.environment_type == "cube":
         cube_state = shaped_root_states[:, 3, :]
         cube_goal_state = shaped_root_states[:, 4, :]
+        block_pos = shaped_root_states[:, 3, :]
     elif params.block_index != "None":
         block_pos = shaped_root_states[:, params.block_index, :2] # [num_envs, 2]
     if params.robot in ["boxer", "albert", "husky"]:
         robot_pos = shaped_root_states[:, -1, :2]   # [num_envs, 2]
         robot_vel = shaped_root_states[:, -1, 7:9]  # [num_envs, 2]
         robot_states = shaped_root_states[:, -1, :] # [num_envs, 13]
-    elif params.robot in ["point_robot", "heijn"]:
+    elif params.robot in ["point_robot", "heijn", "panda"]:
         robot_pos = dof_states[:, 0].reshape([num_envs, dofs_per_robot])[:, :2] # [num_envs, 2]
         robot_vel = dof_states[:, 1].reshape([num_envs, dofs_per_robot])[:, :2] # [num_envs, 2]
         robot_states = dof_states.reshape([num_envs, dofs_per_robot*2]) # [num_envs, 4] or [num_envs, 6] for each row [pos1, vel1, pos2, vel2...]
@@ -147,6 +148,12 @@ def acquire_states(gym, sim, params, flag="none"):
         ee_l_index, ee_r_index = ["None"] * 2
     ee_l_state = shaped_rb_states[:, ee_l_index, :] if ee_l_index != "None" else "None"
     ee_r_state = shaped_rb_states[:, ee_r_index, :] if ee_r_index != "None" else "None"
+
+    # Get states of dynamic obstacle
+    dyn_obs_pos, dyn_obs_vel = ["None"] * 2
+    if params.environment_type == "normal":
+        dyn_obs_pos = shaped_root_states[:, 5, :2]
+        dyn_obs_vel = shaped_root_states[:, 5, 7:9]
 
     # Store in dictionary
     states_dict = {"dof_states": dof_states,
@@ -165,7 +172,9 @@ def acquire_states(gym, sim, params, flag="none"):
                    "cube_state": cube_state,
                    "cube_goal_state": cube_goal_state,
                    "ee_l_state": ee_l_state, 
-                   "ee_r_state": ee_r_state}
+                   "ee_r_state": ee_r_state, 
+                   "dyn_obs_pos": dyn_obs_pos, 
+                   "dyn_obs_vel": dyn_obs_vel}
 
     # Print relevant info
     if params.print_flag:
