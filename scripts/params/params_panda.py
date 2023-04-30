@@ -13,9 +13,9 @@ horizon = 12
 lambda_ = 0.01
 device = "cuda:0" 
 u_max = 2 * torch.ones(9, device="cuda:0", dtype=torch.float32)
-u_max[7:] = 1
+u_max[7:] = 1.5
 u_min = -2 * torch.ones(9, device="cuda:0", dtype=torch.float32)
-u_min[7:] = -1
+u_min[7:] = -1.5
 step_dependent_dynamics = True
 terminal_state_cost = None
 sample_null_action = True

@@ -142,10 +142,12 @@ def acquire_states(gym, sim, params, flag="none"):
     
     # Get states of end effector
     if params.robot == "panda":
+        hand_index = 8
         ee_l_index = 9
         ee_r_index = 10
     else:
-        ee_l_index, ee_r_index = ["None"] * 2
+        hand_index, ee_l_index, ee_r_index = ["None"] * 3
+    hand_state = shaped_rb_states[:, hand_index, :] if hand_index != "None" else "None"
     ee_l_state = shaped_rb_states[:, ee_l_index, :] if ee_l_index != "None" else "None"
     ee_r_state = shaped_rb_states[:, ee_r_index, :] if ee_r_index != "None" else "None"
 
@@ -171,6 +173,7 @@ def acquire_states(gym, sim, params, flag="none"):
                    "robot_vel": robot_vel,
                    "cube_state": cube_state,
                    "cube_goal_state": cube_goal_state,
+                   "hand_state": hand_state, 
                    "ee_l_state": ee_l_state, 
                    "ee_r_state": ee_r_state, 
                    "dyn_obs_pos": dyn_obs_pos, 

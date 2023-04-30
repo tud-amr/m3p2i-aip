@@ -99,6 +99,7 @@ class FUSION_MPPI(mppi.MPPI):
             self.cube_goal_state = states_dict["cube_goal_state"]
             self.ee_l_state = states_dict["ee_l_state"]
             self.ee_r_state = states_dict["ee_r_state"]
+            self.hand_state = states_dict["hand_state"]
             self.flag = False
     
     def update_task(self, task, goal):
@@ -225,9 +226,19 @@ class FUSION_MPPI(mppi.MPPI):
             manip_cost = torch.nan_to_num(manip_cost, nan=500)
         else:
             manip_cost = torch.zeros_like(reach_cost)
+        
+        # Compute the orientation cost to make the direction of end effector to be perpendicular to the cube surface
+        hand_pos = self.hand_state[:, :3]
+        ee_dir = hand_pos - self.ee_state[:, :3]
+        ee_dir = ee_dir / torch.norm(ee_dir, dim=1).view(-1, 1)
+        cube_dir = torch.tensor([0, 0, 1], device="cuda:0").repeat(self.num_envs).reshape(self.num_envs, 3)
+        cos_theta = torch.sum(torch.mul(cube_dir, ee_dir), dim=1)
+        ori_cost = 3 * (1 - cos_theta)
+
+        total_cost = 0.2 * manip_cost + 10 * reach_cost + 5 * goal_cost + ori_cost
 
         align_cost = torch.abs(ee_pitch) + torch.abs(ee_roll-3.14)
-        return  0.2*manip_cost + 10*reach_cost + 5*goal_cost # + align_cost multiply 10*reach_cost when using mppi_mode == storm
+        return  total_cost #+ align_cost multiply 10*reach_cost when using mppi_mode == storm
 
     @mppi.handle_batch_input
     def _dynamics(self, state, u, t):
