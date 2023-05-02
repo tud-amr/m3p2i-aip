@@ -107,7 +107,7 @@ class FUSION_MPPI(mppi.MPPI):
         elif self.task in ['push', 'pull', 'hybrid']:
             self.block_goal = goal
         elif self.task == 'pick':
-            self.cube_goal_pos = goal
+            self.cube_goal_state = goal
     
     def update_params(self, params, weight_prefer_pull):
         self.params = params
@@ -207,7 +207,7 @@ class FUSION_MPPI(mppi.MPPI):
     def get_panda_cost(self):
         self.ee_state = (self.ee_l_state + self.ee_r_state) / 2
         reach_cost = torch.linalg.norm(self.ee_state[:,:3] - self.cube_state[:,:3], axis = 1) 
-        goal_cost = torch.linalg.norm(self.cube_goal_pos - self.cube_state[:,:3], axis = 1) #+ 2*torch.abs(self.block_goal[2] - block_state[:,2])
+        goal_cost = torch.linalg.norm(self.cube_goal_state[:3] - self.cube_state[:,:3], axis = 1) #+ 2*torch.abs(self.block_goal[2] - block_state[:,2])
         # reach_cost[reach_cost<0.05] = 0*reach_cost[reach_cost<0.05]
 
         ee_roll, ee_pitch, _ = torch_utils.get_euler_xyz(self.ee_state[:,3:7])
@@ -227,16 +227,28 @@ class FUSION_MPPI(mppi.MPPI):
         else:
             manip_cost = torch.zeros_like(reach_cost)
         
-        # Compute the orientation cost to make the z-axis direction of end effector to be perpendicular to the cube surface
-        ee_quarternion = self.ee_l_state[:, 3:7]
-        ee_rot_matrix = skill_utils.quaternion_rotation_matrix(ee_quarternion)
+        # Compute the orientation cost to make the z-axis direction of end effector to be perpendicular to the cube surface,
+        # and to make the cube fit the goal's orientation well
+        ee_quaternion = self.ee_l_state[:, 3:7]
+        ee_rot_matrix = skill_utils.quaternion_rotation_matrix(ee_quaternion)
         ee_zaxis = ee_rot_matrix[:, :, 2]
-        cube_quarternion = self.cube_state[:, 3:7]
-        cube_rot_matrix = skill_utils.quaternion_rotation_matrix(cube_quarternion)
+        cube_quaternion = self.cube_state[:, 3:7]
+        cube_rot_matrix = skill_utils.quaternion_rotation_matrix(cube_quaternion)
+        cube_xaxis = cube_rot_matrix[:, :, 0]
+        cube_yaxis = cube_rot_matrix[:, :, 1]
         cube_zaxis = cube_rot_matrix[:, :, 2]
+        goal_quatenion = self.cube_goal_state[3:7].repeat(self.num_envs).view(self.num_envs, 4)
+        goal_rot_matrix = skill_utils.quaternion_rotation_matrix(goal_quatenion)
+        goal_xaxis = goal_rot_matrix[:, :, 0]
+        goal_yaxis = goal_rot_matrix[:, :, 1]
+        goal_zaxis = goal_rot_matrix[:, :, 2]
         cos_theta = torch.sum(torch.mul(ee_zaxis, cube_zaxis), dim=1)
-        # The cos_theta should be close to -1
-        ori_cost = 3 * (1 + cos_theta)
+        cos_alpha = torch.sum(torch.mul(goal_xaxis, cube_xaxis), dim=1)
+        cos_beta = torch.sum(torch.mul(goal_yaxis, cube_yaxis), dim=1)
+        cos_gamma = torch.sum(torch.mul(goal_zaxis, cube_zaxis), dim=1)
+        # The cos_theta should be close to -1, cos_alpha, cos_beta, and cos_gamma should be close to 1
+        ori_cost = 3 * (1 + cos_theta) + 3 * (1 - cos_alpha) + 3 * (1 - cos_beta) + 3 * (1 - cos_gamma)
+        # print('self cube', self.cube_goal_state)
 
         total_cost = 0.2 * manip_cost + 10 * reach_cost + 5 * goal_cost + ori_cost
 

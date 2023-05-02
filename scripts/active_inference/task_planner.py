@@ -12,8 +12,8 @@ from utils import path_utils
 class PLANNER_SIMPLE:
     def __init__(self, task, goal) -> None:
         self.task = task
-        self.curr_goal = torch.tensor(goal, device="cuda:0")
-    
+        self.curr_goal = goal if torch.is_tensor(goal) else torch.tensor(goal, device="cuda:0")
+
     def update_params(self, params):
         if self.task == "pull":
             params.suction_active = True
