@@ -72,10 +72,11 @@ def quaternion_rotation_matrix(Q):
     """
     # Extract the values from Q
     # Nvidia uses the quarternion convention of JPL instead of Hamilton
-    q0 = Q[3]
-    q1 = Q[0]
-    q2 = Q[1]
-    q3 = Q[2]
+    q0 = Q[:, 3]
+    q1 = Q[:, 0]
+    q2 = Q[:, 1]
+    q3 = Q[:, 2]
+    n = Q.size()[0]
      
     # First row of the rotation matrix
     r00 = 2 * (q0 * q0 + q1 * q1) - 1
@@ -93,9 +94,9 @@ def quaternion_rotation_matrix(Q):
     r22 = 2 * (q0 * q0 + q3 * q3) - 1
      
     # 3x3 rotation matrix
-    rot_matrix = np.array([[r00, r01, r02],
-                           [r10, r11, r12],
-                           [r20, r21, r22]])
+    rot_matrix = torch.stack((r00, r01, r02, 
+                              r10, r11, r12, 
+                              r20, r21, r22), dim=1).reshape(n, 3, 3)
                             
     return rot_matrix
 
@@ -121,19 +122,23 @@ while viewer is None or not gym.query_viewer_has_closed(viewer):
     hand_pos = hand_state[0, :3]
     ee_dir = hand_pos - ee_mid
     ee_dir = ee_dir / torch.norm(ee_dir)
-    print('dir',ee_dir)
+    # print('dir',ee_dir)
     # print('norm', torch.norm(ee_dir))
     cos_theta = ee_dir[2]/torch.norm(ee_dir)
     # print('cos', cos_theta)
-    quarternion = ee_l_state[0, 3:7].cpu()
-    rote_ee = quaternion_rotation_matrix(quarternion)
+    quarternion = ee_l_state[:, 3:7]
+    rot_ee = quaternion_rotation_matrix(quarternion)
     # print('qua', quarternion)
-    # print('ee', rote_ee)
-    print('ee z axis', rote_ee[:, 2])
-    quarternion_cube = cube_state[0, 3:7].cpu()
+    # print('ee', rot_ee)
+    zaxis_ee = rot_ee[:, :, 2]
+    print('ee z axis', zaxis_ee)
+    quarternion_cube = cube_state[:, 3:7]
     rot_cube = quaternion_rotation_matrix(quarternion_cube)
     # print('cube', rot_cube)
-    # print('cube z axis', rot_cube[2, :])
+    zaxis_cube = rot_cube[:, :, 2]
+    print('cube z axis', zaxis_cube)
+    cos_theta = torch.sum(torch.mul(zaxis_ee, zaxis_cube), dim=1)
+    print('cos', cos_theta)
 
     # Step rendering
     sim_init.step_rendering(gym, sim, viewer)
