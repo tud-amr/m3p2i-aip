@@ -108,6 +108,8 @@ class FUSION_MPPI(mppi.MPPI):
             self.block_goal = goal
         elif self.task == 'pick':
             self.cube_goal_state = goal
+        elif self.task == 'place':
+            self.ee_goal = goal
     
     def update_params(self, params, weight_prefer_pull):
         self.params = params
@@ -204,7 +206,7 @@ class FUSION_MPPI(mppi.MPPI):
 
         return dyn_obs_cost
 
-    def get_panda_cost(self):
+    def get_panda_pick_cost(self):
         self.ee_state = (self.ee_l_state + self.ee_r_state) / 2
         reach_cost = torch.linalg.norm(self.ee_state[:,:3] - self.cube_state[:,:3], axis = 1) 
         goal_cost = torch.linalg.norm(self.cube_goal_state[:3] - self.cube_state[:,:3], axis = 1) #+ 2*torch.abs(self.block_goal[2] - block_state[:,2])
@@ -254,6 +256,17 @@ class FUSION_MPPI(mppi.MPPI):
 
         align_cost = torch.abs(ee_pitch) + torch.abs(ee_roll-3.14)
         return  total_cost #+ align_cost multiply 10*reach_cost when using mppi_mode == storm
+    
+    def get_panda_place_cost(self):
+        gripper_cost = torch.norm(self.ee_l_state[:, :3] - self.ee_r_state[:, :3])
+        print('gripper', gripper_cost)
+        self.ee_state = (self.ee_l_state + self.ee_r_state) / 2
+        reach_cost = torch.norm(self.ee_state[:,:3] - self.ee_goal[:3])
+        print('ee', reach_cost)
+
+        total_cost = 2 * (2 - gripper_cost) + 10 * reach_cost
+
+        return total_cost
 
     @mppi.handle_batch_input
     def _dynamics(self, state, u, t):
@@ -334,7 +347,9 @@ class FUSION_MPPI(mppi.MPPI):
             # print('push cost', task_cost[:10])
             # print('pull cost', task_cost[self.num_envs-10:])
         elif self.task == 'pick':
-            return self.get_panda_cost()
+            return self.get_panda_pick_cost()
+        elif self.task == 'place':
+            return self.get_panda_place_cost()
 
         total_cost = task_cost + self.get_motion_cost(state, u, t)
         

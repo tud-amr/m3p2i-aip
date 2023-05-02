@@ -37,8 +37,8 @@ class REACTIVE_TAMP:
         self.block_pos = states_dict["block_pos"]
         self.cube_state = states_dict["cube_state"]
         self.cube_goal_state = states_dict["cube_goal_state"]
-        cube_goal_state = self.cube_goal_state[0, :7].clone()
-        cube_goal_state[2] += 0.1
+        self.cube_goal_state_new = self.cube_goal_state[0, :7].clone()
+        self.cube_goal_state_new[2] += 0.1
         self.ee_l_state = states_dict["ee_l_state"]
         self.ee_r_state = states_dict["ee_r_state"]
 
@@ -51,7 +51,7 @@ class REACTIVE_TAMP:
             # start plotting battery level
             plot_class.start_dash_server()
         elif self.task == "simple":
-            self.task_planner = task_planner.PLANNER_SIMPLE("pick", cube_goal_state)  # "hybrid", [-3.75, -3.75]
+            self.task_planner = task_planner.PLANNER_SIMPLE("pick", self.cube_goal_state_new)  # "hybrid", [-3.75, -3.75]
 
         # Choose the motion planner
         self.motion_planner = fusion_mppi.FUSION_MPPI(
@@ -109,6 +109,12 @@ class REACTIVE_TAMP:
             block_pose = self.block_pos[0, :]
         else:
             block_pose = self.cube_state[0, :3]
+            norm = torch.norm(self.cube_goal_state_new - self.cube_state[0, :7])
+            if norm < 0.1:
+                self.task_planner.task = 'place'
+                ee_goal = self.cube_goal_state_new.clone()
+                ee_goal[2] += 0.3
+                self.task_planner.curr_goal = ee_goal
         task_success = self.task_planner.check_task_success(robot_pos, block_pose)
         return task_success
 
