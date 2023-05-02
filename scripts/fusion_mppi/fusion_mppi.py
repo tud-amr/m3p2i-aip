@@ -96,7 +96,6 @@ class FUSION_MPPI(mppi.MPPI):
             self.dyn_obs_pos = states_dict["dyn_obs_pos"]
             self.dyn_obs_vel = states_dict["dyn_obs_vel"]
             self.cube_state = states_dict["cube_state"]
-            self.cube_goal_state = states_dict["cube_goal_state"]
             self.ee_l_state = states_dict["ee_l_state"]
             self.ee_r_state = states_dict["ee_r_state"]
             self.flag = False
@@ -107,6 +106,8 @@ class FUSION_MPPI(mppi.MPPI):
             self.nav_goal = goal
         elif self.task in ['push', 'pull', 'hybrid']:
             self.block_goal = goal
+        elif self.task == 'pick':
+            self.cube_goal_pos = goal
     
     def update_params(self, params, weight_prefer_pull):
         self.params = params
@@ -206,7 +207,7 @@ class FUSION_MPPI(mppi.MPPI):
     def get_panda_cost(self):
         self.ee_state = (self.ee_l_state + self.ee_r_state) / 2
         reach_cost = torch.linalg.norm(self.ee_state[:,:3] - self.cube_state[:,:3], axis = 1) 
-        goal_cost = torch.linalg.norm(self.cube_goal_state[:, :3] - self.cube_state[:,:3], axis = 1) #+ 2*torch.abs(self.block_goal[2] - block_state[:,2])
+        goal_cost = torch.linalg.norm(self.cube_goal_pos - self.cube_state[:,:3], axis = 1) #+ 2*torch.abs(self.block_goal[2] - block_state[:,2])
         # reach_cost[reach_cost<0.05] = 0*reach_cost[reach_cost<0.05]
 
         ee_roll, ee_pitch, _ = torch_utils.get_euler_xyz(self.ee_state[:,3:7])
