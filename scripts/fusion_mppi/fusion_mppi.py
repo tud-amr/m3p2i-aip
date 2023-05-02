@@ -99,7 +99,6 @@ class FUSION_MPPI(mppi.MPPI):
             self.cube_goal_state = states_dict["cube_goal_state"]
             self.ee_l_state = states_dict["ee_l_state"]
             self.ee_r_state = states_dict["ee_r_state"]
-            self.hand_state = states_dict["hand_state"]
             self.flag = False
     
     def update_task(self, task, goal):
@@ -227,13 +226,16 @@ class FUSION_MPPI(mppi.MPPI):
         else:
             manip_cost = torch.zeros_like(reach_cost)
         
-        # Compute the orientation cost to make the direction of end effector to be perpendicular to the cube surface
-        hand_pos = self.hand_state[:, :3]
-        ee_dir = hand_pos - self.ee_state[:, :3]
-        ee_dir = ee_dir / torch.norm(ee_dir, dim=1).view(-1, 1)
-        cube_dir = torch.tensor([0, 0, 1], device="cuda:0").repeat(self.num_envs).reshape(self.num_envs, 3)
-        cos_theta = torch.sum(torch.mul(cube_dir, ee_dir), dim=1)
-        ori_cost = 3 * (1 - cos_theta)
+        # Compute the orientation cost to make the z-axis direction of end effector to be perpendicular to the cube surface
+        ee_quarternion = self.ee_l_state[:, 3:7]
+        ee_rot_matrix = skill_utils.quaternion_rotation_matrix(ee_quarternion)
+        ee_zaxis = ee_rot_matrix[:, :, 2]
+        cube_quarternion = self.cube_state[:, 3:7]
+        cube_rot_matrix = skill_utils.quaternion_rotation_matrix(cube_quarternion)
+        cube_zaxis = cube_rot_matrix[:, :, 2]
+        cos_theta = torch.sum(torch.mul(ee_zaxis, cube_zaxis), dim=1)
+        # The cos_theta should be close to -1
+        ori_cost = 3 * (1 + cos_theta)
 
         total_cost = 0.2 * manip_cost + 10 * reach_cost + 5 * goal_cost + ori_cost
 
