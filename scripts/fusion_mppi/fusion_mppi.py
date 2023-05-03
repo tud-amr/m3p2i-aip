@@ -109,6 +109,8 @@ class FUSION_MPPI(mppi.MPPI):
         elif self.task == 'pick':
             self.cube_goal_state = goal
         elif self.task == 'place':
+            pass
+        elif self.task == 'retract':
             self.ee_goal = goal
     
     def update_params(self, params, weight_prefer_pull):
@@ -233,6 +235,7 @@ class FUSION_MPPI(mppi.MPPI):
         # and to make the cube fit the goal's orientation well
         ee_quaternion = self.ee_l_state[:, 3:7]
         ee_rot_matrix = skill_utils.quaternion_rotation_matrix(ee_quaternion)
+        ee_yaxis = ee_rot_matrix[:, :, 1]
         ee_zaxis = ee_rot_matrix[:, :, 2]
         cube_quaternion = self.cube_state[:, 3:7]
         cube_rot_matrix = skill_utils.quaternion_rotation_matrix(cube_quaternion)
@@ -245,11 +248,13 @@ class FUSION_MPPI(mppi.MPPI):
         goal_yaxis = goal_rot_matrix[:, :, 1]
         goal_zaxis = goal_rot_matrix[:, :, 2]
         cos_theta = torch.sum(torch.mul(ee_zaxis, cube_zaxis), dim=1)
+        cos_omega = torch.sum(torch.mul(ee_yaxis, cube_yaxis), dim=1)
         cos_alpha = torch.sum(torch.mul(goal_xaxis, cube_xaxis), dim=1)
         cos_beta = torch.sum(torch.mul(goal_yaxis, cube_yaxis), dim=1)
         cos_gamma = torch.sum(torch.mul(goal_zaxis, cube_zaxis), dim=1)
-        # The cos_theta should be close to -1, cos_alpha, cos_beta, and cos_gamma should be close to 1
-        ori_cost = 3 * (1 + cos_theta) + 3 * (1 - cos_alpha) + 3 * (1 - cos_beta) + 3 * (1 - cos_gamma)
+        # The cos_theta, cos_omega should be close to -1, 
+        # cos_alpha, cos_beta, and cos_gamma should be close to 1
+        ori_cost = 3 * (1 + cos_theta) + 3 * (1 + cos_omega) + 3 * (1 - cos_alpha) + 3 * (1 - cos_beta) + 3 * (1 - cos_gamma)
         # print('self cube', self.cube_goal_state)
 
         total_cost = 0.2 * manip_cost + 10 * reach_cost + 5 * goal_cost + ori_cost
@@ -258,15 +263,13 @@ class FUSION_MPPI(mppi.MPPI):
         return  total_cost #+ align_cost multiply 10*reach_cost when using mppi_mode == storm
     
     def get_panda_place_cost(self):
-        gripper_cost = torch.norm(self.ee_l_state[:, :3] - self.ee_r_state[:, :3])
-        print('gripper', gripper_cost)
+        gripper_cost = torch.linalg.norm(self.ee_l_state[:, :3] - self.ee_r_state[:, :3], axis=1)
+        return 2 * (1 - gripper_cost)
+
+    def get_panda_retract_cost(self):
         self.ee_state = (self.ee_l_state + self.ee_r_state) / 2
-        reach_cost = torch.norm(self.ee_state[:,:3] - self.ee_goal[:3])
-        print('ee', reach_cost)
-
-        total_cost = 2 * (2 - gripper_cost) + 10 * reach_cost
-
-        return total_cost
+        reach_cost = torch.linalg.norm(self.ee_state[:,:7] - self.ee_goal[:7], axis=1)
+        return 10 * reach_cost
 
     @mppi.handle_batch_input
     def _dynamics(self, state, u, t):
@@ -350,6 +353,8 @@ class FUSION_MPPI(mppi.MPPI):
             return self.get_panda_pick_cost()
         elif self.task == 'place':
             return self.get_panda_place_cost()
+        elif self.task == 'retract':
+            return self.get_panda_retract_cost()
 
         total_cost = task_cost + self.get_motion_cost(state, u, t)
         

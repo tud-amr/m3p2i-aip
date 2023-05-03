@@ -41,6 +41,7 @@ class REACTIVE_TAMP:
         self.cube_goal_state_new[2] += 0.1
         self.ee_l_state = states_dict["ee_l_state"]
         self.ee_r_state = states_dict["ee_r_state"]
+        self.ee_goal = self.cube_goal_state[0, :7].clone()
 
         # Choose the task planner
         self.task = params.task
@@ -105,17 +106,29 @@ class REACTIVE_TAMP:
         self.params = self.motion_planner.update_params(self.params, self.prefer_pull)
 
         # Check task succeeds or not
-        if self.task_planner.task != 'pick':
+        if self.task_planner.task not in ['pick', 'place']:
             block_pose = self.block_pos[0, :]
-        else:
+        elif self.task_planner.task == 'pick':
             block_pose = self.cube_state[0, :3]
-            norm = torch.norm(self.cube_goal_state_new - self.cube_state[0, :7])
-            if norm < 0.1:
+            norm = torch.linalg.norm(self.cube_goal_state_new - self.cube_state[0, :7])
+            # print('goal', self.cube_goal_state_new[:3])
+            # print('cube', self.cube_state[0, :3])
+            # print('norm', norm)
+            if norm < 0.022:
                 self.task_planner.task = 'place'
-                ee_goal = self.cube_goal_state_new.clone()
-                ee_goal[2] += 0.3
+                self.task_planner.curr_goal = self.ee_goal # not used
+        elif self.task_planner.task == 'place':
+            gripper_norm = torch.linalg.norm(self.ee_l_state[0, :3] - self.ee_r_state[0, :3])
+            block_pose = self.cube_state[0, :3]
+            # print('gripper', gripper_norm)
+            if gripper_norm >= 0.078:
+                self.task_planner.task = 'retract'
+                ee_goal = (self.ee_l_state[0, :7] + self.ee_r_state[0, :7])/2
+                ee_goal[2] += 0.2
                 self.task_planner.curr_goal = ee_goal
         task_success = self.task_planner.check_task_success(robot_pos, block_pose)
+        # print('ee task', self.task_planner.task)
+        # print('ee goal', self.task_planner.curr_goal)
         return task_success
 
     def reset(self, i, reset_flag):
