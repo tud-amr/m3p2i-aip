@@ -329,7 +329,23 @@ def add_panda_arena(gym, sim, env, robot_asset, i):
     gym.set_rigid_body_color(env, cubeB_id, 0, gymapi.MESH_VISUAL, cubeB_color)
 
     return panda_actor
-                                            
+
+def get_default_franka_state(gym, robot_asset):
+
+    franka_dof_props = gym.get_asset_dof_properties(robot_asset)
+    franka_lower_limits = franka_dof_props["lower"]
+    franka_upper_limits = franka_dof_props["upper"]
+    franka_mids = 0.5 * (franka_upper_limits + franka_lower_limits)
+    
+    # default dof states and position targets
+    franka_num_dofs = gym.get_asset_dof_count(robot_asset)
+    # franka_mids[7:] = franka_upper_limits[7:] # grippers open
+    default_dof_state = np.zeros(franka_num_dofs, gymapi.DofState.dtype)
+    default_dof_state["pos"] = franka_mids[:10]
+    default_dof_state["pos"][3] = -2
+
+    return default_dof_state
+                        
 def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, environment_type, control_type = "vel_control"):
     # Some common handles for later use
     envs = []
@@ -351,6 +367,10 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, e
                 gym.set_rigid_body_color(env, robot_handle, -1, gymapi.MESH_VISUAL_AND_COLLISION, color_vec_battery_ok)
         elif environment_type == "cube":
             robot_handle = add_panda_arena(gym, sim, env, robot_asset, i)
+            if 'default_dof_state' not in locals():
+                default_dof_state = get_default_franka_state(gym, robot_asset)
+            gym.set_actor_dof_states(env, robot_handle, default_dof_state, gymapi.STATE_ALL)
+
         robot_handles.append(robot_handle)
 
         # Update point bot dynamics / control mode
