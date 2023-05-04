@@ -25,6 +25,7 @@ class SIM():
 
         # Acquire states
         states_dict = sim_init.acquire_states(self.gym, self.sim, params, "sim")
+        self.root_states = states_dict["root_states"]
         self.dof_states = states_dict["dof_states"]
         self.num_actors = states_dict["num_actors"]
         self.root_states = states_dict["root_states"]
@@ -60,15 +61,29 @@ class SIM():
         self.server_address = './uds_socket'
 
     def reset(self):
-        # Press 'R' to reset the simulation
         reset_flag = False
+        cubeA_index = 3
+        cubeB_index = 4
+        x_pos = torch.tensor([0.03, 0, 0], dtype=torch.float32, device='cuda:0').repeat(self.num_envs)
+        y_pos = torch.tensor([0, 0.03, 0], dtype=torch.float32, device='cuda:0').repeat(self.num_envs)
+        cube_targets = {'key_up':-y_pos, 'key_down':y_pos, 'key_left':x_pos, 'key_right':-x_pos}
+        goal_targets = {'up':-y_pos, 'down':y_pos, 'left':x_pos, 'right':-x_pos}
         for evt in self.gym.query_viewer_action_events(self.viewer):
-            if evt.action == "reset" and evt.value > 0:
+            # Press 'R' to reset the simulation
+            if evt.action == 'reset' and evt.value > 0:
                 self.gym.set_actor_root_state_tensor(self.sim, gymtorch.unwrap_tensor(self.initial_root_states))
                 self.gym.set_dof_state_tensor(self.sim, gymtorch.unwrap_tensor(self.initial_dof_states))
-                sim_init.step(self.gym, self.sim)
-                sim_init.refresh_states(self.gym, self.sim)
                 reset_flag = True
+            # Press WASD and up,left,right,down to interact with the cubes
+            elif self.environment_type == 'cube' and evt.value > 0:
+                if evt.action in ['key_up', 'key_down', 'key_left', 'key_right']:
+                    self.root_states[cubeA_index, 0:3] += cube_targets[evt.action]
+                if evt.action in ['up', 'down', 'left', 'right']:
+                    self.root_states[cubeB_index, 0:3] += goal_targets[evt.action]
+                self.gym.set_actor_root_state_tensor(self.sim, gymtorch.unwrap_tensor(self.root_states))
+        sim_init.step(self.gym, self.sim)
+        sim_init.refresh_states(self.gym, self.sim)
+
         return reset_flag
 
     def run(self):
