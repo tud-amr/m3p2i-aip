@@ -286,7 +286,7 @@ def add_panda_arena(gym, sim, env, robot_asset, i):
 
     # Create cubeB asset
     cubeB_opts = gymapi.AssetOptions()
-    cubeB_size = 0.070
+    cubeB_size = 0.050
     cubeB_asset = gym.create_box(sim, *([cubeB_size] * 3), cubeB_opts)
     cubeB_color = gymapi.Vec3(0.0, 0.4, 0.1)
 

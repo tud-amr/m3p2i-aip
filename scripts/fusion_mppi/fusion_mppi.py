@@ -212,7 +212,10 @@ class FUSION_MPPI(mppi.MPPI):
         self.ee_state = (self.ee_l_state + self.ee_r_state) / 2
         reach_cost = torch.linalg.norm(self.ee_state[:,:3] - self.cube_state[:,:3], axis = 1) 
         goal_cost = torch.linalg.norm(self.cube_goal_state[:3] - self.cube_state[:,:3], axis = 1) #+ 2*torch.abs(self.block_goal[2] - block_state[:,2])
-        # reach_cost[reach_cost<0.05] = 0*reach_cost[reach_cost<0.05]
+        # Close the gripper when close to the cube
+        gripper_dist = torch.linalg.norm(self.ee_l_state[:, :3] - self.ee_r_state[:, :3], axis=1)
+        gripper_cost = 2 * (1 - gripper_dist)
+        gripper_cost[reach_cost < 0.1] = 0
 
         ee_roll, ee_pitch, _ = torch_utils.get_euler_xyz(self.ee_state[:,3:7])
 
@@ -252,19 +255,21 @@ class FUSION_MPPI(mppi.MPPI):
         cos_alpha = torch.sum(torch.mul(goal_xaxis, cube_xaxis), dim=1)
         cos_beta = torch.sum(torch.mul(goal_yaxis, cube_yaxis), dim=1)
         cos_gamma = torch.sum(torch.mul(goal_zaxis, cube_zaxis), dim=1)
+        # ori_goal = torch.linalg.norm(self.cube_state[:, 3:7] - self.cube_goal_state[3:7], axis=1)
+        # print('ori', ori_goal)
         # The cos_theta, cos_omega should be close to -1, 
         # cos_alpha, cos_beta, and cos_gamma should be close to 1
         ori_cost = 3 * (1 + cos_theta) + 3 * (1 + cos_omega) + 3 * (1 - cos_alpha) + 3 * (1 - cos_beta) + 3 * (1 - cos_gamma)
         # print('self cube', self.cube_goal_state)
 
-        total_cost = 0.2 * manip_cost + 10 * reach_cost + 5 * goal_cost + ori_cost
+        total_cost = 0.2 * manip_cost + 10 * reach_cost + 5 * goal_cost + ori_cost + gripper_cost
 
         align_cost = torch.abs(ee_pitch) + torch.abs(ee_roll-3.14)
         return  total_cost #+ align_cost multiply 10*reach_cost when using mppi_mode == storm
     
     def get_panda_place_cost(self):
         gripper_cost = torch.linalg.norm(self.ee_l_state[:, :3] - self.ee_r_state[:, :3], axis=1)
-        return 2 * (1 - gripper_cost)
+        return 10 * (1 - gripper_cost)
 
     def get_panda_retract_cost(self):
         self.ee_state = (self.ee_l_state + self.ee_r_state) / 2

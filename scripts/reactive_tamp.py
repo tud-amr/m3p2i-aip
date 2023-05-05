@@ -38,7 +38,7 @@ class REACTIVE_TAMP:
         self.cube_state = states_dict["cube_state"]
         self.cube_goal_state = states_dict["cube_goal_state"]
         self.cube_goal_state_new = self.cube_goal_state[0, :7].clone()
-        self.cube_goal_state_new[2] += 0.1
+        self.cube_goal_state_new[2] += 0.06
         self.ee_l_state = states_dict["ee_l_state"]
         self.ee_r_state = states_dict["ee_r_state"]
         self.ee_goal = self.cube_goal_state[0, :7].clone()
@@ -111,13 +111,13 @@ class REACTIVE_TAMP:
         elif self.task_planner.task == 'pick':
             block_pose = self.cube_state[0, :3]
             self.cube_goal_state_new = self.cube_goal_state[0, :7].clone()
-            self.cube_goal_state_new[2] += 0.1
+            self.cube_goal_state_new[2] += 0.06
             self.task_planner.curr_goal = self.cube_goal_state_new
             norm = torch.linalg.norm(self.cube_goal_state_new - self.cube_state[0, :7])
             # print('goal', self.cube_goal_state_new[:3])
             # print('cube', self.cube_state[0, :3])
             # print('norm', norm)
-            if norm < 0.022:
+            if norm < 0.015:
                 self.task_planner.task = 'place'
                 self.task_planner.curr_goal = self.ee_goal # not used
         elif self.task_planner.task == 'place':
