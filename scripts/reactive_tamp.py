@@ -110,6 +110,9 @@ class REACTIVE_TAMP:
             block_pose = self.block_pos[0, :]
         elif self.task_planner.task == 'pick':
             block_pose = self.cube_state[0, :3]
+            self.cube_goal_state_new = self.cube_goal_state[0, :7].clone()
+            self.cube_goal_state_new[2] += 0.1
+            self.task_planner.curr_goal = self.cube_goal_state_new
             norm = torch.linalg.norm(self.cube_goal_state_new - self.cube_state[0, :7])
             # print('goal', self.cube_goal_state_new[:3])
             # print('cube', self.cube_state[0, :3])
