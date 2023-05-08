@@ -51,7 +51,9 @@ class REACTIVE_TAMP:
             # start plotting battery level
             plot_class.start_dash_server()
         elif self.task == "simple":
-            self.task_planner = task_planner.PLANNER_SIMPLE("pick", self.cube_goal_state_new)  # "hybrid", [-3.75, -3.75]
+            self.task_planner = task_planner.PLANNER_SIMPLE("navigation", [-3.75, -3.75])  # "hybrid", [-3.75, -3.75]
+        elif self.task == "pick":
+            self.task_planner = task_planner.PLANNER_PICK("pick", self.cube_goal_state_new)
 
         # Choose the motion planner
         self.motion_planner = fusion_mppi.FUSION_MPPI(
@@ -91,7 +93,12 @@ class REACTIVE_TAMP:
     def tamp_interface(self, robot_pos, stay_still):
         # Update task and goal in the task planner
         start_time = time.monotonic()
-        self.task_planner.update_plan(robot_pos, stay_still)
+        if self.task != 'pick':
+            self.task_planner.update_plan(robot_pos, stay_still)
+        else:
+            self.task_planner.update_plan(self.cube_state[0, :7], 
+                                          self.cube_goal_state[0, :7], 
+                                          (self.ee_l_state[0, :7]+self.ee_r_state[0, :7])/2)
         self.task_freq = format(1/(time.monotonic()-start_time), '.2f')
 
         # Update params according to the plan
@@ -109,18 +116,6 @@ class REACTIVE_TAMP:
             block_pose = self.block_pos[0, :]
         elif self.task_planner.task == 'pick':
             block_pose = self.cube_state[0, :3]
-            self.cube_goal_state_new = self.cube_goal_state[0, :7].clone()
-            self.cube_goal_state_new[2] += 0.06
-            self.task_planner.curr_goal = self.cube_goal_state_new
-            norm = torch.linalg.norm(self.cube_goal_state_new - self.cube_state[0, :7])
-            # print('goal', self.cube_goal_state_new[:3])
-            # print('cube', self.cube_state[0, :3])
-            # print('norm', norm)
-            if norm < 0.015:
-                self.task_planner.task = 'place'
-                ee_goal = (self.ee_l_state[0, :7] + self.ee_r_state[0, :7])/2
-                ee_goal[2] += 0.2
-                self.task_planner.curr_goal = ee_goal
         task_success = self.task_planner.check_task_success(robot_pos, block_pose)
         # print('ee task', self.task_planner.task)
         # print('ee goal', self.task_planner.curr_goal)

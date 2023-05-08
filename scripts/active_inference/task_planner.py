@@ -36,6 +36,26 @@ class PLANNER_SIMPLE:
             task_success = False
         return task_success
 
+class PLANNER_PICK(PLANNER_SIMPLE):
+    def __init__(self, task, goal) -> None:
+        PLANNER_SIMPLE.__init__(self, task, goal)
+
+    def update_plan(self, cube_state, cube_goal, ee_goal):
+        if self.task == 'pick':
+            cube_goal = cube_goal.clone()
+            cube_state = cube_state.clone()
+            ee_goal = ee_goal.clone()
+            cube_goal[2] += 0.06
+            self.curr_goal = cube_goal
+            norm = torch.linalg.norm(cube_goal - cube_state)
+            # print('goal', cube_goal)
+            # print('cube', cube_state)
+            print('norm', norm)
+            if norm < 0.015:
+                self.task = 'place'
+                ee_goal[2] += 0.2
+                self.curr_goal = ee_goal
+
 class PLANNER_PATROLLING(PLANNER_SIMPLE):
     def __init__(self, goals) -> None:
         self.task = "navigation"
