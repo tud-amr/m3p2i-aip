@@ -39,6 +39,7 @@ class PLANNER_SIMPLE:
 class PLANNER_PICK(PLANNER_SIMPLE):
     def __init__(self, task, goal) -> None:
         PLANNER_SIMPLE.__init__(self, task, goal)
+        self.initial_goal = self.curr_goal.clone()
 
     def update_plan(self, cube_state, cube_goal, ee_goal):
         if self.task == 'pick':
@@ -55,6 +56,10 @@ class PLANNER_PICK(PLANNER_SIMPLE):
                 self.task = 'place'
                 ee_goal[2] += 0.2
                 self.curr_goal = ee_goal
+
+    def reset_plan(self):    
+        self.task = 'pick'
+        self.curr_goal = self.initial_goal
 
 class PLANNER_PATROLLING(PLANNER_SIMPLE):
     def __init__(self, goals) -> None:
