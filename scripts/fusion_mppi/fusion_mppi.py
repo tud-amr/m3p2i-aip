@@ -109,8 +109,6 @@ class FUSION_MPPI(mppi.MPPI):
         elif self.task == 'pick':
             self.cube_goal_state = goal
         elif self.task == 'place':
-            pass
-        elif self.task == 'retract':
             self.ee_goal = goal
     
     def update_params(self, params, weight_prefer_pull):
@@ -268,13 +266,15 @@ class FUSION_MPPI(mppi.MPPI):
         return  total_cost #+ align_cost multiply 10*reach_cost when using mppi_mode == storm
     
     def get_panda_place_cost(self):
-        gripper_cost = torch.linalg.norm(self.ee_l_state[:, :3] - self.ee_r_state[:, :3], axis=1)
-        return 10 * (1 - gripper_cost)
-
-    def get_panda_retract_cost(self):
+        gripper_dist = torch.linalg.norm(self.ee_l_state[:, :3] - self.ee_r_state[:, :3], axis=1)
+        gripper_cost = 1 - gripper_dist
         self.ee_state = (self.ee_l_state + self.ee_r_state) / 2
         reach_cost = torch.linalg.norm(self.ee_state[:,:7] - self.ee_goal[:7], axis=1)
-        return 10 * reach_cost
+        # If gripper is not fylly open, no reach cost
+        reach_cost[gripper_dist <= 0.078] = 0
+        # If gripper is fully open, no gripper cost, retract the arm
+        gripper_cost[gripper_dist > 0.078] = 0
+        return 10 * gripper_cost + 10 * reach_cost
 
     @mppi.handle_batch_input
     def _dynamics(self, state, u, t):
@@ -358,8 +358,6 @@ class FUSION_MPPI(mppi.MPPI):
             return self.get_panda_pick_cost()
         elif self.task == 'place':
             return self.get_panda_place_cost()
-        elif self.task == 'retract':
-            return self.get_panda_retract_cost()
 
         total_cost = task_cost + self.get_motion_cost(state, u, t)
         

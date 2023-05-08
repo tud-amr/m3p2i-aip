@@ -41,7 +41,6 @@ class REACTIVE_TAMP:
         self.cube_goal_state_new[2] += 0.06
         self.ee_l_state = states_dict["ee_l_state"]
         self.ee_r_state = states_dict["ee_r_state"]
-        self.ee_goal = self.cube_goal_state[0, :7].clone()
 
         # Choose the task planner
         self.task = params.task
@@ -106,7 +105,7 @@ class REACTIVE_TAMP:
         self.params = self.motion_planner.update_params(self.params, self.prefer_pull)
 
         # Check task succeeds or not
-        if self.task_planner.task not in ['pick', 'place']:
+        if self.task_planner.task not in ['pick']:
             block_pose = self.block_pos[0, :]
         elif self.task_planner.task == 'pick':
             block_pose = self.cube_state[0, :3]
@@ -119,13 +118,6 @@ class REACTIVE_TAMP:
             # print('norm', norm)
             if norm < 0.015:
                 self.task_planner.task = 'place'
-                self.task_planner.curr_goal = self.ee_goal # not used
-        elif self.task_planner.task == 'place':
-            gripper_norm = torch.linalg.norm(self.ee_l_state[0, :3] - self.ee_r_state[0, :3])
-            block_pose = self.cube_state[0, :3]
-            # print('gripper', gripper_norm)
-            if gripper_norm >= 0.078:
-                self.task_planner.task = 'retract'
                 ee_goal = (self.ee_l_state[0, :7] + self.ee_r_state[0, :7])/2
                 ee_goal[2] += 0.2
                 self.task_planner.curr_goal = ee_goal
