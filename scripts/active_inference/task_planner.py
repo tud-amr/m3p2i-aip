@@ -7,7 +7,7 @@ import sys
 import time
 import os
 sys.path.append('../')
-from utils import path_utils
+from utils import path_utils, skill_utils
 
 class PLANNER_SIMPLE:
     def __init__(self, task, goal) -> None:
@@ -46,13 +46,20 @@ class PLANNER_PICK(PLANNER_SIMPLE):
             cube_goal = cube_goal.clone()
             cube_state = cube_state.clone()
             ee_goal = ee_goal.clone()
-            cube_goal[2] += 0.06
+            cube_goal[2] += 0.052
             self.curr_goal = cube_goal
-            norm = torch.linalg.norm(cube_goal - cube_state)
-            # print('goal', cube_goal)
-            # print('cube', cube_state)
-            print('norm', norm)
-            if norm < 0.015:
+            norm0 = torch.linalg.norm(cube_goal[:2] - cube_state[:2])
+            norm1 = torch.linalg.norm(cube_goal[:3] - cube_state[:3])
+            norm2 = torch.linalg.norm(cube_goal[3:] - cube_state[3:])
+            print('norm0', norm0)
+            print('norm1', norm1)
+            print('norm2', norm2)
+            a = skill_utils.quaternion_rotation_matrix(cube_goal[3:].view(-1,4))
+            dist_cost = torch.linalg.norm(cube_goal[:3] - cube_state[:3])
+            ori_cost = skill_utils.get_quaternions_ori_cost(cube_goal[3:].view(-1,4), cube_state[3:].view(-1,4))
+            print('ori', ori_cost[0])
+            # print('state', cube_state - cube_goal)
+            if dist_cost + ori_cost < 0.01:
                 self.task = 'place'
                 ee_goal[2] += 0.2
                 self.curr_goal = ee_goal

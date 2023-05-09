@@ -112,3 +112,26 @@ def quaternion_rotation_matrix(Q):
                               r20, r21, r22), dim=1).reshape(n, 3, 3)
                             
     return rot_matrix
+
+# To measure the difference of two quaternions
+def get_quaternions_ori_cost(cube_quaternion, goal_quatenion):
+    """
+    Input
+    quaternions: tensor in the shape of [num_envs, 4]
+
+    Output 
+    return: cost to measure the difference between the two quaternions
+    """
+    cube_rot_matrix = quaternion_rotation_matrix(cube_quaternion)
+    cube_xaxis = cube_rot_matrix[:, :, 0]
+    cube_yaxis = cube_rot_matrix[:, :, 1]
+    cube_zaxis = cube_rot_matrix[:, :, 2]
+    goal_rot_matrix = quaternion_rotation_matrix(goal_quatenion)
+    goal_xaxis = goal_rot_matrix[:, :, 0]
+    goal_yaxis = goal_rot_matrix[:, :, 1]
+    goal_zaxis = goal_rot_matrix[:, :, 2]
+    cos_alpha = torch.sum(torch.mul(goal_xaxis, cube_xaxis), dim=1)
+    cos_beta = torch.sum(torch.mul(goal_yaxis, cube_yaxis), dim=1)
+    cos_gamma = torch.sum(torch.mul(goal_zaxis, cube_zaxis), dim=1)
+
+    return (1-cos_alpha) + (1-cos_beta) + (1-cos_gamma)
