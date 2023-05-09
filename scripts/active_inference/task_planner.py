@@ -48,17 +48,10 @@ class PLANNER_PICK(PLANNER_SIMPLE):
             ee_goal = ee_goal.clone()
             cube_goal[2] += 0.052
             self.curr_goal = cube_goal
-            norm0 = torch.linalg.norm(cube_goal[:2] - cube_state[:2])
-            norm1 = torch.linalg.norm(cube_goal[:3] - cube_state[:3])
-            norm2 = torch.linalg.norm(cube_goal[3:] - cube_state[3:])
-            print('norm0', norm0)
-            print('norm1', norm1)
-            print('norm2', norm2)
-            a = skill_utils.quaternion_rotation_matrix(cube_goal[3:].view(-1,4))
             dist_cost = torch.linalg.norm(cube_goal[:3] - cube_state[:3])
             ori_cost = skill_utils.get_quaternions_ori_cost(cube_goal[3:].view(-1,4), cube_state[3:].view(-1,4))
+            print('dis', dist_cost)
             print('ori', ori_cost[0])
-            # print('state', cube_state - cube_goal)
             if dist_cost + ori_cost < 0.01:
                 self.task = 'place'
                 ee_goal[2] += 0.2

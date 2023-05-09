@@ -240,25 +240,14 @@ class FUSION_MPPI(mppi.MPPI):
         ee_zaxis = ee_rot_matrix[:, :, 2]
         cube_quaternion = self.cube_state[:, 3:7]
         cube_rot_matrix = skill_utils.quaternion_rotation_matrix(cube_quaternion)
-        cube_xaxis = cube_rot_matrix[:, :, 0]
         cube_yaxis = cube_rot_matrix[:, :, 1]
         cube_zaxis = cube_rot_matrix[:, :, 2]
         goal_quatenion = self.cube_goal_state[3:7].repeat(self.num_envs).view(self.num_envs, 4)
-        goal_rot_matrix = skill_utils.quaternion_rotation_matrix(goal_quatenion)
-        goal_xaxis = goal_rot_matrix[:, :, 0]
-        goal_yaxis = goal_rot_matrix[:, :, 1]
-        goal_zaxis = goal_rot_matrix[:, :, 2]
         cos_theta = torch.sum(torch.mul(ee_zaxis, cube_zaxis), dim=1)
         cos_omega = torch.sum(torch.mul(ee_yaxis, cube_yaxis), dim=1)
-        cos_alpha = torch.sum(torch.mul(goal_xaxis, cube_xaxis), dim=1)
-        cos_beta = torch.sum(torch.mul(goal_yaxis, cube_yaxis), dim=1)
-        cos_gamma = torch.sum(torch.mul(goal_zaxis, cube_zaxis), dim=1)
-        # ori_goal = torch.linalg.norm(self.cube_state[:, 3:7] - self.cube_goal_state[3:7], axis=1)
-        # print('ori', ori_goal)
+        ori_cube2goal = skill_utils.get_quaternions_ori_cost(cube_quaternion, goal_quatenion)
         # The cos_theta, cos_omega should be close to -1, 
-        # cos_alpha, cos_beta, and cos_gamma should be close to 1
-        ori_cost = 3 * (1 + cos_theta) + 3 * (1 + cos_omega) + 3 * (1 - cos_alpha) + 3 * (1 - cos_beta) + 3 * (1 - cos_gamma)
-        # print('self cube', self.cube_goal_state)
+        ori_cost = 3 * (1 + cos_theta) + 3 * (1 + cos_omega) + 3 * ori_cube2goal
 
         total_cost = 0.2 * manip_cost + 10 * reach_cost + 5 * goal_cost + ori_cost + gripper_cost
 
