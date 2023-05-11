@@ -232,22 +232,15 @@ class FUSION_MPPI(mppi.MPPI):
         else:
             manip_cost = torch.zeros_like(reach_cost)
         
-        # Compute the orientation cost to make the z-axis direction of end effector to be perpendicular to the cube surface,
-        # and to make the cube fit the goal's orientation well
+        # Compute the orientation cost
         ee_quaternion = self.ee_l_state[:, 3:7]
-        ee_rot_matrix = skill_utils.quaternion_rotation_matrix(ee_quaternion)
-        ee_yaxis = ee_rot_matrix[:, :, 1]
-        ee_zaxis = ee_rot_matrix[:, :, 2]
         cube_quaternion = self.cube_state[:, 3:7]
-        cube_rot_matrix = skill_utils.quaternion_rotation_matrix(cube_quaternion)
-        cube_yaxis = cube_rot_matrix[:, :, 1]
-        cube_zaxis = cube_rot_matrix[:, :, 2]
         goal_quatenion = self.cube_goal_state[3:7].repeat(self.num_envs).view(self.num_envs, 4)
-        cos_theta = torch.sum(torch.mul(ee_zaxis, cube_zaxis), dim=1)
-        cos_omega = torch.sum(torch.mul(ee_yaxis, cube_yaxis), dim=1)
-        ori_cube2goal = skill_utils.get_quaternions_ori_cost(cube_quaternion, goal_quatenion)
-        # The cos_theta, cos_omega should be close to -1, 
-        ori_cost = 3 * (1 + cos_theta) + 3 * (1 + cos_omega) + 3 * ori_cube2goal
+        # To make the z-axis direction of end effector to be perpendicular to the cube surface
+        ori_ee2cube = skill_utils.get_ori_ee2cube(ee_quaternion, cube_quaternion)
+        # To make the cube fit the goal's orientation well
+        ori_cube2goal = skill_utils.get_ori_cube2goal(cube_quaternion, goal_quatenion) 
+        ori_cost = 3 * ori_ee2cube + 3 * ori_cube2goal
 
         total_cost = 0.2 * manip_cost + 10 * reach_cost + 5 * goal_cost + ori_cost + gripper_cost
 

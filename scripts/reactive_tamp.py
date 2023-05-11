@@ -119,8 +119,6 @@ class REACTIVE_TAMP:
         else:
             block_pose = self.cube_state[0, :3]
         task_success = self.task_planner.check_task_success(robot_pos, block_pose)
-        # print('ee task', self.task_planner.task)
-        # print('ee goal', self.task_planner.curr_goal)
         return task_success
 
     def reset(self, i, reset_flag):
@@ -165,7 +163,6 @@ class REACTIVE_TAMP:
 
                     # Update TAMP interface
                     stay_still = True if i < 50 else False
-                    print('still', stay_still)
                     task_success = self.tamp_interface(self.robot_pos[0, :], stay_still)
 
                     # Update gym in mppi
