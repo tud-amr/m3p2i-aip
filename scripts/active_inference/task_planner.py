@@ -61,6 +61,48 @@ class PLANNER_PICK(PLANNER_SIMPLE):
         self.task = 'pick'
         self.curr_goal = self.initial_goal
 
+class PLANNER_AIF_PANDA(PLANNER_SIMPLE):
+    def __init__(self) -> None:
+        PLANNER_SIMPLE.__init__(self, "idle", [0, 0, 0, 0, 0, 0, 0])
+        # Define the required mdp structures from the templates
+        mdp_isCubeAt = isaac_state_action_templates.MDPIsCubeAt()
+
+        # Agent with following states [isCubeAt]
+        self.ai_agent_task = [ai_agent.AiAgent(mdp_isCubeAt)]
+        # self.ai_agent_task[0].set_preferences(np.array([[0.], [1], [0]]))
+        self.obs = 0
+    def get_obs(self, cube_state, cube_goal, ee_goal):
+        cube_height_diff = torch.linalg.norm(cube_state[2] - cube_goal[2])
+        print('height', cube_height_diff)
+        dist_cost = torch.linalg.norm(self.curr_goal[:3] - cube_state[:3]) # self.curr_goal
+        ori_cost = skill_utils.get_quaternions_ori_cost(self.curr_goal[3:].view(-1,4), cube_state[3:].view(-1,4))
+        print('dis', dist_cost)
+        print('ori', ori_cost[0])
+        if cube_height_diff < 0.001:
+            self.obs = 0
+            self.ai_agent_task[0].set_preferences(np.array([[0], [1], [0]]))
+        elif dist_cost + ori_cost < 0.01:
+            self.obs = 1
+            self.ee_goal = ee_goal.clone()
+            self.ee_goal[2] += 0.2
+            self.ai_agent_task[0].set_preferences(np.array([[1], [0], [0]]))
+        # elif cube_height_diff > 0.0499 and cube_height_diff < 0.0501: 
+        #     obs = 2
+
+    def update_plan(self, cube_state, cube_goal, ee_goal):
+        self.get_obs(cube_state, cube_goal, ee_goal)
+        outcome, curr_action = adaptive_action_selection.adapt_act_sel(self.ai_agent_task, [self.obs])
+        # print('Status:', outcome)
+        # print('Current action:', curr_action)
+
+        self.task = curr_action
+        if curr_action == 'pick':
+            self.curr_goal = cube_goal.clone()
+            self.curr_goal[2] += 0.052
+        elif curr_action == "place":
+            self.ai_agent_task[0].set_preferences(np.array([[1], [0], [0]]))
+            self.curr_goal = self.ee_goal
+
 class PLANNER_PATROLLING(PLANNER_SIMPLE):
     def __init__(self, goals) -> None:
         self.task = "navigation"
