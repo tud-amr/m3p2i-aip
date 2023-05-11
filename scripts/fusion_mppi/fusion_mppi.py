@@ -237,9 +237,9 @@ class FUSION_MPPI(mppi.MPPI):
         cube_quaternion = self.cube_state[:, 3:7]
         goal_quatenion = self.cube_goal_state[3:7].repeat(self.num_envs).view(self.num_envs, 4)
         # To make the z-axis direction of end effector to be perpendicular to the cube surface
-        ori_ee2cube = skill_utils.get_ori_ee2cube(ee_quaternion, cube_quaternion)
+        ori_ee2cube = skill_utils.get_general_ori_ee2cube(ee_quaternion, cube_quaternion)
         # To make the cube fit the goal's orientation well
-        ori_cube2goal = skill_utils.get_ori_cube2goal(cube_quaternion, goal_quatenion) 
+        ori_cube2goal = skill_utils.get_general_ori_cube2goal(cube_quaternion, goal_quatenion) 
         ori_cost = 3 * ori_ee2cube + 3 * ori_cube2goal
 
         total_cost = 0.2 * manip_cost + 10 * reach_cost + 5 * goal_cost + ori_cost + gripper_cost

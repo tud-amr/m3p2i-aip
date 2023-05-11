@@ -75,7 +75,7 @@ class PLANNER_AIF_PANDA(PLANNER_SIMPLE):
         cube_height_diff = torch.linalg.norm(cube_state[2] - cube_goal[2])
         print('height', cube_height_diff)
         dist_cost = torch.linalg.norm(self.curr_goal[:3] - cube_state[:3]) # self.curr_goal
-        ori_cost = skill_utils.get_ori_cube2goal(self.curr_goal[3:].view(-1,4), cube_state[3:].view(-1,4))
+        ori_cost = skill_utils.get_general_ori_cube2goal(self.curr_goal[3:].view(-1,4), cube_state[3:].view(-1,4))
         print('dis', dist_cost)
         print('ori', ori_cost[0])
         if cube_height_diff < 0.001:
@@ -98,7 +98,7 @@ class PLANNER_AIF_PANDA(PLANNER_SIMPLE):
         self.task = curr_action
         if curr_action == 'pick':
             self.curr_goal = cube_goal.clone()
-            self.curr_goal[2] += 0.052
+            self.curr_goal[2] += 0.0525
         elif curr_action == "place":
             self.ai_agent_task[0].set_preferences(np.array([[1], [0], [0]]))
             self.curr_goal = self.ee_goal

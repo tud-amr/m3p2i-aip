@@ -150,3 +150,60 @@ def get_ori_ee2cube(ee_quaternion, cube_quaternion):
     # cos_theta, cos_omega should be close to -1
 
     return (1+cos_theta) + (1+cos_omega)
+
+# A general way to measure the difference of cube and goal quaternions
+# so that it fits the case when the cube is flipped and upside down
+def get_general_ori_cube2goal(cube_quaternion, goal_quatenion):
+    """
+    Input
+    quaternions: tensor in the shape of [num_envs, 4]
+
+    Output 
+    return: cost to measure the difference between the two quaternions
+    """
+    cube_rot_matrix = quaternion_rotation_matrix(cube_quaternion)
+    cube_xaxis = cube_rot_matrix[:, :, 0]
+    cube_yaxis = cube_rot_matrix[:, :, 1]
+    cube_zaxis = cube_rot_matrix[:, :, 2]
+    goal_rot_matrix = quaternion_rotation_matrix(goal_quatenion)
+    goal_xaxis = goal_rot_matrix[:, :, 0]
+    goal_yaxis = goal_rot_matrix[:, :, 1]
+    cos_alpha1 = torch.abs(torch.sum(torch.mul(goal_xaxis, cube_xaxis), dim=1))
+    cos_alpha2 = torch.abs(torch.sum(torch.mul(goal_xaxis, cube_yaxis), dim=1))
+    cos_alpha3 = torch.abs(torch.sum(torch.mul(goal_xaxis, cube_zaxis), dim=1))
+    cost_xaxis = torch.min(torch.stack([1 - cos_alpha1,
+                                        1 - cos_alpha2,
+                                        1 - cos_alpha3]), dim=0)[0]
+    cos_beta1 = torch.abs(torch.sum(torch.mul(goal_yaxis, cube_xaxis), dim=1))
+    cos_beta2 = torch.abs(torch.sum(torch.mul(goal_yaxis, cube_yaxis), dim=1))
+    cos_beta3 = torch.abs(torch.sum(torch.mul(goal_yaxis, cube_zaxis), dim=1))
+    cost_yaxis = torch.min(torch.stack([1 - cos_beta1,
+                                        1 - cos_beta2,
+                                        1 - cos_beta3]), dim=0)[0]
+
+    return cost_xaxis + cost_yaxis
+
+# To measure the difference of ee and cube quaternions
+# so that it fits the case when the cube is flipped and upside down
+def get_general_ori_ee2cube(ee_quaternion, cube_quaternion):
+    ee_rot_matrix = quaternion_rotation_matrix(ee_quaternion)
+    ee_yaxis = ee_rot_matrix[:, :, 1]
+    ee_zaxis = ee_rot_matrix[:, :, 2]
+    cube_rot_matrix = quaternion_rotation_matrix(cube_quaternion)
+    cube_xaxis = cube_rot_matrix[:, :, 0]
+    cube_yaxis = cube_rot_matrix[:, :, 1]
+    cube_zaxis = cube_rot_matrix[:, :, 2]
+    cos_theta1 = torch.abs(torch.sum(torch.mul(ee_zaxis, cube_zaxis), dim=1))
+    cos_theta2 = torch.abs(torch.sum(torch.mul(ee_zaxis, cube_xaxis), dim=1))
+    cos_theta3 = torch.abs(torch.sum(torch.mul(ee_zaxis, cube_yaxis), dim=1))
+    cost_zaxis = torch.min(torch.stack([1 - cos_theta1,
+                                        1 - cos_theta2,
+                                        1 - cos_theta3]), dim=0)[0]
+    cos_omega1 = torch.abs(torch.sum(torch.mul(ee_yaxis, cube_xaxis), dim=1))
+    cos_omega2 = torch.abs(torch.sum(torch.mul(ee_yaxis, cube_yaxis), dim=1))
+    cos_omega3 = torch.abs(torch.sum(torch.mul(ee_yaxis, cube_zaxis), dim=1))
+    cost_yaxis = torch.min(torch.stack([1 - cos_omega1,
+                                        1 - cos_omega2,
+                                        1 - cos_omega3]), dim=0)[0]
+
+    return cost_zaxis + cost_yaxis
