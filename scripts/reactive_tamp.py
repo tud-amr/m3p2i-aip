@@ -118,6 +118,7 @@ class REACTIVE_TAMP:
             task_success = self.task_planner.check_task_success(robot_pos, self.block_pos[0, :])
         else:
             task_success = self.task_planner.check_task_success((self.ee_l_state[0, :7]+self.ee_r_state[0, :7])/2)
+        task_success = task_success and not stay_still
         self.save_data(task_success)
         return task_success
 
@@ -128,8 +129,12 @@ class REACTIVE_TAMP:
         return i
     
     def save_data(self, task_success):
-        if task_success and self.task in ['pick', 'reactive_pick']:
-            # print('cube', self.cube_state[0, :7])
+        if self.task_planner.task == 'pick':
+            self.save_success_once = True
+        if task_success and self.task in ['pick', 'reactive_pick'] and self.save_success_once:
+            print('cube', self.cube_state[0, :7])
+            print('cube goal', self.cube_goal_state[0, :7])
+            self.save_success_once = False
             pass
 
     def run(self):
