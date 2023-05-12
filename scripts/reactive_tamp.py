@@ -114,7 +114,7 @@ class REACTIVE_TAMP:
         self.params = self.motion_planner.update_params(self.params, self.prefer_pull)
 
         # Check task succeeds or not
-        if self.task_planner.task not in ['pick', 'reactive_pick']:
+        if self.task not in ['pick', 'reactive_pick']:
             block_pose = self.block_pos[0, :]
         else:
             block_pose = self.cube_state[0, :3]
