@@ -41,21 +41,28 @@ class PLANNER_PICK(PLANNER_SIMPLE):
         PLANNER_SIMPLE.__init__(self, task, goal)
         self.initial_goal = self.curr_goal.clone()
 
-    def update_plan(self, cube_state, cube_goal, ee_goal):
+    def update_plan(self, cube_state, cube_goal, ee_state):
         if self.task == 'pick':
             cube_goal = cube_goal.clone()
             cube_state = cube_state.clone()
-            ee_goal = ee_goal.clone()
+            ee_goal = ee_state.clone()
             cube_goal[2] += 0.052
             self.curr_goal = cube_goal
             dist_cost = torch.linalg.norm(cube_goal[:3] - cube_state[:3])
-            ori_cost = skill_utils.get_quaternions_ori_cost(cube_goal[3:].view(-1,4), cube_state[3:].view(-1,4))
+            ori_cost = skill_utils.get_ori_cube2goal(cube_goal[3:].view(-1,4), cube_state[3:].view(-1,4))
             print('dis', dist_cost)
             print('ori', ori_cost[0])
             if dist_cost + ori_cost < 0.01:
                 self.task = 'place'
                 ee_goal[2] += 0.2
                 self.curr_goal = ee_goal
+    
+    def check_task_success(self, ee_state):
+        flag = False
+        if self.task == 'place' and torch.linalg.norm(ee_state - self.prev_ee_state) < 0.001:
+            flag = True
+        self.prev_ee_state = ee_state.clone()
+        return flag
 
     def reset_plan(self):    
         self.task = 'pick'
@@ -69,11 +76,11 @@ class PLANNER_AIF_PANDA(PLANNER_SIMPLE):
 
         # Agent with following states [isCubeAt]
         self.ai_agent_task = [ai_agent.AiAgent(mdp_isCubeAt)]
-        # self.ai_agent_task[0].set_preferences(np.array([[0.], [1], [0]]))
         self.obs = 0
-    def get_obs(self, cube_state, cube_goal, ee_goal):
+        self.prev_ee_state = torch.zeros(7, device="cuda:0")
+
+    def get_obs(self, cube_state, cube_goal, ee_state):
         cube_height_diff = torch.linalg.norm(cube_state[2] - cube_goal[2])
-        print('height', cube_height_diff)
         dist_cost = torch.linalg.norm(self.curr_goal[:3] - cube_state[:3]) # self.curr_goal
         ori_cost = skill_utils.get_general_ori_cube2goal(self.curr_goal[3:].view(-1,4), cube_state[3:].view(-1,4))
         print('dis', dist_cost)
@@ -83,14 +90,14 @@ class PLANNER_AIF_PANDA(PLANNER_SIMPLE):
             self.ai_agent_task[0].set_preferences(np.array([[0], [1], [0]]))
         elif dist_cost + ori_cost < 0.01:
             self.obs = 1
-            self.ee_goal = ee_goal.clone()
+            self.ee_goal = ee_state.clone()
             self.ee_goal[2] += 0.2
             self.ai_agent_task[0].set_preferences(np.array([[1], [0], [0]]))
         # elif cube_height_diff > 0.0499 and cube_height_diff < 0.0501: 
         #     obs = 2
 
-    def update_plan(self, cube_state, cube_goal, ee_goal):
-        self.get_obs(cube_state, cube_goal, ee_goal)
+    def update_plan(self, cube_state, cube_goal, ee_state):
+        self.get_obs(cube_state, cube_goal, ee_state)
         outcome, curr_action = adaptive_action_selection.adapt_act_sel(self.ai_agent_task, [self.obs])
         # print('Status:', outcome)
         # print('Current action:', curr_action)
@@ -102,6 +109,13 @@ class PLANNER_AIF_PANDA(PLANNER_SIMPLE):
         elif curr_action == "place":
             self.ai_agent_task[0].set_preferences(np.array([[1], [0], [0]]))
             self.curr_goal = self.ee_goal
+    
+    def check_task_success(self, ee_state):
+        flag = False
+        if self.task == 'place' and torch.linalg.norm(ee_state - self.prev_ee_state) < 0.001:
+            flag = True
+        self.prev_ee_state = ee_state.clone()
+        return flag
 
 class PLANNER_PATROLLING(PLANNER_SIMPLE):
     def __init__(self, goals) -> None:

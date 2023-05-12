@@ -107,7 +107,7 @@ class REACTIVE_TAMP:
         self.params = self.task_planner.update_params(self.params)
 
         # Update task and goal in the motion planner
-        print('task:', self.task_planner.task, 'goal:', self.task_planner.curr_goal)
+        # print('task:', self.task_planner.task, 'goal:', self.task_planner.curr_goal)
         self.motion_planner.update_task(self.task_planner.task, self.task_planner.curr_goal)
 
         # Update params in the motion planner
@@ -115,10 +115,10 @@ class REACTIVE_TAMP:
 
         # Check task succeeds or not
         if self.task not in ['pick', 'reactive_pick']:
-            block_pose = self.block_pos[0, :]
+            task_success = self.task_planner.check_task_success(robot_pos, self.block_pos[0, :])
         else:
-            block_pose = self.cube_state[0, :3]
-        task_success = self.task_planner.check_task_success(robot_pos, block_pose)
+            task_success = self.task_planner.check_task_success((self.ee_l_state[0, :7]+self.ee_r_state[0, :7])/2)
+        self.save_data(task_success)
         return task_success
 
     def reset(self, i, reset_flag):
@@ -126,6 +126,11 @@ class REACTIVE_TAMP:
             self.task_planner.reset_plan()
             i = 0
         return i
+    
+    def save_data(self, task_success):
+        if task_success and self.task in ['pick', 'reactive_pick']:
+            # print('cube', self.cube_state[0, :7])
+            pass
 
     def run(self):
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:

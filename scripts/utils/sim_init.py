@@ -264,7 +264,10 @@ def time_logging(gym, sim, next_fps_report, frame_count, t1, num_envs, freq_data
         next_fps_report = t1 + 1
         if freq_data.any() != 0:
             print('Task freq', freq_data[0])
-            print('Motion freq', freq_data[1])
+            if freq_data[1] != 0:
+                print('Motion freq', freq_data[1])
+            else:
+                print('Motion succeeds!')
     frame_count += 1
     return next_fps_report, frame_count, t1
 
