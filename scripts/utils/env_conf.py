@@ -309,10 +309,10 @@ def add_panda_arena(gym, sim, env, robot_asset, i):
 
     # Define start pose for cubes
     cubeA_start_pose = gymapi.Transform()
-    cubeA_start_pose.p = gymapi.Vec3(0.15, -0.15, 1.05)
+    cubeA_start_pose.p = gymapi.Vec3(0, -0.2, 1.05)
     cubeA_start_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
     cubeB_start_pose = gymapi.Transform()
-    cubeB_start_pose.p = gymapi.Vec3(0.15, 0.15, 1.06)
+    cubeB_start_pose.p = gymapi.Vec3(0.2, 0.1, 1.06)
     cubeB_start_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
 
     # Create panda robot
@@ -327,6 +327,9 @@ def add_panda_arena(gym, sim, env, robot_asset, i):
     cubeB_id = gym.create_actor(env, cubeB_asset, cubeB_start_pose, "cubeB", i, 4, 0)
     gym.set_rigid_body_color(env, cubeA_id, 0, gymapi.MESH_VISUAL, cubeA_color)
     gym.set_rigid_body_color(env, cubeB_id, 0, gymapi.MESH_VISUAL, cubeB_color)
+
+    cubeA_rbid = gym.get_actor_rigid_body_index(env, cubeA_id, 0, gymapi.DOMAIN_SIM) # 13
+    cubeB_rbid = gym.get_actor_rigid_body_index(env, cubeB_id, 0, gymapi.DOMAIN_SIM) # 14
 
     return panda_actor
 
