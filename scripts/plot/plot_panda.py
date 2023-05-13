@@ -1,9 +1,10 @@
 import os, sys, time
 sys.path.append('../')
-from utils import path_utils
+from utils import path_utils, skill_utils
 from npy_append_array import NpyAppendArray
 import numpy as np
 import matplotlib.pyplot as plt
+import torch
 
 file_path_1 = path_utils.get_plot_path() +'/panda/normal_pick.npy'
 file_path_2 = path_utils.get_plot_path() +'/panda/reactive_pick.npy'
@@ -33,5 +34,19 @@ def plot_pos_disp(data_array, string):
     plt.title('Position displacement (' + string + ' task)')
     plt.show()
 
-plot_pos_disp(tamp_normal_data, 'normal')
+# plot_pos_disp(tamp_normal_data, 'normal')
 # plot_pos_disp(tamp_reactive_data, 'reactive')
+
+# Compute quaternion
+quat_cost = skill_utils.get_general_ori_cube2goal(torch.tensor(tamp_normal_data[:, 4:8]), 
+                                             torch.tensor(tamp_normal_data[:, 11:]))
+dist_disp = tamp_normal_data[:, 1:3] - tamp_normal_data[:, 8:10]
+pos_cost = np.linalg.norm(dist_disp, axis=1)
+quat_cost = quat_cost.cpu().detach().numpy()
+fig1, ax1 = plt.subplots()
+ax1.set_title('Displacements of position and orientation')
+print(pos_cost.size)
+print(quat_cost.size)
+data = np.array([pos_cost, quat_cost]).T
+ax1.boxplot(data)
+plt.show()
