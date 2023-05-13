@@ -4,7 +4,8 @@ from isaacgym import gymtorch
 import torch
 from fusion_mppi import mppi, fusion_mppi
 from active_inference import task_planner
-from utils import env_conf, sim_init, data_transfer
+from utils import env_conf, sim_init, data_transfer, path_utils
+from npy_append_array import NpyAppendArray
 from params import params_utils
 import time
 import copy
@@ -132,10 +133,17 @@ class REACTIVE_TAMP:
         if self.task_planner.task == 'pick':
             self.save_success_once = True
         if task_success and self.task in ['pick', 'reactive_pick'] and self.save_success_once:
-            print('cube', self.cube_state[0, :7])
-            print('cube goal', self.cube_goal_state[0, :7])
+            file_path = path_utils.get_plot_path() +'/panda/normal_pick.npy'
+            save_time = np.array([time.time()])
+            save_cube_state = self.cube_state[0, :7].cpu().detach().numpy()
+            save_goal_state = self.cube_goal_state[0, :7].cpu().detach().numpy()
+            concatenate_array = np.concatenate((save_time, save_cube_state, save_goal_state))
+            with NpyAppendArray(file_path) as npaa:
+                npaa.append(np.array([concatenate_array]))
+            data = np.load(file_path, mmap_mode="r")
+            print(data[-1, :])
+            print(time.asctime(time.localtime(data[-1, 0])))
             self.save_success_once = False
-            pass
 
     def run(self):
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
