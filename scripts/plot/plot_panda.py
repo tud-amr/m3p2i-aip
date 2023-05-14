@@ -5,6 +5,7 @@ from npy_append_array import NpyAppendArray
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
+import plotly.graph_objects as go
 
 file_path_1 = path_utils.get_plot_path() +'/panda/normal_pick.npy'
 file_path_2 = path_utils.get_plot_path() +'/panda/reactive_pick.npy'
@@ -55,13 +56,33 @@ tamp_reactive_pos, tamp_reactive_quat = compute_cost(tamp_reactive_data)
 rl_normal_pos, rl_normal_quat = compute_cost(rl_normal_data)
 rl_reactive_pos, rl_reactive_quat = compute_cost(rl_reactive_data)
 
-fig1, ax1 = plt.subplots()
-ax1.set_title('Displacements of position')
-data = np.array([tamp_normal_pos, rl_normal_pos[:50], tamp_reactive_pos, rl_reactive_pos[:50]]).T
-ax1.boxplot(data)
+# Box plot
+fig = go.Figure()
+tamp_x = ['Normal']*50+['Reactive']*50
+rl_x = ['Normal']*64+['Reactive']*64
+fig.add_trace(go.Box(y=np.concatenate((tamp_normal_pos, tamp_reactive_pos)), x=tamp_x, name="TAMP", marker_color='#FF4136'))
+fig.add_trace(go.Box(y=np.concatenate((rl_normal_pos, rl_reactive_pos)), x=rl_x, name="RL", marker_color='#FF851B'))
 
-fig2, ax2 = plt.subplots()
-ax2.set_title('Displacements orientation')
-data2 = np.array([tamp_normal_quat, rl_normal_quat[:50], tamp_reactive_quat, rl_reactive_quat[:50]]).T
-ax2.boxplot(data2)
-plt.show()
+fig.update_layout(
+    title = 'Position error',
+    title_x=0.5,
+    yaxis_title='Displacements',
+    boxmode='group', # group together boxes of the different traces for each value of x
+    boxgroupgap=0.3, # update
+    boxgap=0
+)
+fig.show() 
+
+fig = go.Figure()
+fig.add_trace(go.Box(y=np.concatenate((tamp_normal_quat, tamp_reactive_quat)), x=tamp_x, name="TAMP", marker_color='#FF4136'))
+fig.add_trace(go.Box(y=np.concatenate((rl_normal_quat, rl_reactive_quat)), x=rl_x, name="RL", marker_color='#FF851B'))
+
+fig.update_layout(
+    title = 'Orientation error',
+    title_x=0.5,
+    yaxis_title='Displacements',
+    boxmode='group', # group together boxes of the different traces for each value of x
+    boxgroupgap=0.3, # update
+    boxgap=0
+)
+fig.show() 
