@@ -217,6 +217,7 @@ def load_husky(gym, sim):
 def add_obstacles(sim, gym, env, environment_type, index):
     if environment_type == "normal":
         # add fixed obstacle
+        test_cornor = False
         obstacle_handle = add_box(sim, gym, env, 0.3, 0.4, 0.5, obstacle_pose, color_vec_fixed, True, "obstacle", index)
         dyn_obs_handle = add_box(sim, gym, env,0.4, 0.4, 0.1, dyn_obs_pose, color_vec_dyn_obs, False, "dyn_obs", index)
 
@@ -224,20 +225,21 @@ def add_obstacles(sim, gym, env, environment_type, index):
         box2_handle = add_box(sim, gym, env,0.4, 0.4, 0.1, box2_pose, color_vec_box2, False, "box2", index)
         box3_handle = add_box(sim, gym, env,0.4, 0.4, 0.1, box3_pose, color_vec_box3, False, "box3", index)
 
-        goal_region1 = add_box(sim, gym, env, 1, 1, 0.01, goal1_pose, color_vec_box1, True, "goal_region1", -2) # No collisions with goal region
-        goal_region2 = add_box(sim, gym, env, 1, 1, 0.01, goal2_pose, color_vec_box3, True, "goal_region2", -2) # No collisions with goal region
-        goal_region3 = add_box(sim, gym, env, 1, 1, 0.01, goal3_pose, color_vec_box3, True, "goal_region3", -2) # No collisions with goal region
+        if not test_cornor:
+            # goal_region1 = add_box(sim, gym, env, 1, 1, 0.01, goal1_pose, color_vec_box1, True, "goal_region1", -2) # No collisions with goal region
+            # goal_region2 = add_box(sim, gym, env, 1, 1, 0.01, goal2_pose, color_vec_box2, True, "goal_region2", -2) # No collisions with goal region
+            # goal_region3 = add_box(sim, gym, env, 1, 1, 0.01, goal3_pose, color_vec_box3, True, "goal_region3", -2) # No collisions with goal region
 
-        recharge_region = add_box(sim, gym, env,1 , 1, 0.01, recharge_pose, color_vec_recharge, True, "goal_region", -2) # No collisions with recharge region
+            recharge_region = add_box(sim, gym, env,1 , 1, 0.01, recharge_pose, color_vec_corner, True, "goal_region", -2) # No collisions with recharge region
         # add movable squar box
         y_axis = add_box(sim, gym, env, 0.05, 0.5, 0.01, yaxis_pose, gymapi.Vec3(0.0, 1, 0.2), True, "y", -2)
         x_axis = add_box(sim, gym, env, 0.5, 0.05, 0.01, xaxis_pose, gymapi.Vec3(1, 0.0, 0.2), True, "x", -2)       
 
-        # 
-        corner_region1 = add_box(sim, gym, env, 0.45, 0.45, 0.01, corner1_pose, color_vec_corner, True, "corner_region1", -2)
-        corner_region2 = add_box(sim, gym, env, 0.45, 0.45, 0.01, corner2_pose, color_vec_corner, True, "corner_region2", -2)
-        corner_region3 = add_box(sim, gym, env, 0.45, 0.45, 0.01, corner3_pose, color_vec_corner, True, "corner_region3", -2)
-        corner_region4 = add_box(sim, gym, env, 0.45, 0.45, 0.01, corner4_pose, color_vec_corner, True, "corner_region4", -2)
+        if test_cornor:
+            corner_region1 = add_box(sim, gym, env, 0.45, 0.45, 0.01, corner1_pose, color_vec_corner, True, "corner_region1", -2)
+            corner_region2 = add_box(sim, gym, env, 0.45, 0.45, 0.01, corner2_pose, color_vec_corner, True, "corner_region2", -2)
+            corner_region3 = add_box(sim, gym, env, 0.45, 0.45, 0.01, corner3_pose, color_vec_corner, True, "corner_region3", -2)
+            corner_region4 = add_box(sim, gym, env, 0.45, 0.45, 0.01, corner4_pose, color_vec_corner, True, "corner_region4", -2)
         
     elif environment_type == "battery":
         # add fixed obstacle
@@ -309,10 +311,10 @@ def add_panda_arena(gym, sim, env, robot_asset, i):
 
     # Define start pose for cubes
     cubeA_start_pose = gymapi.Transform()
-    cubeA_start_pose.p = gymapi.Vec3(0.2, 0.1, 1.05)
+    cubeA_start_pose.p = gymapi.Vec3(0.2, -0.2, 1.05)
     cubeA_start_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
     cubeB_start_pose = gymapi.Transform()
-    cubeB_start_pose.p = gymapi.Vec3(0.2, -0.1, 1.06)
+    cubeB_start_pose.p = gymapi.Vec3(0.2, 0.2, 1.06)
     cubeB_start_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
 
     # Create panda robot
@@ -355,7 +357,10 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, e
     robot_handles = []
     print("Creating %d environments" % num_envs)
     num_per_row = int(math.sqrt(num_envs))
-    gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(1.5, 6, 8), gymapi.Vec3(1.5, 0, 0))
+    if environment_type == 'cube':
+        gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(0, 1.5, 2.8), gymapi.Vec3(0, 0, 1))
+    else:
+        gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(1.5, 6, 8), gymapi.Vec3(1.5, 0, 0))
 
     for i in range(num_envs):
         # Create env

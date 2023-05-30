@@ -38,10 +38,11 @@ class REACTIVE_TAMP:
         self.block_pos = states_dict["block_pos"]
         self.cube_state = states_dict["cube_state"]
         self.cube_goal_state = states_dict["cube_goal_state"]
-        self.cube_goal_state_new = self.cube_goal_state[0, :7].clone()
-        self.cube_goal_state_new[2] += 0.06
         self.ee_l_state = states_dict["ee_l_state"]
         self.ee_r_state = states_dict["ee_r_state"]
+        if self.environment_type == 'cube':
+            self.cube_goal_state_new = self.cube_goal_state[0, :7].clone()
+            self.cube_goal_state_new[2] += 0.06
 
         # Choose the task planner
         self.task = params.task
@@ -52,7 +53,7 @@ class REACTIVE_TAMP:
             # start plotting battery level
             plot_class.start_dash_server()
         elif self.task == "simple":
-            self.task_planner = task_planner.PLANNER_SIMPLE("navigation", [-3.75, -3.75])  # "hybrid", [-3.75, -3.75]
+            self.task_planner = task_planner.PLANNER_SIMPLE("push", [-3, -3])  # "hybrid", [-3.75, -3.75]
         elif self.task == "pick":
             self.task_planner = task_planner.PLANNER_PICK("pick", self.cube_goal_state_new)
         elif self.task == "reactive_pick":
@@ -120,7 +121,7 @@ class REACTIVE_TAMP:
         else:
             task_success = self.task_planner.check_task_success((self.ee_l_state[0, :7]+self.ee_r_state[0, :7])/2)
         task_success = task_success and not stay_still
-        self.save_data(task_success)
+        # self.save_data(task_success)
         return task_success
 
     def reset(self, i, reset_flag):
@@ -133,7 +134,7 @@ class REACTIVE_TAMP:
         if self.task_planner.task == 'pick':
             self.save_success_once = True
         if task_success and self.task in ['pick', 'reactive_pick'] and self.save_success_once:
-            file_path = path_utils.get_plot_path() +'/panda/normal_pick.npy'
+            file_path = path_utils.get_plot_path() +'/panda/reactive_pick.npy'
             save_time = np.array([time.time()])
             save_cube_state = self.cube_state[0, :7].cpu().detach().numpy()
             save_goal_state = self.cube_goal_state[0, :7].cpu().detach().numpy()
