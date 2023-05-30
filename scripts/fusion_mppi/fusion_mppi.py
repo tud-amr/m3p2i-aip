@@ -73,6 +73,7 @@ class FUSION_MPPI(mppi.MPPI):
         self.task = "navigation"  # "navigation", "push", "pull", "push_not_goal"
         self.align_weight = {"heijn":1, "point_robot":0.5, "boxer":1}
         self.align_offset = {"heijn":0.1, "point_robot":0.05}
+        self.goal_quaternion = torch.tensor([0, 0, 0, 1], device="cuda:0").repeat(self.num_envs).view(self.num_envs, 4)
 
     def update_gym(self, gym, sim, viewer=None):
         self.gym = gym
@@ -91,6 +92,7 @@ class FUSION_MPPI(mppi.MPPI):
             self.bodies_per_env = states_dict["bodies_per_env"]
             self.robot_states = states_dict["robot_states"]
             self.block_pos = states_dict["block_pos"]
+            self.block_quat = states_dict["block_quat"]
             self.robot_pos = states_dict["robot_pos"]
             self.robot_vel = states_dict["robot_vel"]
             self.dyn_obs_pos = states_dict["dyn_obs_pos"]
@@ -149,11 +151,11 @@ class FUSION_MPPI(mppi.MPPI):
         # print('push align', align_cost[:10])
         # if self.robot != 'boxer':
         #     align_cost += torch.abs(self.robot_to_goal_dist - self.block_to_goal_dist - self.align_offset[self.robot])
-
+        ori_cost = skill_utils.get_general_ori_cube2goal(self.block_quat, self.goal_quaternion)
         if hybrid:
             return self.dist_cost # [num_envs]
         else:
-            return self.dist_cost + align_cost # [num_envs]
+            return self.dist_cost + align_cost + 10 * ori_cost# [num_envs]
     
     def get_pull_cost(self, hybrid):
         pos_dir = self.block_pos - self.robot_pos
@@ -181,10 +183,11 @@ class FUSION_MPPI(mppi.MPPI):
         robot_block_close = self.robot_to_block_dist <= 0.5
         vel_cost[flag_towards_block*robot_block_close] = 0.5
 
+        ori_cost = skill_utils.get_general_ori_cube2goal(self.block_quat, self.goal_quaternion)
         if hybrid:
             return self.dist_cost + vel_cost # [num_envs]
         else:
-            return self.dist_cost + vel_cost + align_cost # [num_envs]
+            return self.dist_cost + vel_cost + align_cost + 10 * ori_cost # [num_envs]
 
     def get_push_not_goal_cost(self):
         non_goal_cost = torch.clamp((1/torch.linalg.norm(self.block_not_goal - self.block_pos,axis = 1)), min=0, max=10)
@@ -289,10 +292,6 @@ class FUSION_MPPI(mppi.MPPI):
         if 'past_u' not in locals():
             past_u = torch.zeros_like(u, device=self.device)
 
-        # state_pos = torch.cat((state[:, 0].unsqueeze(1), state[:, 2].unsqueeze(1)), 1)
-        # control_cost = torch.sum(torch.square(u),1)
-        # w_u = 0.1
-
         # Collision cost via contact forces
         _net_cf = self.gym.acquire_net_contact_force_tensor(self.sim)
         net_cf = gymtorch.wrap_tensor(_net_cf)
@@ -300,10 +299,14 @@ class FUSION_MPPI(mppi.MPPI):
         # Take only forces in x,y in modulus for each environment. Avoid all collisions
         net_cf = torch.sum(torch.abs(torch.cat((net_cf[:, 0].unsqueeze(1), net_cf[:, 1].unsqueeze(1)), 1)),1)
         # The last actors are allowed to collide with eachother (movabable obstacles and robot), check depending on the amount of actors
+        allow_dyn_obs = True
         if self.env_type == 'normal':   
             obst_up_to = 6
         elif self.env_type == 'lab':
             obst_up_to = 4 
+        elif self.env_type == 'cube':
+            obst_up_to = 5
+            allow_dyn_obs = False
         
         coll_cost = torch.sum(net_cf.reshape([self.num_envs, int(net_cf.size(dim=0)/self.num_envs)])[:,0:obst_up_to], 1)
         # coll_cost = torch.sum(net_cf.reshape([self.num_envs, int(net_cf.size(dim=0)/self.num_envs)])[:,:], 1) # avoid all obstacles, for navigation
@@ -318,18 +321,18 @@ class FUSION_MPPI(mppi.MPPI):
 
         # Avoid dynamic obstacle
         penalty_factor = 2 # the larger the factor, the more penalty to geting close to the obs
-        dyn_obs_cost = self._predict_dyn_obs(penalty_factor, t+1)
+        dyn_obs_cost = self._predict_dyn_obs(penalty_factor, t+1) if allow_dyn_obs else 0
 
-        return w_c*coll_cost + acc_cost + dyn_obs_cost # + w_u*control_cost
+        return w_c*coll_cost + acc_cost + dyn_obs_cost
 
     @mppi.handle_batch_input
     def _running_cost(self, state, u, t):
         if self.task == 'navigation' or self.task == 'go_recharge':
             task_cost = self.get_navigation_cost()
         elif self.task == 'push':
-            task_cost = self.get_push_cost(False)
+            return self.get_push_cost(False)
         elif self.task == 'pull':
-            task_cost = self.get_pull_cost(False)
+            return self.get_pull_cost(False)
         elif self.task == 'push_not_goal':
             task_cost = self.get_push_not_goal_cost()
         elif self.task == 'hybrid':
@@ -340,7 +343,57 @@ class FUSION_MPPI(mppi.MPPI):
             return self.get_panda_pick_cost()
         elif self.task == 'place':
             return self.get_panda_place_cost()
+        else:
+            task_cost = 0
 
         total_cost = task_cost + self.get_motion_cost(state, u, t)
         
         return  total_cost
+    
+    # Random test collision avoidance, will be deleted later
+    # def get_motion_cost(self, state, u, t):
+    #     # State: for each environment, the current state containing position and velocity
+    #     # Action: same but for control input
+        
+    #     if 'past_u' not in locals():
+    #         past_u = torch.zeros_like(u, device=self.device)
+
+    #     # Collision cost via contact forces
+    #     _net_cf = self.gym.acquire_net_contact_force_tensor(self.sim)
+    #     net_cf = gymtorch.wrap_tensor(_net_cf)
+    #     self.gym.refresh_net_contact_force_tensor(self.sim)
+    #     # Take only forces in x,y in modulus for each environment. Avoid all collisions
+    #     # net_cf = torch.sum(torch.abs(torch.cat((net_cf[:, 0].unsqueeze(1), net_cf[:, 1].unsqueeze(1)), 1)),1)
+    #     # The last actors are allowed to collide with eachother (movabable obstacles and robot), check depending on the amount of actors
+    #     allow_dyn_obs = True
+    #     if self.env_type == 'normal':   
+    #         obst_up_to = 6
+    #     elif self.env_type == 'lab':
+    #         obst_up_to = 4 
+    #     elif self.env_type == 'cube':
+    #         obst_up_to = 5
+    #         allow_dyn_obs = False
+        
+    #     x_y = net_cf.reshape([self.num_envs, self.bodies_per_env, 3])[:,10, :3]
+    #     coll_cost = torch.sum(torch.abs(x_y))
+    #     # coll_cost = torch.sum(net_cf.reshape([self.num_envs, int(net_cf.size(dim=0)/self.num_envs)])[:,0:obst_up_to], 1)
+    #     # coll_cost = torch.sum(net_cf.reshape([self.num_envs, int(net_cf.size(dim=0)/self.num_envs)])[:,:], 1) # avoid all obstacles, for navigation
+    #     w_c = 10 # Weight for collisions
+    #     # Binary check for collisions. So far checking all collision with unmovable obstacles. Movable obstacles touching unmovable ones are considered collisions       
+    #     # print(torch.max(coll_cost))
+    #     # if torch.max(coll_cost) > 50:
+    #     #     print('jjjj')
+    #     coll_cost[coll_cost>50] = 1
+    #     coll_cost[coll_cost<=50] = 0
+    #     # coll_cost = 0
+    #     # print(coll_cost)
+
+    #     # Acceleration cost
+    #     acc_cost = 0.0001*torch.linalg.norm(torch.square((u[0:1]-past_u[0:1])/0.05), dim=1)
+    #     past_u = torch.clone(u)
+
+    #     # Avoid dynamic obstacle
+    #     penalty_factor = 2 # the larger the factor, the more penalty to geting close to the obs
+    #     dyn_obs_cost = self._predict_dyn_obs(penalty_factor, t+1) if allow_dyn_obs else 0
+
+    #     return w_c*coll_cost + acc_cost + dyn_obs_cost

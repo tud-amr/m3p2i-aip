@@ -230,7 +230,7 @@ def add_obstacles(sim, gym, env, environment_type, index):
             # goal_region2 = add_box(sim, gym, env, 1, 1, 0.01, goal2_pose, color_vec_box2, True, "goal_region2", -2) # No collisions with goal region
             # goal_region3 = add_box(sim, gym, env, 1, 1, 0.01, goal3_pose, color_vec_box3, True, "goal_region3", -2) # No collisions with goal region
 
-            recharge_region = add_box(sim, gym, env,1 , 1, 0.01, recharge_pose, color_vec_corner, True, "goal_region", -2) # No collisions with recharge region
+            recharge_region = add_box(sim, gym, env, 0.45, 0.45, 0.01, recharge_pose, color_vec_corner, True, "goal_region", -2) # No collisions with recharge region
         # add movable squar box
         y_axis = add_box(sim, gym, env, 0.05, 0.5, 0.01, yaxis_pose, gymapi.Vec3(0.0, 1, 0.2), True, "y", -2)
         x_axis = add_box(sim, gym, env, 0.5, 0.05, 0.01, xaxis_pose, gymapi.Vec3(1, 0.0, 0.2), True, "x", -2)       

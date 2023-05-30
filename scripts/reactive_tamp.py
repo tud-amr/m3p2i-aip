@@ -35,7 +35,7 @@ class REACTIVE_TAMP:
         self.actors_per_env = states_dict["actors_per_env"]
         self.bodies_per_env = states_dict["bodies_per_env"]
         self.robot_pos = states_dict["robot_pos"]
-        self.block_pos = states_dict["block_pos"]
+        self.block_state = states_dict["block_state"]
         self.cube_state = states_dict["cube_state"]
         self.cube_goal_state = states_dict["cube_goal_state"]
         self.ee_l_state = states_dict["ee_l_state"]
@@ -85,8 +85,8 @@ class REACTIVE_TAMP:
                             filter_u = params.filter_u
                             )
         self.motion_planner.set_mode(
-            mppi_mode = 'halton-spline',     # 'halton-spline', 'simple'
-            sample_method = 'halton'  # 'halton', 'random'
+            mppi_mode = 'simple',     # 'halton-spline', 'simple'
+            sample_method = 'random'  # 'halton', 'random'
         )
         self.prefer_pull = -1
         
@@ -117,7 +117,7 @@ class REACTIVE_TAMP:
 
         # Check task succeeds or not
         if self.task not in ['pick', 'reactive_pick']:
-            task_success = self.task_planner.check_task_success(robot_pos, self.block_pos[0, :])
+            task_success = self.task_planner.check_task_success(robot_pos, self.block_state[0, :])
         else:
             task_success = self.task_planner.check_task_success((self.ee_l_state[0, :7]+self.ee_r_state[0, :7])/2)
         task_success = task_success and not stay_still
