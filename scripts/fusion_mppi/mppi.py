@@ -304,12 +304,11 @@ class MPPI():
 
         elif self.mppi_mode == 'halton-spline':
             # shift command 1 time step
+            saved_action = self.mean_action[-1]
             self.mean_action = torch.roll(self.mean_action, -1, dims=0)
-            # Set first sequence to zero, otherwise it takes the last of the sequence
-            self.mean_action[0].zero_()
+            self.mean_action[-1] = saved_action
 
             cost_total = self._compute_total_cost_batch_halton()
-              
             action = torch.clone(self.mean_action)
 
         # Smoothing with Savitzky-Golay filter
@@ -460,7 +459,7 @@ class MPPI():
 
         # Action perturbation cost
         perturbation_cost = torch.sum(self.mean_action * action_cost, dim=(1, 2))
-        self.cost_total += perturbation_cost
+        # self.cost_total += perturbation_cost
         return self.cost_total
 
     def _exp_util(self, costs, actions):
