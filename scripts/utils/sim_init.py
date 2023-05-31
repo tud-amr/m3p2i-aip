@@ -132,7 +132,7 @@ def acquire_states(gym, sim, params, flag="none"):
     if params.environment_type == "cube":
         cube_state = shaped_root_states[:, 3, :]
         cube_goal_state = shaped_root_states[:, 4, :]
-        block_state = shaped_root_states[:, 3, :]
+        block_pos = shaped_root_states[:, 3, :]
     elif params.block_index != "None":
         block_state = shaped_root_states[:, params.block_index, :7]
         block_pos = shaped_root_states[:, params.block_index, :2] # [num_envs, 2]

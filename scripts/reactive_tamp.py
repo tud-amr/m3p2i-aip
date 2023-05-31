@@ -207,7 +207,7 @@ class REACTIVE_TAMP:
                     # print(self.task_planner.curr_goal[0].item())
                     freq_data = np.array([self.task_freq, self.motion_freq, self.params.suction_active,
                                           self.task_planner.curr_goal[0].item(), self.task_planner.curr_goal[1].item(),
-                                          self.prefer_pull], dtype = float)
+                                          self.prefer_pull, int(task_success)], dtype = float)
                     conn.sendall(data_transfer.numpy_to_bytes(freq_data))
 
                     # Visualize rollouts

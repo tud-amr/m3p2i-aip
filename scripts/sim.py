@@ -115,6 +115,10 @@ class SIM():
                 self.suction_active = int(freq_data[2])
                 self.curr_goal = np.array([freq_data[3], freq_data[4]])
                 self.prefer_pull.append(freq_data[5])
+                task_success = int(freq_data[6])
+                if task_success and self.environment_type != 'cube':
+                    self.plot()
+                    # self.destroy()
 
                 # Clear lines at the beginning
                 self.gym.clear_lines(self.viewer)
@@ -292,6 +296,8 @@ class SIM():
         block_path_length = np.sum(np.linalg.norm(block_path_array, axis=1))
         print('Robot path length', format(robot_path_length, '.2f'))
         print('Block path length', format(block_path_length, '.2f'))
+        task_start_time = self.sim_time[np.nonzero(self.motion_freq_array)[0][0]]
+        print('Task completion time', format(self.sim_time[-1]-task_start_time, '.2f'))
         plt.show()
 
     def destroy(self):
@@ -302,5 +308,4 @@ if __name__== "__main__":
     params = params_utils.load_params()
     sim = SIM(params)
     sim.run()
-    sim.plot()
     sim.destroy()
