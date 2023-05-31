@@ -155,7 +155,7 @@ class FUSION_MPPI(mppi.MPPI):
         if hybrid:
             return self.dist_cost # [num_envs]
         else:
-            return self.dist_cost + align_cost + 10 * ori_cost# [num_envs]
+            return self.dist_cost + 3 * align_cost + 10 * ori_cost# [num_envs]
     
     def get_pull_cost(self, hybrid):
         pos_dir = self.block_pos - self.robot_pos
@@ -187,7 +187,7 @@ class FUSION_MPPI(mppi.MPPI):
         if hybrid:
             return self.dist_cost + vel_cost # [num_envs]
         else:
-            return self.dist_cost + vel_cost + align_cost + 10 * ori_cost # [num_envs]
+            return self.dist_cost + vel_cost + 3 * align_cost + 10 * ori_cost # [num_envs]
 
     def get_push_not_goal_cost(self):
         non_goal_cost = torch.clamp((1/torch.linalg.norm(self.block_not_goal - self.block_pos,axis = 1)), min=0, max=10)

@@ -116,9 +116,6 @@ class SIM():
                 self.curr_goal = np.array([freq_data[3], freq_data[4]])
                 self.prefer_pull.append(freq_data[5])
                 task_success = int(freq_data[6])
-                if task_success and self.environment_type != 'cube':
-                    self.plot()
-                    # self.destroy()
 
                 # Clear lines at the beginning
                 self.gym.clear_lines(self.viewer)
@@ -176,6 +173,8 @@ class SIM():
                     sim_init.step_rendering(self.gym, self.sim, self.viewer, sync_frame_time=False)
                 t_prev = t_now
                 self.next_fps_report, self.frame_count, self.t1 = sim_init.time_logging(self.gym, self.sim, self.next_fps_report, self.frame_count, self.t1, self.num_envs, freq_data)
+                if task_success and self.environment_type != 'cube':
+                    self.plot()
 
     def plot(self):
         # Saving and plotting

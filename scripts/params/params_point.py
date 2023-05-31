@@ -2,7 +2,7 @@ import torch
 
 # Paramters in the reactive_tamp file
 allow_viewer = False
-visualize_rollouts = False
+visualize_rollouts = True
 task = "reactive"                   # "simple", "patrolling", "reactive"
 num_envs = 100
 nx = 4
