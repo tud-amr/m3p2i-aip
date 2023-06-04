@@ -36,6 +36,9 @@ class SIM():
         self.dofs_per_robot = states_dict["dofs_per_robot"]
         self.initial_root_states = self.root_states.clone()
         self.initial_dof_states = self.dof_states.clone()
+        if self.environment_type == "normal":
+            self.dyn_obs_pos = states_dict["dyn_obs_pos"]
+            self.dyn_obs_pos_seq = self.dyn_obs_pos.clone()
 
         # Helper variables, same as in fusion_mppi
         self.suction_active = params.suction_active
@@ -165,6 +168,8 @@ class SIM():
                 self.action_seq = torch.cat((self.action_seq, self.action), 0)
                 self.robot_pos_seq = torch.cat((self.robot_pos_seq, self.robot_pos), 0)
                 self.block_pos_seq = torch.cat((self.block_pos_seq, self.block_pos), 0)
+                if self.environment_type == 'normal':
+                    self.dyn_obs_pos_seq = torch.cat((self.dyn_obs_pos_seq, self.dyn_obs_pos), 0)
                 t_now = time.monotonic()
                 # print('Whole freq', format(1/(t_now-t_prev), '.2f'))
                 if (t_now - t_prev) < self.dt:
@@ -199,11 +204,16 @@ class SIM():
             draw_block = False
         elif self.curr_planner_task in ['push', 'pull', 'hybrid']:
             draw_block = True
+            dyn_obs_pos_array = self.dyn_obs_pos_seq.cpu().numpy()
+            rob_to_dyn_obs = robot_pos_array - dyn_obs_pos_array
+            rob_to_dyn_obs_dist = np.linalg.norm(rob_to_dyn_obs, axis=1)
+            block_to_dyn_obs = block_pos_array - dyn_obs_pos_array
+            block_to_dyn_obs_dist = np.linalg.norm(block_to_dyn_obs, axis=1)
 
         # Draw the control inputs
         fig1, axs1 = plt.subplots(self.dofs_per_robot)
         fig1.suptitle('Control Inputs')
-        plot_colors = ['hotpink','darkviolet','mediumblue']
+        plot_colors = ['hotpink','darkviolet','mediumblue', 'red']
         if self.robot in ['point_robot', 'heijn']:
             label = ['x_vel', 'y_vel', 'theta_vel']
         elif self.robot == 'boxer':
@@ -216,12 +226,13 @@ class SIM():
 
         # Draw the pos of robot and block
         fig2, axs2 = plt.subplots(2)
-        fig2.suptitle('Robot and Block Pos')
+        fig2.suptitle('Position')
         label_pos = ['x [m]', 'y [m]']
         for i in range(2):
             axs2[i].plot(self.sim_time, robot_pos_array[:, i], color=plot_colors[0], marker=".", label='robot')
             if draw_block:
                 axs2[i].plot(self.sim_time, block_pos_array[:, i], color=plot_colors[1], marker=".", label='block')
+                axs2[i].plot(self.sim_time, dyn_obs_pos_array[:, i], color=plot_colors[2], marker=".", label='obstacle')
             axs2[i].set_ylabel(label_pos[i], rotation=0)
         axs2[-1].set(xlabel = 'Time [s]')
         plt.legend()
@@ -230,14 +241,18 @@ class SIM():
         if draw_block:
             fig3, axs3 = plt.subplots(2)
             fig3.suptitle('Distance')
-            label_dis = ['robot_to_block', 'block_to_goal']
-            axs3[0].plot(self.sim_time, robot_to_block_dist, color=plot_colors[0], marker=".")
-            axs3[0].legend([label_dis[0]])
+            label_dis = ['robot_to_block', 'block_to_goal', 'robot_to_obstacle', 'block_to_obstacle']
+            axs3[0].plot(self.sim_time, robot_to_block_dist, color=plot_colors[0], marker=".", label=label_dis[0])
             axs3[0].set_ylabel('[m]', rotation=0)
-            axs3[1].plot(self.sim_time, block_to_goal_dist, color=plot_colors[1], marker=".")
-            axs3[1].legend([label_dis[1]])
+            axs3[0].plot(self.sim_time, block_to_goal_dist, color=plot_colors[1], marker=".", label=label_dis[1])
+            axs3[0].legend()
+            axs3[1].plot(self.sim_time, rob_to_dyn_obs_dist, color=plot_colors[2], marker=".", label=label_dis[2])
+            axs3[1].plot(self.sim_time, block_to_dyn_obs_dist, color=plot_colors[3], marker=".", label=label_dis[3])
             axs3[1].set_ylabel('[m]', rotation=0)
+            plt.axhline(y = 0.4, color = 'g', linestyle = '-')
+            axs3[1].set_ylim(0, None)
             axs3[1].set_xlabel('Time [s]')
+            axs3[1].legend()
         else:
             fig, ax = plt.subplots()
             fig.suptitle('Distance')
