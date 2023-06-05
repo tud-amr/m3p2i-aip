@@ -64,6 +64,7 @@ class SIM():
         self.dyn_obs_id = 5
         self.dyn_obs_coll = 0
         self.allow_save_data = True
+        self.elapsed_time = 0
         # Set server address
         self.server_address = './uds_socket'
 
@@ -109,7 +110,7 @@ class SIM():
                                  self.dyn_obs_coll, self.task_time])
         concatenate_array = np.concatenate((save_time, save_robot_pos, save_robot_vel, 
                                             save_block_state, self.curr_goal, save_metrics))
-        file_path = path_utils.get_plot_path() +'/point/case2_halton_push_coll.npy'
+        file_path = path_utils.get_plot_path() +'/point/case2_halton_pull_coll.npy'
         with NpyAppendArray(file_path) as npaa:
             npaa.append(np.array([concatenate_array]))
         data = np.load(file_path, mmap_mode="r")
@@ -149,11 +150,13 @@ class SIM():
                 self.curr_goal = np.array([freq_data[3], freq_data[4]])
                 self.prefer_pull.append(freq_data[5])
                 task_success = int(freq_data[6])
-                if task_success:
+                if len(self.sim_time) > 0:
+                    self.elapsed_time = self.sim_time[-1]-self.sim_time[0]
+                if task_success or self.elapsed_time >= 20:
                     if self.environment_type != 'cube':
                         self.plot()
-                        if self.allow_save_data:
-                            self.save_data()
+                        # if self.allow_save_data:
+                        #     self.save_data()
                     self.destroy()
 
                 # Clear lines at the beginning

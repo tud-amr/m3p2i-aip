@@ -6,7 +6,7 @@ visualize_rollouts = True
 task = "reactive"                   # "simple", "patrolling", "reactive"
 num_envs = 100
 nx = 4
-noise_sigma = torch.tensor([[0.5, 0], [0, 0.5]], device="cuda:0", dtype=torch.float32)
+noise_sigma = torch.tensor([[1.5, 0], [0, 1.5]], device="cuda:0", dtype=torch.float32)
 horizon = 12
 lambda_ = 0.8
 device = "cuda:0" 
