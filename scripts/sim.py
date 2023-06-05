@@ -59,7 +59,8 @@ class SIM():
         self.suction_exist = []
         self.suction_not_exist = []
         self.prefer_pull = []
-
+        self.dyn_obs_id = 5
+        self.dyn_obs_coll = 0
         # Set server address
         self.server_address = './uds_socket'
 
@@ -88,6 +89,15 @@ class SIM():
         sim_init.refresh_states(self.gym, self.sim)
 
         return reset_flag
+    
+    def check_contact_force(self):
+        _net_cf = self.gym.acquire_net_contact_force_tensor(self.sim)
+        net_cf = gymtorch.wrap_tensor(_net_cf)
+        self.gym.refresh_net_contact_force_tensor(self.sim)
+        # print(net_cf[self.dyn_obs_id, :2])
+        if torch.sum(torch.abs(net_cf[self.dyn_obs_id, :2])) > 0.001:
+            # print('hhh')
+            self.dyn_obs_coll += 1
 
     def run(self):
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
@@ -95,6 +105,9 @@ class SIM():
             t_prev = time.monotonic()
 
             while self.viewer is None or not self.gym.query_viewer_has_closed(self.viewer):
+                # Check collision
+                self.check_contact_force()
+
                 # Reset the simulation when pressing 'R'
                 reset_flag = self.reset()
                 s.sendall(data_transfer.numpy_to_bytes(int(reset_flag)))
@@ -119,6 +132,11 @@ class SIM():
                 self.curr_goal = np.array([freq_data[3], freq_data[4]])
                 self.prefer_pull.append(freq_data[5])
                 task_success = int(freq_data[6])
+                if task_success:
+                    print('hooo', self.robot_pos)
+                    if self.environment_type != 'cube':
+                        self.plot()
+                    self.destroy()
 
                 # Clear lines at the beginning
                 self.gym.clear_lines(self.viewer)
@@ -178,8 +196,6 @@ class SIM():
                     sim_init.step_rendering(self.gym, self.sim, self.viewer, sync_frame_time=False)
                 t_prev = t_now
                 self.next_fps_report, self.frame_count, self.t1 = sim_init.time_logging(self.gym, self.sim, self.next_fps_report, self.frame_count, self.t1, self.num_envs, freq_data)
-                if task_success and self.environment_type != 'cube':
-                    self.plot()
 
     def plot(self):
         # Saving and plotting
@@ -311,6 +327,7 @@ class SIM():
         print('Robot path length', format(robot_path_length, '.2f'))
         print('Block path length', format(block_path_length, '.2f'))
         task_start_time = self.sim_time[np.nonzero(self.motion_freq_array)[0][0]]
+        print('Dynamic obstacle collision times', self.dyn_obs_coll)
         print('Task completion time', format(self.sim_time[-1]-task_start_time, '.2f'))
         plt.show()
 
