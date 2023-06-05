@@ -3,8 +3,9 @@ from isaacgym import gymutil
 from isaacgym import gymtorch
 import torch
 from fusion_mppi import mppi
-from utils import env_conf, sim_init, data_transfer, skill_utils
+from utils import env_conf, sim_init, data_transfer, skill_utils, path_utils
 from params import params_utils
+from npy_append_array import NpyAppendArray
 import time, numpy as np
 import socket
 torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
@@ -33,6 +34,7 @@ class SIM():
         self.block_pos = states_dict["block_pos"]
         self.robot_pos = states_dict["robot_pos"]
         self.robot_vel = states_dict["robot_vel"]
+        self.block_state = states_dict["block_state"]
         self.dofs_per_robot = states_dict["dofs_per_robot"]
         self.initial_root_states = self.root_states.clone()
         self.initial_dof_states = self.dof_states.clone()
@@ -61,6 +63,7 @@ class SIM():
         self.prefer_pull = []
         self.dyn_obs_id = 5
         self.dyn_obs_coll = 0
+        self.allow_save_data = True
         # Set server address
         self.server_address = './uds_socket'
 
@@ -94,10 +97,24 @@ class SIM():
         _net_cf = self.gym.acquire_net_contact_force_tensor(self.sim)
         net_cf = gymtorch.wrap_tensor(_net_cf)
         self.gym.refresh_net_contact_force_tensor(self.sim)
-        # print(net_cf[self.dyn_obs_id, :2])
         if torch.sum(torch.abs(net_cf[self.dyn_obs_id, :2])) > 0.001:
-            # print('hhh')
             self.dyn_obs_coll += 1
+    
+    def save_data(self):
+        save_time = np.array([time.time()])
+        save_robot_pos = self.robot_pos[0].cpu().detach().numpy()
+        save_robot_vel = self.robot_vel[0].cpu().detach().numpy()
+        save_block_state = self.block_state[0].cpu().detach().numpy()
+        save_metrics = np.array([self.avg_sim_freq, self.avg_task_freq, self.avg_mot_freq, 
+                                 self.dyn_obs_coll, self.task_time])
+        concatenate_array = np.concatenate((save_time, save_robot_pos, save_robot_vel, 
+                                            save_block_state, self.curr_goal, save_metrics))
+        file_path = path_utils.get_plot_path() +'/point/case2_halton_push_coll.npy'
+        with NpyAppendArray(file_path) as npaa:
+            npaa.append(np.array([concatenate_array]))
+        data = np.load(file_path, mmap_mode="r")
+        print(data[-1, :])
+        print(time.asctime(time.localtime(data[-1, 0])))
 
     def run(self):
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
@@ -133,9 +150,10 @@ class SIM():
                 self.prefer_pull.append(freq_data[5])
                 task_success = int(freq_data[6])
                 if task_success:
-                    print('hooo', self.robot_pos)
                     if self.environment_type != 'cube':
                         self.plot()
+                        if self.allow_save_data:
+                            self.save_data()
                     self.destroy()
 
                 # Clear lines at the beginning
@@ -226,109 +244,114 @@ class SIM():
             block_to_dyn_obs = block_pos_array - dyn_obs_pos_array
             block_to_dyn_obs_dist = np.linalg.norm(block_to_dyn_obs, axis=1)
 
-        # Draw the control inputs
-        fig1, axs1 = plt.subplots(self.dofs_per_robot)
-        fig1.suptitle('Control Inputs')
-        plot_colors = ['hotpink','darkviolet','mediumblue', 'red']
-        if self.robot in ['point_robot', 'heijn']:
-            label = ['x_vel', 'y_vel', 'theta_vel']
-        elif self.robot == 'boxer':
-            label = ['r_vel', 'l_vel']
-        for j in range(self.dofs_per_robot):
-            axs1[j].plot(self.sim_time, ctrl_input[:,j], color=plot_colors[j], marker=".")
-            axs1[j].legend([label[j]])
-            axs1[j].set_ylabel('v [m/s]', rotation=0)
-        axs1[-1].set(xlabel = 'Time [s]')
+        if not self.allow_save_data:
+            # Draw the control inputs
+            fig1, axs1 = plt.subplots(self.dofs_per_robot)
+            fig1.suptitle('Control Inputs')
+            plot_colors = ['hotpink','darkviolet','mediumblue', 'red']
+            if self.robot in ['point_robot', 'heijn']:
+                label = ['x_vel', 'y_vel', 'theta_vel']
+            elif self.robot == 'boxer':
+                label = ['r_vel', 'l_vel']
+            for j in range(self.dofs_per_robot):
+                axs1[j].plot(self.sim_time, ctrl_input[:,j], color=plot_colors[j], marker=".")
+                axs1[j].legend([label[j]])
+                axs1[j].set_ylabel('v [m/s]', rotation=0)
+            axs1[-1].set(xlabel = 'Time [s]')
 
-        # Draw the pos of robot and block
-        fig2, axs2 = plt.subplots(2)
-        fig2.suptitle('Position')
-        label_pos = ['x [m]', 'y [m]']
-        for i in range(2):
-            axs2[i].plot(self.sim_time, robot_pos_array[:, i], color=plot_colors[0], marker=".", label='robot')
-            if draw_block:
-                axs2[i].plot(self.sim_time, block_pos_array[:, i], color=plot_colors[1], marker=".", label='block')
-                axs2[i].plot(self.sim_time, dyn_obs_pos_array[:, i], color=plot_colors[2], marker=".", label='obstacle')
-            axs2[i].set_ylabel(label_pos[i], rotation=0)
-        axs2[-1].set(xlabel = 'Time [s]')
-        plt.legend()
-
-        # Draw the distance
-        if draw_block:
-            fig3, axs3 = plt.subplots(2)
-            fig3.suptitle('Distance')
-            label_dis = ['robot_to_block', 'block_to_goal', 'robot_to_obstacle', 'block_to_obstacle']
-            axs3[0].plot(self.sim_time, robot_to_block_dist, color=plot_colors[0], marker=".", label=label_dis[0])
-            axs3[0].set_ylabel('[m]', rotation=0)
-            axs3[0].plot(self.sim_time, block_to_goal_dist, color=plot_colors[1], marker=".", label=label_dis[1])
-            axs3[0].legend()
-            axs3[1].plot(self.sim_time, rob_to_dyn_obs_dist, color=plot_colors[2], marker=".", label=label_dis[2])
-            axs3[1].plot(self.sim_time, block_to_dyn_obs_dist, color=plot_colors[3], marker=".", label=label_dis[3])
-            axs3[1].set_ylabel('[m]', rotation=0)
-            plt.axhline(y = 0.4, color = 'g', linestyle = '-')
-            axs3[1].set_ylim(0, None)
-            axs3[1].set_xlabel('Time [s]')
-            axs3[1].legend()
-        else:
-            fig, ax = plt.subplots()
-            fig.suptitle('Distance')
-            ax.plot(self.sim_time, robot_to_goal_dist, color=plot_colors[0], marker=".")
-            ax.legend('robot_to_goal')
-            ax.set_ylabel('[m]', rotation=0)
-            ax.set_xlabel('Time [s]')
-
-        # Draw the trajectory
-        fig4, axs4 = plt.subplots()
-        fig4.suptitle('Trajectory')
-        for i in range(robot_pos_array.shape[0]):
-            circle_rob = plt.Circle((robot_pos_array[i, 0], robot_pos_array[i, 1]), 0.4, color='tomato', fill=False)
-            axs4.add_patch(circle_rob)
-            if draw_block:
-                circle_blo = plt.Circle((block_pos_array[i, 0], block_pos_array[i, 1]), 0.2, color='deepskyblue', fill=False)
-                axs4.add_patch(circle_blo)
-        axs4.plot(robot_pos_array[:, 0], robot_pos_array[:, 1], 'o', color='r', markersize=0.6, label='robot')
-        if draw_block:
-            axs4.plot(block_pos_array[:, 0], block_pos_array[:, 1], 'o', color='b', markersize=0.6, label='block')
-        axs4.plot(0, 0, "D", color='black', label='start')
-        axs4.plot(self.curr_goal[0], self.curr_goal[1], "X", color='green', label='goal')
-        axs4.set_xlabel('x [m]')
-        axs4.set_ylabel('y [m]', rotation=0)
-        axs4.axis('equal')
-        plt.legend()
-
-        # Draw the cos_theta
-        if draw_block:
-            fig5, axs5 = plt.subplots()
-            fig5.suptitle('Cos(theta)')
-            axs5.plot(self.sim_time, cos_theta, color='gray', marker=".", markersize=0.2)
-            axs5.scatter(self.sim_time[robot_block_close*self.suction_exist], cos_theta[robot_block_close*self.suction_exist], marker='*', color='r', label='suction')
-            axs5.scatter(self.sim_time[robot_block_close*self.suction_not_exist], cos_theta[robot_block_close*self.suction_not_exist], color='b', label='no suction')
-            axs5.scatter(self.sim_time[robot_block_not_close], cos_theta[robot_block_not_close], marker='v', color='lime', label='approaching')
-            axs5.set_xlabel('Time [s]')
+            # Draw the pos of robot and block
+            fig2, axs2 = plt.subplots(2)
+            fig2.suptitle('Position')
+            label_pos = ['x [m]', 'y [m]']
+            for i in range(2):
+                axs2[i].plot(self.sim_time, robot_pos_array[:, i], color=plot_colors[0], marker=".", label='robot')
+                if draw_block:
+                    axs2[i].plot(self.sim_time, block_pos_array[:, i], color=plot_colors[1], marker=".", label='block')
+                    axs2[i].plot(self.sim_time, dyn_obs_pos_array[:, i], color=plot_colors[2], marker=".", label='obstacle')
+                axs2[i].set_ylabel(label_pos[i], rotation=0)
+            axs2[-1].set(xlabel = 'Time [s]')
             plt.legend()
-        
-        # Check weights distribution
-        if self.curr_planner_task == 'hybrid':
-            fig6, axs6 = plt.subplots()
-            fig6.suptitle('Check weights distribution')
-            axs6.scatter(self.sim_time, self.suction_exist, color='r', label='suction')
-            axs6.scatter(self.sim_time, np.array(self.prefer_pull)-0.1, color='b', label='weight')
-            axs6.set_xlabel('Time [s]')
+
+            # Draw the distance
+            if draw_block:
+                fig3, axs3 = plt.subplots(2)
+                fig3.suptitle('Distance')
+                label_dis = ['robot_to_block', 'block_to_goal', 'robot_to_obstacle', 'block_to_obstacle']
+                axs3[0].plot(self.sim_time, robot_to_block_dist, color=plot_colors[0], marker=".", label=label_dis[0])
+                axs3[0].set_ylabel('[m]', rotation=0)
+                axs3[0].plot(self.sim_time, block_to_goal_dist, color=plot_colors[1], marker=".", label=label_dis[1])
+                axs3[0].legend()
+                axs3[1].plot(self.sim_time, rob_to_dyn_obs_dist, color=plot_colors[2], marker=".", label=label_dis[2])
+                axs3[1].plot(self.sim_time, block_to_dyn_obs_dist, color=plot_colors[3], marker=".", label=label_dis[3])
+                axs3[1].set_ylabel('[m]', rotation=0)
+                plt.axhline(y = 0.4, color = 'g', linestyle = '-')
+                axs3[1].set_ylim(0, None)
+                axs3[1].set_xlabel('Time [s]')
+                axs3[1].legend()
+            else:
+                fig, ax = plt.subplots()
+                fig.suptitle('Distance')
+                ax.plot(self.sim_time, robot_to_goal_dist, color=plot_colors[0], marker=".")
+                ax.legend('robot_to_goal')
+                ax.set_ylabel('[m]', rotation=0)
+                ax.set_xlabel('Time [s]')
+
+            # Draw the trajectory
+            fig4, axs4 = plt.subplots()
+            fig4.suptitle('Trajectory')
+            for i in range(robot_pos_array.shape[0]):
+                circle_rob = plt.Circle((robot_pos_array[i, 0], robot_pos_array[i, 1]), 0.4, color='tomato', fill=False)
+                axs4.add_patch(circle_rob)
+                if draw_block:
+                    circle_blo = plt.Circle((block_pos_array[i, 0], block_pos_array[i, 1]), 0.2, color='deepskyblue', fill=False)
+                    axs4.add_patch(circle_blo)
+            axs4.plot(robot_pos_array[:, 0], robot_pos_array[:, 1], 'o', color='r', markersize=0.6, label='robot')
+            if draw_block:
+                axs4.plot(block_pos_array[:, 0], block_pos_array[:, 1], 'o', color='b', markersize=0.6, label='block')
+            axs4.plot(0, 0, "D", color='black', label='start')
+            axs4.plot(self.curr_goal[0], self.curr_goal[1], "X", color='green', label='goal')
+            axs4.set_xlabel('x [m]')
+            axs4.set_ylabel('y [m]', rotation=0)
+            axs4.axis('equal')
             plt.legend()
+
+            # Draw the cos_theta
+            if draw_block:
+                fig5, axs5 = plt.subplots()
+                fig5.suptitle('Cos(theta)')
+                axs5.plot(self.sim_time, cos_theta, color='gray', marker=".", markersize=0.2)
+                axs5.scatter(self.sim_time[robot_block_close*self.suction_exist], cos_theta[robot_block_close*self.suction_exist], marker='*', color='r', label='suction')
+                axs5.scatter(self.sim_time[robot_block_close*self.suction_not_exist], cos_theta[robot_block_close*self.suction_not_exist], color='b', label='no suction')
+                axs5.scatter(self.sim_time[robot_block_not_close], cos_theta[robot_block_not_close], marker='v', color='lime', label='approaching')
+                axs5.set_xlabel('Time [s]')
+                plt.legend()
+            
+            # Check weights distribution
+            if self.curr_planner_task == 'hybrid':
+                fig6, axs6 = plt.subplots()
+                fig6.suptitle('Check weights distribution')
+                axs6.scatter(self.sim_time, self.suction_exist, color='r', label='suction')
+                axs6.scatter(self.sim_time, np.array(self.prefer_pull)-0.1, color='b', label='weight')
+                axs6.set_xlabel('Time [s]')
+                plt.legend()
 
         # Calculate metrics
-        print('Avg. simulation frequency', format(len(self.sim_time)/self.sim_time[-1], '.2f'))
-        print('Avg. task planner frequency', format(np.average(self.task_freq_array), '.2f'))
-        print('Avg. motion planner frequency', format(np.average(self.motion_freq_array[np.nonzero(self.motion_freq_array)]), '.2f'))
+        self.avg_sim_freq = len(self.sim_time)/self.sim_time[-1]
+        self.avg_task_freq = np.average(self.task_freq_array)
+        self.avg_mot_freq = np.average(self.motion_freq_array[np.nonzero(self.motion_freq_array)])
         robot_path_array = robot_pos_array[1:, :] - robot_pos_array[:-1, :]
         block_path_array = block_pos_array[1:, :] - block_pos_array[:-1, :]
-        robot_path_length = np.sum(np.linalg.norm(robot_path_array, axis=1))
-        block_path_length = np.sum(np.linalg.norm(block_path_array, axis=1))
-        print('Robot path length', format(robot_path_length, '.2f'))
-        print('Block path length', format(block_path_length, '.2f'))
+        self.robot_path_length = np.sum(np.linalg.norm(robot_path_array, axis=1))
+        self.block_path_length = np.sum(np.linalg.norm(block_path_array, axis=1))
         task_start_time = self.sim_time[np.nonzero(self.motion_freq_array)[0][0]]
+        self.task_time = self.sim_time[-1]-task_start_time
+        print('Avg. simulation frequency', format(self.avg_sim_freq, '.2f'))
+        print('Avg. task planner frequency', format(self.avg_task_freq, '.2f'))
+        print('Avg. motion planner frequency', format(self.avg_mot_freq, '.2f'))
+        print('Robot path length', format(self.robot_path_length, '.2f'))
+        print('Block path length', format(self.block_path_length, '.2f'))
         print('Dynamic obstacle collision times', self.dyn_obs_coll)
-        print('Task completion time', format(self.sim_time[-1]-task_start_time, '.2f'))
+        print('Task completion time', format(self.task_time, '.2f'))
         plt.show()
 
     def destroy(self):
