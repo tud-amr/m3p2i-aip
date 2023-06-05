@@ -477,15 +477,16 @@ class MPPI():
         eta = torch.sum(exp_)       # tells how many significant samples we have, more or less
         self.weights = 1 / eta * exp_
         # print(self.beta)
-        eta_u_bound = 20
-        eta_l_bound = 10
-        beta_lm = 0.9
-        beta_um = 1.2
-        # beta update 
-        if eta > eta_u_bound:
-            self.beta = self.beta*beta_lm
-        elif eta < eta_l_bound:
-            self.beta = self.beta*beta_um
+        if self.env_type == 'cube':
+            eta_u_bound = 20
+            eta_l_bound = 10
+            beta_lm = 0.9
+            beta_um = 1.2
+            # beta update 
+            if eta > eta_u_bound:
+                self.beta = self.beta*beta_lm
+            elif eta < eta_l_bound:
+                self.beta = self.beta*beta_um
         
         # w = torch.softmax((-1.0/self.beta) * total_costs, dim=0)
         self.total_costs = total_costs

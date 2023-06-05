@@ -330,9 +330,9 @@ class FUSION_MPPI(mppi.MPPI):
         if self.task == 'navigation' or self.task == 'go_recharge':
             task_cost = self.get_navigation_cost()
         elif self.task == 'push':
-            return self.get_push_cost(False)
+            task_cost = self.get_push_cost(False)
         elif self.task == 'pull':
-            return self.get_pull_cost(False)
+            task_cost = 10 * self.get_pull_cost(False)
         elif self.task == 'push_not_goal':
             task_cost = self.get_push_not_goal_cost()
         elif self.task == 'hybrid':
