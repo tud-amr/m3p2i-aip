@@ -110,7 +110,7 @@ class SIM():
                                  self.dyn_obs_coll, self.task_time])
         concatenate_array = np.concatenate((save_time, save_robot_pos, save_robot_vel, 
                                             save_block_state, self.curr_goal, save_metrics))
-        file_path = path_utils.get_plot_path() +'/point/case3_halton_hybrid_corner1.npy'
+        file_path = path_utils.get_plot_path() +'/point/case4_halton_push_corner2.npy'
         with NpyAppendArray(file_path) as npaa:
             npaa.append(np.array([concatenate_array]))
         data = np.load(file_path, mmap_mode="r")

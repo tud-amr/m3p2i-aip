@@ -10,8 +10,8 @@ noise_sigma = torch.tensor([[3, 0], [0, 3]], device="cuda:0", dtype=torch.float3
 horizon = 12
 lambda_ = 0.8
 device = "cuda:0" 
-u_max = torch.tensor([2, 2], device="cuda:0", dtype=torch.float32)
-u_min = torch.tensor([-2, -2], device="cuda:0", dtype=torch.float32)
+u_max = torch.tensor([2.5, 2.5], device="cuda:0", dtype=torch.float32)
+u_min = torch.tensor([-2.5, -2.5], device="cuda:0", dtype=torch.float32)
 step_dependent_dynamics = True
 terminal_state_cost = None
 sample_null_action = True
