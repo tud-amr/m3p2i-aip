@@ -48,6 +48,9 @@ def compute_cost(data_array, n):
     quat_cost = quat_cost.cpu().detach().numpy()
     return pos_cost, quat_cost
 
+def compute_mean_std(data_array, string):
+    print(string, format(np.mean(data_array), '.4f'), '±', format(np.std(data_array), '.4f'))
+
 push_pos_cost, push_quat_cost = compute_cost(push_data, 60)
 push_dyn_obs_coll = push_data[:, 17]
 push_task_time = push_data[:, 18]
@@ -55,13 +58,10 @@ pull_pos_cost, pull_quat_cost = compute_cost(pull_data, 60)
 pull_dyn_obs_coll = pull_data[:, 17]
 pull_task_time = pull_data[:, 18]
 push_c1_pos_cost, push_c1_quat_cost = compute_cost(push_data_c1, 20)
-push_c1_dyn_obs_coll = push_data_c1[:, 17]
 push_c1_task_time = push_data_c1[:, 18]
 pull_c1_pos_cost, pull_c1_quat_cost = compute_cost(pull_data_c1, 20)
-pull_c1_dyn_obs_coll = pull_data_c1[:, 17]
 pull_c1_task_time = pull_data_c1[:, 18]
 hybrid_c1_pos_cost, hybrid_c1_quat_cost = compute_cost(hybrid_data_c1, 20)
-hybrid_c1_dyn_obs_coll = hybrid_data_c1[:, 17]
 hybrid_c1_task_time = hybrid_data_c1[:, 18]
 hybrid_c2_pos_cost, hybrid_c2_quat_cost = compute_cost(hybrid_data_c2, 20)
 hybrid_c2_task_time = hybrid_data_c2[:, 18]
@@ -69,6 +69,42 @@ pull_c2_pos_cost, pull_c2_quat_cost = compute_cost(pull_data_c2, 20)
 pull_c2_task_time = pull_data_c2[:, 18]
 push_c2_pos_cost, push_c2_quat_cost = compute_cost(push_data_c2, 20)
 push_c2_task_time = push_data_c2[:, 18]
+
+# Compute mean and std
+print('---------Case 2 push---------')
+compute_mean_std(push_pos_cost, 'pos')
+compute_mean_std(push_quat_cost, 'quat')
+compute_mean_std(push_dyn_obs_coll, 'obs collision')
+compute_mean_std(push_task_time, 'task time')
+print('---------Case 2 pull---------')
+compute_mean_std(pull_pos_cost, 'pos')
+compute_mean_std(pull_quat_cost, 'quat')
+compute_mean_std(pull_dyn_obs_coll, 'obs collision')
+compute_mean_std(pull_task_time, 'task time')
+print('---------Case 3 push---------')
+compute_mean_std(push_c1_pos_cost, 'pos')
+compute_mean_std(push_c1_quat_cost, 'quat')
+compute_mean_std(push_c1_task_time, 'task time')
+print('---------Case 3 pull---------')
+compute_mean_std(pull_c1_pos_cost, 'pos')
+compute_mean_std(pull_c1_quat_cost, 'quat')
+compute_mean_std(pull_c1_task_time, 'task time')
+print('---------Case 3 hybrid---------')
+compute_mean_std(hybrid_c1_pos_cost, 'pos')
+compute_mean_std(hybrid_c1_quat_cost, 'quat')
+compute_mean_std(hybrid_c1_task_time, 'task time')
+print('---------Case 4 push---------')
+compute_mean_std(push_c2_pos_cost, 'pos')
+compute_mean_std(push_c2_quat_cost, 'quat')
+compute_mean_std(push_c2_task_time, 'task time')
+print('---------Case 4 pull---------')
+compute_mean_std(pull_c2_pos_cost, 'pos')
+compute_mean_std(pull_c2_quat_cost, 'quat')
+compute_mean_std(pull_c2_task_time, 'task time')
+print('---------Case 4 hybrid---------')
+compute_mean_std(hybrid_c2_pos_cost, 'pos')
+compute_mean_std(hybrid_c2_quat_cost, 'quat')
+compute_mean_std(hybrid_c2_task_time, 'task time')
 
 # Box plot
 fig = go.Figure()
