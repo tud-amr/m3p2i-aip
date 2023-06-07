@@ -30,10 +30,27 @@ def compute_cost(data_array):
     quat_cost = quat_cost.cpu().detach().numpy()
     return pos_cost, quat_cost
 
+def compute_mean_std(data_array, string):
+    print(string, format(np.mean(data_array), '.4f'), '±', format(np.std(data_array), '.4f'))
+
 tamp_normal_pos, tamp_normal_quat = compute_cost(tamp_normal_data)
 tamp_reactive_pos, tamp_reactive_quat = compute_cost(tamp_reactive_data)
 rl_normal_pos, rl_normal_quat = compute_cost(rl_normal_data)
 rl_reactive_pos, rl_reactive_quat = compute_cost(rl_reactive_data)
+
+# Compute mean and std
+print('---------TAMP normal---------')
+compute_mean_std(tamp_normal_pos, 'pos')
+compute_mean_std(tamp_normal_quat, 'quat')
+print('---------RL normal---------')
+compute_mean_std(rl_normal_pos, 'pos')
+compute_mean_std(rl_normal_quat, 'quat')
+print('---------TAMP reactive---------')
+compute_mean_std(tamp_reactive_pos, 'pos')
+compute_mean_std(tamp_reactive_quat, 'quat')
+print('---------RL reactive---------')
+compute_mean_std(rl_reactive_pos, 'pos')
+compute_mean_std(rl_reactive_quat, 'quat')
 
 # Box plot
 fig = go.Figure()
