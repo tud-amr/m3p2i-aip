@@ -49,7 +49,7 @@ class REACTIVE_TAMP:
         if self.task == "patrolling":
             self.task_planner = task_planner.PLANNER_PATROLLING(goals = [[-3, -3], [3, -3], [3, 3], [-3, 3]])
         elif self.task == "reactive":
-            self.task_planner = task_planner.PLANNER_AIF()
+            self.task_planner = task_planner.PLANNER_AIF(battery_factor=1)
             # start plotting battery level
             plot_class.start_dash_server()
         elif self.task == "simple":
@@ -97,6 +97,11 @@ class REACTIVE_TAMP:
     def tamp_interface(self, robot_pos, stay_still):
         # Update task and goal in the task planner
         start_time = time.monotonic()
+        if self.task == 'reactive':
+            if self.task_planner.task =='push':
+                self.task_planner.update_plan(self.block_state[0, :2], stay_still)
+            else:
+                self.task_planner.update_plan(robot_pos, stay_still)
         if self.task not in ['pick', 'reactive_pick']:
             self.task_planner.update_plan(robot_pos, stay_still)
         else:
@@ -109,7 +114,7 @@ class REACTIVE_TAMP:
         self.params = self.task_planner.update_params(self.params)
 
         # Update task and goal in the motion planner
-        # print('task:', self.task_planner.task, 'goal:', self.task_planner.curr_goal)
+        print('task:', self.task_planner.task, 'goal:', self.task_planner.curr_goal)
         self.motion_planner.update_task(self.task_planner.task, self.task_planner.curr_goal)
 
         # Update params in the motion planner

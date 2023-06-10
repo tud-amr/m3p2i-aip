@@ -156,7 +156,8 @@ class SIM():
                         print(int(self.elapsed_time))
                 if task_success or self.elapsed_time >= 40:
                     if self.environment_type != 'cube':
-                        self.plot()
+                        # self.plot()
+                        pass
                         # if self.allow_save_data:
                         #     self.save_data()
                     # self.destroy()

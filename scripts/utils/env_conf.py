@@ -9,8 +9,9 @@ box1_pose = gymapi.Transform()
 box1_pose.p = gymapi.Vec3(1, -2, 0)
 
 box2_pose = gymapi.Transform()
-# box2_pose.p = gymapi.Vec3(-1, 0, 0)       # may push first
-box2_pose.p = gymapi.Vec3(3.75, -3.75, 0) # at corner, pull first
+box2_pose.p = gymapi.Vec3(-2, 1, 0)         # for push, navigation
+# box2_pose.p = gymapi.Vec3(2.1, -2.1, 0)       # for reactive push
+# box2_pose.p = gymapi.Vec3(3.75, -3.75, 0) # at corner, pull first
 
 box3_pose = gymapi.Transform()
 box3_pose.p = gymapi.Vec3(3, 0, 0)
@@ -45,8 +46,8 @@ corner3_pose.p = gymapi.Vec3(-3.75, 3.75, 0)
 corner4_pose = gymapi.Transform()
 corner4_pose.p = gymapi.Vec3(3.75, 3.75, 0)
 
-# docking_station_loc = torch.tensor([0, -3], dtype=torch.float32, device="cuda:0") # in the middle (for aif)
-docking_station_loc = torch.tensor([-3.75, -3.75], dtype=torch.float32, device="cuda:0") # close to corner
+docking_station_loc = torch.tensor([0, -3], dtype=torch.float32, device="cuda:0") # in the middle (for aif)
+# docking_station_loc = torch.tensor([-3.75, -3.75], dtype=torch.float32, device="cuda:0") # close to corner
 recharge_pose = gymapi.Transform()
 recharge_pose.p = gymapi.Vec3(docking_station_loc[0], docking_station_loc[1], 0)
 
@@ -228,7 +229,7 @@ def add_obstacles(sim, gym, env, environment_type, index):
         if not test_cornor:
             # goal_region1 = add_box(sim, gym, env, 1, 1, 0.01, goal1_pose, color_vec_box1, True, "goal_region1", -2) # No collisions with goal region
             # goal_region2 = add_box(sim, gym, env, 1, 1, 0.01, goal2_pose, color_vec_box2, True, "goal_region2", -2) # No collisions with goal region
-            # goal_region3 = add_box(sim, gym, env, 1, 1, 0.01, goal3_pose, color_vec_box3, True, "goal_region3", -2) # No collisions with goal region
+            goal_region3 = add_box(sim, gym, env, 1, 1, 0.01, goal3_pose, color_vec_corner, True, "goal_region3", -2) # No collisions with goal region
 
             recharge_region = add_box(sim, gym, env, 0.45, 0.45, 0.01, recharge_pose, color_vec_corner, True, "goal_region", -2) # No collisions with recharge region
         # add movable squar box

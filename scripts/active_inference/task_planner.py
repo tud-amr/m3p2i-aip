@@ -141,7 +141,7 @@ class PLANNER_PATROLLING(PLANNER_SIMPLE):
             self.curr_goal = self.goals[self.goal_id]
 
 class PLANNER_AIF(PLANNER_SIMPLE):
-    def __init__(self) -> None:
+    def __init__(self, battery_factor) -> None:
         PLANNER_SIMPLE.__init__(self, "navigation", [0, 0])
         # Define the required mdp structures 
         mdp_isAt = isaac_state_action_templates.MDPIsAt()
@@ -150,7 +150,7 @@ class PLANNER_AIF(PLANNER_SIMPLE):
         self.ai_agent_task = [ai_agent.AiAgent(mdp_isAt), ai_agent.AiAgent(mdp_battery)]
         # Set the preference for the battery 
         self.ai_agent_task[0].set_preferences(np.array([[1.], [0]]))
-        self.battery_factor = 1  # <=0.8 0.9 >=1.0
+        self.battery_factor = battery_factor  # <=0.8 0.9 >=1.0
         self.battery_level = 100
         self.nav_goal = torch.tensor([3, -3], device="cuda:0")
     
