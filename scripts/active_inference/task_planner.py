@@ -34,8 +34,8 @@ class PLANNER_SIMPLE:
             pos_dist = torch.norm(block_state[:2] - self.curr_goal)
             goal_quat = torch.tensor([0, 0, 0, 1], device="cuda:0").view(1, 4)
             ori_dist = skill_utils.get_general_ori_cube2goal(block_state[3:7].view(1, 4), goal_quat)
-            print('pos', pos_dist)
-            print('ori', ori_dist)
+            # print('pos', pos_dist)
+            # print('ori', ori_dist)
             task_success = pos_dist <= 0.15 and ori_dist <= 0.1
         else:
             task_success = False
@@ -216,4 +216,49 @@ class PLANNER_AIF(PLANNER_SIMPLE):
             self.curr_goal = env_conf.docking_station_loc
         elif curr_action == "move_to":
             self.task = "navigation"
+            self.curr_goal = self.nav_goal
+
+class PLANNER_AIF_PUSH(PLANNER_AIF):
+    def __init__(self, battery_factor) -> None:
+        super().__init__(battery_factor)
+        self.block_goal = env_conf.block_goal
+
+    # Battery observation
+    def get_battery_obs(self, robot_pos, block_pos):
+        # Estimate the battery level for pushing task
+        dist_battery_factor = 40 / (3 * np.sqrt(2))
+        if self.battery_level > 60 :
+            condition_1 = torch.norm(block_pos - robot_pos) < torch.norm(block_pos- env_conf.docking_station_loc) 
+            condition_2 = (torch.norm(block_pos - robot_pos) + torch.norm(block_pos - self.block_goal)) * dist_battery_factor * self.battery_factor / (self.battery_level - 60) < 1
+            battery_enough_for_task = condition_1 and condition_2
+            # print('condition 1', condition_1)
+            print('condition 2', (torch.norm(block_pos - robot_pos) + torch.norm(block_pos - self.block_goal)) * dist_battery_factor * self.battery_factor / (self.battery_level - 60))
+            battery_enough_for_task = battery_enough_for_task.item()
+            if torch.norm(robot_pos - env_conf.docking_station_loc) < 0.1:
+                if self.battery_level > 90:
+                    battery_enough_for_task = True
+                else:
+                    battery_enough_for_task = False
+            print('battery task', battery_enough_for_task)
+        else:
+            battery_enough_for_task = False
+        obs_battery = int(not battery_enough_for_task)
+        return obs_battery
+
+    # Upadte the task planner
+    def update_plan(self, robot_pos, block_pos, stay_still):
+        self.battery_sim(robot_pos, stay_still)
+        obs_battery = self.get_battery_obs(robot_pos, block_pos)
+        obs_task = self.get_task_motion_obs(block_pos)
+        obs = [obs_task, obs_battery]
+        outcome, curr_action = adaptive_action_selection.adapt_act_sel(self.ai_agent_task, obs)
+        # print('Measured battery level:', format(self.battery_level, '.2f'))
+        # print('Status:', outcome)
+        # print('Current action:', curr_action)
+
+        if curr_action == 'go_recharge':
+            self.task = 'go_recharge'
+            self.curr_goal = env_conf.docking_station_loc
+        elif curr_action == "move_to":
+            self.task = "push"
             self.curr_goal = self.nav_goal

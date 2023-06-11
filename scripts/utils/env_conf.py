@@ -9,8 +9,8 @@ box1_pose = gymapi.Transform()
 box1_pose.p = gymapi.Vec3(1, -2, 0)
 
 box2_pose = gymapi.Transform()
-box2_pose.p = gymapi.Vec3(-2, 1, 0)         # for push, navigation
-# box2_pose.p = gymapi.Vec3(2.1, -2.1, 0)       # for reactive push
+# box2_pose.p = gymapi.Vec3(-2, 1, 0)         # for push, navigation
+box2_pose.p = gymapi.Vec3(2, -2, 0)       # for reactive push
 # box2_pose.p = gymapi.Vec3(3.75, -3.75, 0) # at corner, pull first
 
 box3_pose = gymapi.Transform()
@@ -31,8 +31,9 @@ goal1_pose.p = gymapi.Vec3(-3, 3, 0)
 goal2_pose = gymapi.Transform()
 goal2_pose.p = gymapi.Vec3(3, 3, 0)
 
+block_goal = torch.tensor([3, -3], dtype=torch.float32, device="cuda:0")
 goal3_pose = gymapi.Transform()
-goal3_pose.p = gymapi.Vec3(3, -3, 0)
+goal3_pose.p = gymapi.Vec3(block_goal[0], block_goal[1], 0)
 
 corner1_pose = gymapi.Transform()
 corner1_pose.p = gymapi.Vec3(-3.75, -3.75, 0)
