@@ -16,12 +16,6 @@ mdp_isCubeAt = isaac_state_action_templates.MDPIsCubeAt()
 ai_agent_task = [ai_agent.AiAgent(mdp_isCubeAt)]
 ai_agent_task[0].set_preferences(np.array([[0.], [1], [0]]))
 
-# mdp_isCubeAtGoal = isaac_state_action_templates.MDPIsCubeAtGoal()
-# mdp_isCubeAtPrePlace = isaac_state_action_templates.MDPIsCubeAtPrePlace()
-
-# ai_agent_task = [ai_agent.AiAgent(mdp_isCubeAtGoal), ai_agent.AiAgent(mdp_isCubeAtPrePlace)]
-# ai_agent_task[0].set_preferences(np.array([[1.], [0]]))
-
 # Loop for the execution of the task, ideally this will be given by the tick of a BT
 for i in range(15):
     # Set the observation from the current readings, the logic of the observations need to be specified for the task. 
@@ -39,14 +33,6 @@ for i in range(15):
     elif i < 15:
         ai_agent_task[0].set_preferences(np.array([[0.], [0], [1]]))
         obs = [2] # cube_at_goal -> idle
-
-    # if i < 5:
-    #     obs = [1, 1] # not_at_goal, not_at_pre_place -> pick
-    # elif i < 10:
-    #     ai_agent_task[1].set_preferences(np.array([[1.], [0]]))
-    #     obs = [0, 0] # not_at_goal, at_pre_place -> place
-    # elif i < 15:
-    #     obs = [0, 1] # at_goal, not_at_pre_place -> idle
 
     # To test parallel adaptive action selection swap commented lines below
     outcome, curr_acti = adaptive_action_selection.adapt_act_sel(ai_agent_task, obs)
