@@ -87,13 +87,16 @@ def par_act_sel(agent, obs):
     
     # Parallelize current applicable actions
     parall_plans = []
+    print('check plans', curr_action_plan)
     if 'idle_success' not in curr_action_plan:
         for index in range(len(curr_action_plan)):
             parall_plans.append(list(copy.deepcopy(curr_action_plan[index])))
             for k in range(len(curr_action_plan)):
                 if curr_action_plan[k][1] not in parall_plans[index]:
+                    print('hello')
                     parall_plans[index].append(copy.deepcopy(curr_action_plan[k][0]))
                     parall_plans[index].append(copy.deepcopy(curr_action_plan[k][1]))
+        print('parall', parall_plans)
 
         # Remove component numbers and duplicates
         for index in range(len(curr_action_plan)):
