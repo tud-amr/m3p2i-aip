@@ -209,7 +209,7 @@ class FUSION_MPPI(mppi.MPPI):
 
         return dyn_obs_cost
 
-    def get_panda_pick_cost(self, pick_tilt_value=0):
+    def get_panda_pick_cost(self):
         self.ee_state = (self.ee_l_state + self.ee_r_state) / 2
         reach_cost = torch.linalg.norm(self.ee_state[:,:3] - self.cube_state[:,:3], axis = 1) 
         goal_cost = torch.linalg.norm(self.cube_goal_state[:3] - self.cube_state[:,:3], axis = 1) #+ 2*torch.abs(self.block_goal[2] - block_state[:,2])
@@ -236,20 +236,35 @@ class FUSION_MPPI(mppi.MPPI):
             manip_cost = torch.zeros_like(reach_cost)
         
         # Compute the orientation cost
-        ee_quaternion = self.ee_l_state[:, 3:7]
         cube_quaternion = self.cube_state[:, 3:7]
         goal_quatenion = self.cube_goal_state[3:7].repeat(self.num_envs).view(self.num_envs, 4)
-        # To make the z-axis direction of end effector to be perpendicular to the cube surface
-        ori_ee2cube = skill_utils.get_general_ori_ee2cube(ee_quaternion, cube_quaternion, pick_tilt_value)
         # To make the cube fit the goal's orientation well
         ori_cube2goal = skill_utils.get_general_ori_cube2goal(cube_quaternion, goal_quatenion) 
-        ori_cost = 3 * ori_ee2cube + 3 * ori_cube2goal
+        ori_cost = 3 * ori_cube2goal
 
         total_cost = 0.2 * manip_cost + 10 * reach_cost + 5 * goal_cost + ori_cost + gripper_cost
 
         align_cost = torch.abs(ee_pitch) + torch.abs(ee_roll-3.14)
         return  total_cost #+ align_cost multiply 10*reach_cost when using mppi_mode == storm
-    
+
+    def get_pick_tilt_cost(self, hybrid):
+        # This measures the cost of the tilt angle between the end effector and the cube
+        ee_quaternion = self.ee_l_state[:, 3:7]
+        cube_quaternion = self.cube_state[:, 3:7]
+        if not hybrid:
+            # To make the z-axis direction of end effector to be perpendicular to the cube surface
+            ori_ee2cube = skill_utils.get_general_ori_ee2cube(ee_quaternion, cube_quaternion, tilt_value=0.4)
+        else:
+            # To combine costs of different tilt angles
+            batch_num = int(self.num_envs/2)
+            cost_1 = skill_utils.get_general_ori_ee2cube(ee_quaternion[:batch_num], 
+                                                         cube_quaternion[:batch_num], tilt_value=0)
+            cost_2 = skill_utils.get_general_ori_ee2cube(ee_quaternion[batch_num:2*batch_num], 
+                                                         cube_quaternion[batch_num:2*batch_num], tilt_value=0.4)
+            ori_ee2cube =  torch.cat((cost_1, cost_2), dim=0)
+
+        return 3 * ori_ee2cube
+
     def get_panda_place_cost(self):
         gripper_dist = torch.linalg.norm(self.ee_l_state[:, :3] - self.ee_r_state[:, :3], axis=1)
         gripper_cost = 1 - gripper_dist
@@ -340,16 +355,7 @@ class FUSION_MPPI(mppi.MPPI):
             # print('push cost', task_cost[:10])
             # print('pull cost', task_cost[self.num_envs-10:])
         elif self.task == 'pick':
-            # return self.get_panda_pick_cost()
-            batch_num = int(self.num_envs/2)
-            return torch.cat((self.get_panda_pick_cost(0)[:batch_num], 
-                              self.get_panda_pick_cost(0.2)[batch_num:2*batch_num]), dim=0)
-            # batch_num = int(self.num_envs/5)
-            # return torch.cat((self.get_panda_pick_cost(0)[:batch_num], 
-            #                   self.get_panda_pick_cost(0.2)[batch_num:2*batch_num], 
-            #                   self.get_panda_pick_cost(0.4)[2*batch_num:3*batch_num], 
-            #                   self.get_panda_pick_cost(0.6)[3*batch_num:4*batch_num], 
-            #                   self.get_panda_pick_cost(0.8)[4*batch_num:5*batch_num]), dim=0)
+            return self.get_panda_pick_cost() + self.get_pick_tilt_cost(hybrid=False)
         elif self.task == 'place':
             return self.get_panda_place_cost()
         else:
