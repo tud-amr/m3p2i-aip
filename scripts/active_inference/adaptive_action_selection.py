@@ -76,7 +76,7 @@ def adapt_act_sel(agent, obs):
                             agent[i].reset_habits(u[i])
                     # If the preconditions are met after checking we can execute the action
                     if _unmet_prec == 0:
-                        print("Action found:", agent[i]._mdp.action_names[u[i]])
+                        # print("Action found:", agent[i]._mdp.action_names[u[i]])
                         action_found = 1
                         outcome = 'running'
                         curr_action = agent[i]._mdp.action_names[u[i]]

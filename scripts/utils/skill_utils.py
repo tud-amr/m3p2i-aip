@@ -185,20 +185,32 @@ def get_general_ori_cube2goal(cube_quaternion, goal_quatenion):
 
 # To measure the difference of ee and cube quaternions
 # so that it fits the case when the cube is flipped and upside down
-def get_general_ori_ee2cube(ee_quaternion, cube_quaternion):
+def get_general_ori_ee2cube(ee_quaternion, cube_quaternion, tilt_value = 0):
     ee_rot_matrix = quaternion_rotation_matrix(ee_quaternion)
     ee_yaxis = ee_rot_matrix[:, :, 1]
     ee_zaxis = ee_rot_matrix[:, :, 2]
     cube_rot_matrix = quaternion_rotation_matrix(cube_quaternion)
-    cube_xaxis = cube_rot_matrix[:, :, 0]
-    cube_yaxis = cube_rot_matrix[:, :, 1]
-    cube_zaxis = cube_rot_matrix[:, :, 2]
-    cos_theta1 = torch.abs(torch.sum(torch.mul(ee_zaxis, cube_zaxis), dim=1))
-    cos_theta2 = torch.abs(torch.sum(torch.mul(ee_zaxis, cube_xaxis), dim=1))
-    cos_theta3 = torch.abs(torch.sum(torch.mul(ee_zaxis, cube_yaxis), dim=1))
-    cost_zaxis = torch.min(torch.stack([1 - cos_theta1,
-                                        1 - cos_theta2,
-                                        1 - cos_theta3]), dim=0)[0]
+    cube_xaxis = cube_rot_matrix[:, :, 0] # red
+    cube_yaxis = cube_rot_matrix[:, :, 1] # green
+    cube_zaxis = cube_rot_matrix[:, :, 2] # blue
+
+    if tilt_value == 0:
+        # Make the ee_zaxis perpendicular to the cube
+        cos_theta1 = torch.abs(torch.sum(torch.mul(ee_zaxis, cube_zaxis), dim=1))
+        cos_theta2 = torch.abs(torch.sum(torch.mul(ee_zaxis, cube_xaxis), dim=1))
+        cos_theta3 = torch.abs(torch.sum(torch.mul(ee_zaxis, cube_yaxis), dim=1))
+        cost_zaxis = torch.min(torch.stack([1 - cos_theta1,
+                                            1 - cos_theta2,
+                                            1 - cos_theta3]), dim=0)[0]
+    else:
+        # Select the cube axis that is most close to the table xaxis
+        stacked_axis = torch.stack([cube_xaxis, cube_yaxis, cube_zaxis])
+        indice_list = torch.max(torch.abs(stacked_axis)[:, :, 0], dim=0)[1]
+        selected_xaxis = stacked_axis[indice_list[0], :, :]
+        # Make the ee_zaxis and selected_xaxis in a tilt anle
+        cost_zaxis = torch.abs(tilt_value - torch.sum(torch.mul(ee_zaxis, selected_xaxis), dim=1))
+
+    # Make ee_yaxis align with the cube
     cos_omega1 = torch.abs(torch.sum(torch.mul(ee_yaxis, cube_xaxis), dim=1))
     cos_omega2 = torch.abs(torch.sum(torch.mul(ee_yaxis, cube_yaxis), dim=1))
     cos_omega3 = torch.abs(torch.sum(torch.mul(ee_yaxis, cube_zaxis), dim=1))

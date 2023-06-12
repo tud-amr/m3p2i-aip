@@ -209,7 +209,7 @@ class FUSION_MPPI(mppi.MPPI):
 
         return dyn_obs_cost
 
-    def get_panda_pick_cost(self):
+    def get_panda_pick_cost(self, pick_tilt_value=0):
         self.ee_state = (self.ee_l_state + self.ee_r_state) / 2
         reach_cost = torch.linalg.norm(self.ee_state[:,:3] - self.cube_state[:,:3], axis = 1) 
         goal_cost = torch.linalg.norm(self.cube_goal_state[:3] - self.cube_state[:,:3], axis = 1) #+ 2*torch.abs(self.block_goal[2] - block_state[:,2])
@@ -240,7 +240,7 @@ class FUSION_MPPI(mppi.MPPI):
         cube_quaternion = self.cube_state[:, 3:7]
         goal_quatenion = self.cube_goal_state[3:7].repeat(self.num_envs).view(self.num_envs, 4)
         # To make the z-axis direction of end effector to be perpendicular to the cube surface
-        ori_ee2cube = skill_utils.get_general_ori_ee2cube(ee_quaternion, cube_quaternion)
+        ori_ee2cube = skill_utils.get_general_ori_ee2cube(ee_quaternion, cube_quaternion, pick_tilt_value)
         # To make the cube fit the goal's orientation well
         ori_cube2goal = skill_utils.get_general_ori_cube2goal(cube_quaternion, goal_quatenion) 
         ori_cost = 3 * ori_ee2cube + 3 * ori_cube2goal
@@ -340,7 +340,16 @@ class FUSION_MPPI(mppi.MPPI):
             # print('push cost', task_cost[:10])
             # print('pull cost', task_cost[self.num_envs-10:])
         elif self.task == 'pick':
-            return self.get_panda_pick_cost()
+            # return self.get_panda_pick_cost()
+            batch_num = int(self.num_envs/2)
+            return torch.cat((self.get_panda_pick_cost(0)[:batch_num], 
+                              self.get_panda_pick_cost(0.2)[batch_num:2*batch_num]), dim=0)
+            # batch_num = int(self.num_envs/5)
+            # return torch.cat((self.get_panda_pick_cost(0)[:batch_num], 
+            #                   self.get_panda_pick_cost(0.2)[batch_num:2*batch_num], 
+            #                   self.get_panda_pick_cost(0.4)[2*batch_num:3*batch_num], 
+            #                   self.get_panda_pick_cost(0.6)[3*batch_num:4*batch_num], 
+            #                   self.get_panda_pick_cost(0.8)[4*batch_num:5*batch_num]), dim=0)
         elif self.task == 'place':
             return self.get_panda_place_cost()
         else:
