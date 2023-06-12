@@ -282,6 +282,13 @@ def add_panda_arena(gym, sim, env, robot_asset, i):
     table_stand_opts.fix_base_link = True
     table_stand_asset = gym.create_box(sim, *[0.2, 0.2, table_stand_height], table_opts)
 
+    # Create shelf asset 
+    shelf_stand_height = 0.3
+    shelf_stand_pos = [0.5, 0.0, 1.0 + table_thickness / 2 + shelf_stand_height / 2]
+    shelf_stand_opts = gymapi.AssetOptions()
+    shelf_stand_opts.fix_base_link = True
+    shelf_stand_asset = gym.create_box(sim, *[0.2, 0.2, shelf_stand_height], table_opts)
+
     # Create cubeA asset
     cubeA_opts = gymapi.AssetOptions()
     cubeA_size = 0.050
@@ -311,9 +318,15 @@ def add_panda_arena(gym, sim, env, robot_asset, i):
     table_stand_start_pose.p = gymapi.Vec3(*table_stand_pos)
     table_stand_start_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
 
+    # Define start pose for shelf stand
+    shelf_stand_start_pose = gymapi.Transform()
+    shelf_stand_start_pose.p = gymapi.Vec3(*shelf_stand_pos)
+    shelf_stand_start_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
+
     # Define start pose for cubes
     cubeA_start_pose = gymapi.Transform()
-    cubeA_start_pose.p = gymapi.Vec3(0.2, -0.2, 1.05)
+    # cubeA_start_pose.p = gymapi.Vec3(0.2, -0.2, 1.05) # on the table
+    cubeA_start_pose.p = gymapi.Vec3(0.42, 0, 1.35) # on the shelf
     cubeA_start_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
     cubeB_start_pose = gymapi.Transform()
     cubeB_start_pose.p = gymapi.Vec3(0.2, 0.2, 1.06)
@@ -331,6 +344,9 @@ def add_panda_arena(gym, sim, env, robot_asset, i):
     cubeB_id = gym.create_actor(env, cubeB_asset, cubeB_start_pose, "cubeB", i, 4, 0)
     gym.set_rigid_body_color(env, cubeA_id, 0, gymapi.MESH_VISUAL, cubeA_color)
     gym.set_rigid_body_color(env, cubeB_id, 0, gymapi.MESH_VISUAL, cubeB_color)
+
+    # Create shelf
+    shelf_creator = gym.create_actor(env, shelf_stand_asset, shelf_stand_start_pose, "shelf_stand",i, 1, 0)
 
     cubeA_rbid = gym.get_actor_rigid_body_index(env, cubeA_id, 0, gymapi.DOMAIN_SIM) # 13
     cubeB_rbid = gym.get_actor_rigid_body_index(env, cubeB_id, 0, gymapi.DOMAIN_SIM) # 14

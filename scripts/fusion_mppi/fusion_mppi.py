@@ -258,9 +258,9 @@ class FUSION_MPPI(mppi.MPPI):
             # To combine costs of different tilt angles
             batch_num = int(self.num_envs/2)
             cost_1 = skill_utils.get_general_ori_ee2cube(ee_quaternion[:batch_num], 
-                                                         cube_quaternion[:batch_num], tilt_value=0)
+                                                         cube_quaternion[:batch_num], tilt_value=0.4)
             cost_2 = skill_utils.get_general_ori_ee2cube(ee_quaternion[batch_num:2*batch_num], 
-                                                         cube_quaternion[batch_num:2*batch_num], tilt_value=0.4)
+                                                         cube_quaternion[batch_num:2*batch_num], tilt_value=0.6)
             ori_ee2cube =  torch.cat((cost_1, cost_2), dim=0)
 
         return 3 * ori_ee2cube
