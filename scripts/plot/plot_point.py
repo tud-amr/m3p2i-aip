@@ -115,11 +115,12 @@ fig.add_trace(go.Box(y=np.concatenate((pull_pos_cost, pull_quat_cost, pull_dyn_o
 fig.update_layout(
     title = 'Results of Normal Case',
     title_x=0.5,
-    # yaxis_title='Displacements',
+    yaxis_title='Logarithmic scale',
     boxmode='group', # group together boxes of the different traces for each value of x
     boxgroupgap=0.3, # update
     boxgap=0
 )
+fig.update_yaxes(type="log")
 fig.show() 
 
 # Box plot
@@ -130,13 +131,14 @@ fig.add_trace(go.Box(y=np.concatenate((pull_c1_pos_cost, pull_c1_quat_cost, pull
 fig.add_trace(go.Box(y=np.concatenate((hybrid_c1_pos_cost, hybrid_c1_quat_cost, hybrid_c1_task_time)), x=label_x, name="hybrid", marker_color='#3D9970'))
 
 fig.update_layout(
-    title = 'Results of One Corner Case ',
+    title = 'Results of One Corner Case',
     title_x=0.5,
-    # yaxis_title='Displacements',
+    yaxis_title='Logarithmic scale',
     boxmode='group', # group together boxes of the different traces for each value of x
     boxgroupgap=0.3, # update
     boxgap=0
 )
+fig.update_yaxes(type="log")
 fig.show() 
 
 # Box plot
@@ -146,11 +148,12 @@ fig.add_trace(go.Box(y=np.concatenate((pull_c2_pos_cost, pull_c2_quat_cost, pull
 fig.add_trace(go.Box(y=np.concatenate((hybrid_c2_pos_cost, hybrid_c2_quat_cost, hybrid_c2_task_time)), x=label_x, name="hybrid", marker_color='#3D9970'))
 
 fig.update_layout(
-    title = 'Results of Two Corners Case ',
+    title = 'Results of Two Corners Case',
     title_x=0.5,
-    # yaxis_title='Displacements',
+    yaxis_title='Logarithmic scale',
     boxmode='group', # group together boxes of the different traces for each value of x
     boxgroupgap=0.3, # update
     boxgap=0
 )
+fig.update_yaxes(type="log")
 fig.show() 

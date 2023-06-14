@@ -62,11 +62,12 @@ fig.add_trace(go.Box(y=np.concatenate((rl_normal_pos, rl_reactive_pos)), x=rl_x,
 fig.update_layout(
     title = 'Position error',
     title_x=0.5,
-    yaxis_title='Displacements',
+    yaxis_title='Logarithmic scale',
     boxmode='group', # group together boxes of the different traces for each value of x
     boxgroupgap=0.3, # update
     boxgap=0
 )
+fig.update_yaxes(type="log")
 fig.show() 
 
 fig = go.Figure()
@@ -76,9 +77,10 @@ fig.add_trace(go.Box(y=np.concatenate((rl_normal_quat, rl_reactive_quat)), x=rl_
 fig.update_layout(
     title = 'Orientation error',
     title_x=0.5,
-    yaxis_title='Displacements',
+    yaxis_title='Logarithmic scale',
     boxmode='group', # group together boxes of the different traces for each value of x
     boxgroupgap=0.3, # update
     boxgap=0
 )
+fig.update_yaxes(type="log")
 fig.show() 
