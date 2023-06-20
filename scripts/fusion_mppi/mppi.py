@@ -151,13 +151,6 @@ class MPPI():
         self.nx = nx
         self.nu = 1 if len(noise_sigma.shape) == 0 else noise_sigma.shape[0]
 
-        # Visualization trajectories. TODO: to be removed in release
-        self.bodies_per_env = bodies_per_env
-        self.ee_indexes = np.zeros(self.num_envs)
-        self.ee_index = -1
-        for i in range(self.num_envs):
-            self.ee_indexes[i] = self.ee_index + i*self.bodies_per_env
-
         # Noise initialization
         if noise_mu is None:
             noise_mu = torch.zeros(self.nu, dtype=self.tensor_args['dtype'])
@@ -253,7 +246,7 @@ class MPPI():
         self.lambda_mult = 0.1  # Update rate
 
         # covariance update
-        self.update_cov = False
+        self.update_cov = False   # !! weird if set to True
         self.step_size_cov = 0.7
         self.kappa = 0.005
     
@@ -309,7 +302,7 @@ class MPPI():
             self.mean_action[-1] = saved_action
 
             cost_total = self._compute_total_cost_batch_halton()
-            action = torch.clone(self.mean_action)
+            action = torch.clone(self.mean_action) # !!
 
         # Smoothing with Savitzky-Golay filter
         if self.filter_u:
@@ -358,16 +351,16 @@ class MPPI():
             cost_horizon[:, t] = c 
 
             # Save total states/actions
-            ee_state = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))[self.ee_indexes, 0:3]
             states.append(state)
             actions.append(u)
-            ee_states.append(ee_state)
+            ee_state = (self.ee_l_state[:, :3] + self.ee_r_state[:, :3])/2 if self.ee_l_state != 'None' else 'None'
+            ee_states.append(ee_state) if ee_state != 'None' else []
             
         # Actions is K x T x nu
         # States is K x T x nx
         actions = torch.stack(actions, dim=-2)
         states = torch.stack(states, dim=-2)
-        ee_states = torch.stack(ee_states, dim=-2)
+        ee_states = torch.stack(ee_states, dim=-2) if ee_states != [] else 'None'
 
         # action perturbation cost
         if self.terminal_state_cost:
@@ -433,7 +426,6 @@ class MPPI():
             self.delta = self.get_samples(self.K, base_seed=0)
         elif self.delta == None and self.sample_method == 'halton':
             self.delta = self.get_samples(self.K, base_seed=0)
-            #add zero-noise seq so mean is always a part of samples
 
         # Add zero-noise seq so mean is always a part of samples
         self.delta[-1,:,:] = self.Z_seq
@@ -498,7 +490,7 @@ class MPPI():
         Depending on the method, the samples can be Halton or Random. Halton samples a 
         number of knots, later interpolated with a spline
         """
-        if(self.sample_method=='halton'):
+        if(self.sample_method=='halton'):   # !!
             self.knot_points = generate_gaussian_halton_samples(
                 sample_shape,               # Number of samples
                 self.ndims,                 # n_knots * nu (knots per number of actions)
@@ -539,12 +531,16 @@ class MPPI():
         self.best_idx = best_idx
         self.best_traj = torch.index_select(actions, 0, best_idx).squeeze(0)
        
+        # print(self.weights.size()) # !! [K]
         weighted_seq = self.weights.view(-1, 1, 1) * actions
+        # print(weighted_seq.size()) # [K, T, nu]
         new_mean = torch.sum(weighted_seq, dim=0)
 
         # Gradient update for the mean
+        # !!
         self.mean_action = (1.0 - self.step_size_mean) * self.mean_action +\
             self.step_size_mean * new_mean 
+        # print(self.mean_action.size()) # [T, nu]
        
         delta = actions - self.mean_action.unsqueeze(0)
 

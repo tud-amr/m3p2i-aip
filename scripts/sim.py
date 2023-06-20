@@ -166,7 +166,7 @@ class SIM():
                 self.gym.clear_lines(self.viewer)
                     
                 # Visualize rollouts
-                if self.visualize_rollouts and freq_data[1] != 0 and self.mobile_robot:
+                if self.visualize_rollouts and freq_data[1] != 0:
                     s.sendall(b"Visualize rollouts")
                     K = s.recv(1024)
                     K = int(data_transfer.bytes_to_numpy(K))
@@ -175,7 +175,7 @@ class SIM():
                         s.sendall(b"next")
                         _rollout_state = s.recv(2**18)
                         rollout_state = data_transfer.bytes_to_numpy(_rollout_state)
-                        sim_init.visualize_rollouts(self.gym, self.viewer, self.envs[0], rollout_state)
+                        sim_init.visualize_rollouts(self.gym, self.viewer, self.envs[0], rollout_state, self.mobile_robot)
 
                 # Visualize optimal trajectory
                 #sim_init.visualize_traj(gym, viewer, envs[0], actions, dof_states)

@@ -223,16 +223,18 @@ def visualize_traj(gym, viewer, env, actions, dof_states):
     gym.add_lines(viewer, env, n_steps, line_array, color_array)
 
 # Visualize rollouts trajectory
-def visualize_rollouts(gym, viewer, env, states):
+def visualize_rollouts(gym, viewer, env, states, mobile_robot):
     # Initialize array
     n_steps = states.shape[0] - 1
     line_array = np.zeros((n_steps, 6), dtype=np.float32)
     color_array = np.zeros((n_steps, 3), dtype=np.float32)
     color_array[:, 1] = 255     # green
     for i in range(n_steps):
-        pos = [states[i, 1], states[i, 0], 0.1, states[i+1, 1], states[i+1, 0], 0.1]
+        if mobile_robot:
+            pos = [states[i, 0], states[i, 1], 0.1, states[i+1, 0], states[i+1, 1], 0.1]
+        else:
+            pos = [states[i, 0], states[i, 1], states[i, 2], states[i+1, 0], states[i+1, 1], states[i+1, 2]]
         line_array[i, :] = pos
-
     # Draw lines
     gym.add_lines(viewer, env, n_steps, line_array, color_array)
 

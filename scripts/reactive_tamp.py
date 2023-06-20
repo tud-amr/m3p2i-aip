@@ -217,17 +217,25 @@ class REACTIVE_TAMP:
                     conn.sendall(data_transfer.numpy_to_bytes(freq_data))
 
                     # Visualize rollouts
-                    if self.visualize_rollouts and self.motion_freq != 0 and self.mobile_robot:
+                    if self.visualize_rollouts and self.motion_freq != 0:
                         # Get the rollouts trajectory
-                        rollouts = self.motion_planner.states.cpu().clone().numpy()
-                        current_traj = np.zeros((self.motion_planner.T, 2))
+                        if self.mobile_robot:
+                            rollouts = self.motion_planner.states.cpu().clone().numpy()
+                        else:
+                            rollouts = self.motion_planner.ee_states[:, :, :].cpu().clone().numpy()
+                        current_traj = np.zeros((self.motion_planner.T, 3))
                         K = self.motion_planner.K
                         res = conn.recv(1024)
                         conn.sendall(data_transfer.numpy_to_bytes(self.motion_planner.K))
                         for i in range(K):
                             res4 = conn.recv(1024)
-                            current_traj[:, 1] = rollouts[i][:, 0]     # x pos
-                            current_traj[:, 0] = rollouts[i][:, 2]     # y pos
+                            if self.mobile_robot:
+                                current_traj[:, 0] = rollouts[i][:, 0]     # x pos
+                                current_traj[:, 1] = rollouts[i][:, 2]     # y pos
+                            else:
+                                current_traj[:, 0] = rollouts[i][:, 0]     # x pos
+                                current_traj[:, 1] = rollouts[i][:, 1]     # y pos
+                                current_traj[:, 2] = rollouts[i][:, 2]     # z pos
                             conn.sendall(data_transfer.numpy_to_bytes(current_traj))
 
 if __name__== "__main__":
