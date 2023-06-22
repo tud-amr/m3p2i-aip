@@ -199,45 +199,6 @@ def acquire_states(gym, sim, params, flag="none"):
 
     return states_dict
 
-# Visualize optimal trajectory
-def visualize_traj(gym, viewer, env, actions, dof_states):
-    # Get states and velocity
-    # Note: the coordinate of the states is different from the visualization
-    vels = actions.cpu().clone().numpy()
-    dof_states_np = -dof_states.cpu().clone().numpy()
-    curr_pos = dof_states_np[:, 0]
-    n_steps = vels.shape[0]
-
-    # Initialize array
-    pos_array = np.zeros((n_steps+1, 3), dtype=np.float32)
-    line_array = np.zeros((n_steps, 6), dtype=np.float32)
-    pos_array[0, :] = [-curr_pos[1], -curr_pos[0], 0.15]
-    color_array = np.zeros((n_steps, 3), dtype=np.float32)
-    color_array[:, 2] = 255     # blue
-    dt = 1.0 / 50.0
-    for i in range(1, n_steps+1):
-        pos_array[i, :] = [pos_array[i-1, 0] + dt*vels[i-1, 1], pos_array[i-1, 1] + dt*vels[i-1, 0], 0.2]
-        line_array[i-1, :] = np.concatenate((pos_array[i-1, :], pos_array[i, :]))
-
-    # Draw lines
-    gym.add_lines(viewer, env, n_steps, line_array, color_array)
-
-# Visualize rollouts trajectory
-def visualize_rollouts(gym, viewer, env, states, mobile_robot):
-    # Initialize array
-    n_steps = states.shape[0] - 1
-    line_array = np.zeros((n_steps, 6), dtype=np.float32)
-    color_array = np.zeros((n_steps, 3), dtype=np.float32)
-    color_array[:, 1] = 255     # green
-    for i in range(n_steps):
-        if mobile_robot:
-            pos = [states[i, 0], states[i, 1], 0.1, states[i+1, 0], states[i+1, 1], 0.1]
-        else:
-            pos = [states[i, 0], states[i, 1], states[i, 2], states[i+1, 0], states[i+1, 1], states[i+1, 2]]
-        line_array[i, :] = pos
-    # Draw lines
-    gym.add_lines(viewer, env, n_steps, line_array, color_array)
-
 # Visualize top trajs
 def visualize_toptrajs(gym, viewer, env, states, mobile_robot):
     states = states.cpu().clone().numpy()

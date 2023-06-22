@@ -164,28 +164,13 @@ class SIM():
 
                 # Clear lines at the beginning
                 self.gym.clear_lines(self.viewer)
-                    
-                # Visualize rollouts
-                if self.visualize_rollouts and freq_data[1] != 0:
-                    s.sendall(b"Visualize rollouts")
-                    K = s.recv(1024)
-                    K = int(data_transfer.bytes_to_numpy(K))
-                    rollout_state = np.zeros((1, 2), dtype=np.float32)
-                    for i in range(K):
-                        s.sendall(b"next")
-                        _rollout_state = s.recv(2**18)
-                        rollout_state = data_transfer.bytes_to_numpy(_rollout_state)
-                        sim_init.visualize_rollouts(self.gym, self.viewer, self.envs[0], rollout_state, self.mobile_robot)
-
+                
                 # Visualize top trajs
                 if freq_data[1] != 0:
                     s.sendall(b"Visualize trajs")
                     _top_trajs = s.recv(2**12)
                     top_trajs = data_transfer.bytes_to_torch(_top_trajs)
                     sim_init.visualize_toptrajs(self.gym, self.viewer, self.envs[0], top_trajs, self.mobile_robot)
-
-                # Visualize optimal trajectory
-                #sim_init.visualize_traj(gym, viewer, envs[0], actions, dof_states)
                 
                 # Apply forward kikematics and optimal action
                 self.action = skill_utils.apply_fk(self.robot, actions[0])
