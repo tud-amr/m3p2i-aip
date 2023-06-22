@@ -303,6 +303,15 @@ class MPPI():
 
             cost_total = self._compute_total_cost_batch_halton()
             action = torch.clone(self.mean_action) # !!
+        
+        # Compute top n trajs
+        self.top_values, self.top_idx = torch.topk(self.weights, 10)
+        if self.ee_states != 'None':
+            self.top_trajs = torch.index_select(self.ee_states, 0, self.top_idx)
+        else:
+            self.top_trajs = torch.index_select(self.states, 0, self.top_idx)
+            pos_idx = torch.tensor([0, 2], device="cuda:0", dtype=torch.int32)
+            self.top_trajs = torch.index_select(self.top_trajs, 2, pos_idx)
 
         # Smoothing with Savitzky-Golay filter
         if self.filter_u:
@@ -454,33 +463,31 @@ class MPPI():
         # self.cost_total += perturbation_cost
         return self.cost_total
 
-    def _exp_util(self, costs, actions):
+    def _exp_util(self, costs):
         """
            Calculate weights using exponential utility given cost
+           Iuput: costs [K, T], costs within horizon
         """
-        traj_costs = cost_to_go(costs, self.gamma_seq)
-        traj_costs = traj_costs[:,0]
-        # print(traj_costs)
-        #control_costs = self._control_costs(actions)
-        total_costs = traj_costs - torch.min(traj_costs) #+ self.beta * control_costs
+        traj_costs = cost_to_go(costs, self.gamma_seq) # [K, T]
+        traj_costs = traj_costs[:,0] # [K] Costs for the next timestep
+        total_costs = traj_costs - torch.min(traj_costs) #!! different from storm
         
         # Normalization of the weights
         exp_ = torch.exp((-1.0/self.beta) * total_costs)
         eta = torch.sum(exp_)       # tells how many significant samples we have, more or less
-        self.weights = 1 / eta * exp_
-        # print(self.beta)
+        self.weights = 1 / eta * exp_  # [K]
+
+        # Update beta to make eta converge within the bounds 
         if self.env_type == 'cube':
             eta_u_bound = 20
             eta_l_bound = 10
             beta_lm = 0.9
             beta_um = 1.2
-            # beta update 
             if eta > eta_u_bound:
                 self.beta = self.beta*beta_lm
             elif eta < eta_l_bound:
                 self.beta = self.beta*beta_um
         
-        # w = torch.softmax((-1.0/self.beta) * total_costs, dim=0)
         self.total_costs = total_costs
 
     def get_samples(self, sample_shape, **kwargs): 
@@ -518,20 +525,13 @@ class MPPI():
             So far only mean is updated, eventually one could also update the covariance
         """
 
-        self._exp_util(costs, actions)
-        
-        # Compute also top n best actions to plot
-        # top_values, top_idx = torch.topk(self.total_costs, 10)
-        # self.top_values = top_values
-        # self.top_idx = top_idx
-        # self.top_trajs = torch.index_select(actions, 0, top_idx).squeeze(0)
+        self._exp_util(costs)
 
         # Update best action
         best_idx = torch.argmax(self.weights)
         self.best_idx = best_idx
         self.best_traj = torch.index_select(actions, 0, best_idx).squeeze(0)
        
-        # print(self.weights.size()) # !! [K]
         weighted_seq = self.weights.view(-1, 1, 1) * actions
         # print(weighted_seq.size()) # [K, T, nu]
         new_mean = torch.sum(weighted_seq, dim=0)

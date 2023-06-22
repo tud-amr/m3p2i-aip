@@ -177,6 +177,13 @@ class SIM():
                         rollout_state = data_transfer.bytes_to_numpy(_rollout_state)
                         sim_init.visualize_rollouts(self.gym, self.viewer, self.envs[0], rollout_state, self.mobile_robot)
 
+                # Visualize top trajs
+                if freq_data[1] != 0:
+                    s.sendall(b"Visualize trajs")
+                    _top_trajs = s.recv(2**12)
+                    top_trajs = data_transfer.bytes_to_torch(_top_trajs)
+                    sim_init.visualize_toptrajs(self.gym, self.viewer, self.envs[0], top_trajs, self.mobile_robot)
+
                 # Visualize optimal trajectory
                 #sim_init.visualize_traj(gym, viewer, envs[0], actions, dof_states)
                 

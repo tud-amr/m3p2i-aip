@@ -238,6 +238,23 @@ def visualize_rollouts(gym, viewer, env, states, mobile_robot):
     # Draw lines
     gym.add_lines(viewer, env, n_steps, line_array, color_array)
 
+# Visualize top trajs
+def visualize_toptrajs(gym, viewer, env, states, mobile_robot):
+    states = states.cpu().clone().numpy()
+    n_traj, t_horizon = states.shape[0], states.shape[1]-1
+    line_array = np.zeros((t_horizon, 6), dtype=np.float32)
+    color_array = np.zeros((t_horizon, 3), dtype=np.float32)
+    color_array[:, 1] = 255 
+    for i in range(n_traj):
+        for j in range(t_horizon):
+            if mobile_robot:
+                pos = [states[i, j, 0], states[i, j, 1], 0.1, states[i, j+1, 0], states[i, j+1, 1], 0.1]
+            else:
+                pos = [states[i, j, 0], states[i, j, 1], states[i, j, 2], states[i, j+1, 0], states[i, j+1, 1], states[i, j+1, 2]]
+            line_array[j, :] = pos
+        # Draw lines
+        gym.add_lines(viewer, env, t_horizon, line_array, color_array)
+
 # Step the simulation
 def step(gym, sim):
     gym.simulate(sim)

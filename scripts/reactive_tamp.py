@@ -238,6 +238,11 @@ class REACTIVE_TAMP:
                                 current_traj[:, 2] = rollouts[i][:, 2]     # z pos
                             conn.sendall(data_transfer.numpy_to_bytes(current_traj))
 
+                    # Send top trajs
+                    if self.motion_freq != 0:
+                        res = conn.recv(1024)
+                        conn.sendall(data_transfer.torch_to_bytes(self.motion_planner.top_trajs))
+
 if __name__== "__main__":
     params = params_utils.load_params()
     reactive_tamp = REACTIVE_TAMP(params)
