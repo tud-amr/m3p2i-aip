@@ -20,7 +20,6 @@ class REACTIVE_TAMP:
         # Make the environment and simulation
         self.params = params
         self.allow_viewer = params.allow_viewer
-        self.visualize_rollouts = params.visualize_rollouts
         self.num_envs = params.num_envs
         self.spacing = params.spacing
         self.dt = params.dt

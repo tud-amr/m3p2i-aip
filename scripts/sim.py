@@ -21,7 +21,6 @@ class SIM():
         self.mobile_robot = True if self.robot in ['point_robot', 'heijn', 'boxer'] else False
         self.environment_type = params.environment_type
         self.dt = params.dt
-        self.visualize_rollouts = params.visualize_rollouts
         self.gym, self.sim, self.viewer, self.envs, _ = sim_init.make(self.allow_viewer, self.num_envs, self.spacing, self.robot, self.environment_type, dt = self.dt)
 
         # Acquire states
