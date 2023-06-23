@@ -258,9 +258,9 @@ class FUSION_MPPI(mppi.MPPI):
             # To combine costs of different tilt angles
             batch_num = int(self.num_envs/2)
             cost_1 = skill_utils.get_general_ori_ee2cube(ee_quaternion[:batch_num], 
-                                                         cube_quaternion[:batch_num], tilt_value=0.4)
+                                                         cube_quaternion[:batch_num], tilt_value=0) # 0.2
             cost_2 = skill_utils.get_general_ori_ee2cube(ee_quaternion[batch_num:2*batch_num], 
-                                                         cube_quaternion[batch_num:2*batch_num], tilt_value=0.6)
+                                                         cube_quaternion[batch_num:2*batch_num], tilt_value=0.7) #0.9
             ori_ee2cube =  torch.cat((cost_1, cost_2), dim=0)
 
         return 3 * ori_ee2cube
@@ -355,7 +355,7 @@ class FUSION_MPPI(mppi.MPPI):
             # print('push cost', task_cost[:10])
             # print('pull cost', task_cost[self.num_envs-10:])
         elif self.task == 'pick':
-            return self.get_panda_pick_cost() + self.get_pick_tilt_cost(hybrid=False)
+            return self.get_panda_pick_cost() + self.get_pick_tilt_cost(hybrid=True)
         elif self.task == 'place':
             return self.get_panda_place_cost()
         else:

@@ -140,6 +140,7 @@ class MPPI():
         # Utility vars
         self.num_envs = num_samples
         self.K = num_samples 
+        self.half_K = int(num_samples/2)
         self.T = horizon  
         self.filter_u = filter_u
         self.lambda_ = lambda_
@@ -296,7 +297,7 @@ class MPPI():
             #     self.lambda_ = (1-lambda_mult)*self.lambda_
 
         elif self.mppi_mode == 'halton-spline':
-            # shift command 1 time step
+            # shift command 1 time step, mean_action [T, nu]
             saved_action = self.mean_action[-1]
             self.mean_action = torch.roll(self.mean_action, -1, dims=0)
             self.mean_action[-1] = saved_action
@@ -378,7 +379,8 @@ class MPPI():
         cost_total += cost_samples.mean(dim=0)
         
         if self.mppi_mode == 'halton-spline':
-            self.noise = self._update_distribution(cost_horizon, actions)
+            # self.noise = self._update_distribution(cost_horizon, actions)
+            self.noise = self._update_multi_modal_distribution(cost_horizon, actions)
 
         return cost_total, states, actions, ee_states
 
@@ -435,18 +437,20 @@ class MPPI():
             self.delta = self.get_samples(self.K, base_seed=0)
         elif self.delta == None and self.sample_method == 'halton':
             self.delta = self.get_samples(self.K, base_seed=0)
+        # print(self.delta[0, :, :])
 
         # Add zero-noise seq so mean is always a part of samples
         self.delta[-1,:,:] = self.Z_seq
         # Keeps the size but scales values
         scaled_delta = torch.matmul(self.delta, torch.diag(self.scale_tril)).view(self.delta.shape[0], self.T, self.nu)
-        
+
         # First time mean is zero then it is updated in the distribution
         act_seq = self.mean_action + scaled_delta
 
         # Scales action within bounds. act_seq is the same as perturbed actions
         act_seq = scale_ctrl(act_seq, self.u_min, self.u_max, squash_fn=self.squash_fn)
-        act_seq[self.nu, :, :] = self.best_traj
+        # print(act_seq.size())
+        # act_seq[self.nu, :, :] = self.best_traj # !!?
         
         self.perturbed_action = torch.clone(act_seq)
         if self.robot == 'panda':
@@ -532,8 +536,7 @@ class MPPI():
         self.best_idx = best_idx
         self.best_traj = torch.index_select(actions, 0, best_idx).squeeze(0)
        
-        weighted_seq = self.weights.view(-1, 1, 1) * actions
-        # print(weighted_seq.size()) # [K, T, nu]
+        weighted_seq = self.weights.view(-1, 1, 1) * actions # [K, T, nu]
         new_mean = torch.sum(weighted_seq, dim=0)
 
         # Gradient update for the mean
@@ -555,5 +558,53 @@ class MPPI():
             self.cov_action += self.kappa #* self.init_cov_action
             # self.cov_action[self.cov_action < 0.0005] = 0.0005
             self.scale_tril = torch.sqrt(self.cov_action)
+
+        return delta
+
+    def _multi_modal_exp_util(self, costs):
+        """
+           Calculate weights using exponential utility given cost
+           Iuput: costs [K, T], costs within horizon
+        """
+        traj_costs = cost_to_go(costs, self.gamma_seq) # [K, T]
+        traj_costs = traj_costs[:,0] # [K] Costs for the next timestep
+
+        total_costs_1 = traj_costs[:self.half_K] - torch.min(traj_costs[:self.half_K])
+        total_costs_2 = traj_costs[self.half_K:] - torch.min(traj_costs[self.half_K:])
+        # print('1', total_costs_1)
+        # print('2', total_costs_2)
+        # Normalization of the weights
+        exp_1 = torch.exp((-1.0/self.beta) * total_costs_1)
+        exp_2 = torch.exp((-1.0/self.beta) * total_costs_2)
+        eta_1 = torch.sum(exp_1)
+        eta_2 = torch.sum(exp_2)
+        self.weights_1 = 1 / eta_1 * exp_1 
+        self.weights_2 = 1 / eta_2 * exp_2
+        self.weights = torch.cat((self.weights_1, self.weights_2), 0)
+        self.total_costs = torch.cat((total_costs_1, total_costs_2), 0)
+    
+    def _update_multi_modal_distribution(self, costs, actions):
+        """
+            Update moments using sample trajectories.
+            So far only mean is updated, eventually one could also update the covariance
+        """
+
+        self._multi_modal_exp_util(costs)
+
+        # # Update best action
+        # best_idx = torch.argmax(self.weights)
+        # self.best_idx = best_idx
+        # self.best_traj = torch.index_select(actions, 0, best_idx).squeeze(0)
+       
+        weighted_seq = self.weights.view(-1, 1, 1) * actions # [K, T, nu]
+        new_mean_1 = torch.sum(weighted_seq[:self.half_K], dim=0)
+        new_mean_2 = torch.sum(weighted_seq[self.half_K:], dim=0)
+
+        # Gradient update for the mean
+        self.mean_action = (1.0 - self.step_size_mean) * self.mean_action +\
+            self.step_size_mean/2 * new_mean_1 + self.step_size_mean/2 * new_mean_2
+        # print(self.mean_action.size()) # [T, nu]
+       
+        delta = actions - self.mean_action.unsqueeze(0)
 
         return delta

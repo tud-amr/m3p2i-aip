@@ -37,6 +37,7 @@ class SIM():
         self.dofs_per_robot = states_dict["dofs_per_robot"]
         self.initial_root_states = self.root_states.clone()
         self.initial_dof_states = self.dof_states.clone()
+        self.ee_l_state = states_dict["ee_l_state"]
         if self.environment_type == "normal":
             self.dyn_obs_pos = states_dict["dyn_obs_pos"]
             self.dyn_obs_pos_seq = self.dyn_obs_pos.clone()
@@ -195,6 +196,11 @@ class SIM():
                 # Step the similation
                 sim_init.step(self.gym, self.sim)
                 sim_init.refresh_states(self.gym, self.sim)
+
+                # Debug
+                ee_rot_matrix = skill_utils.quaternion_rotation_matrix(self.ee_l_state[:, 3:7])
+                ee_zaxis = ee_rot_matrix[:, :, 2]
+                print('tilt value', format(ee_zaxis[0, 0].item(), '.2f'))
 
                 # Step rendering and store data
                 self.sim_time = np.append(self.sim_time, t_prev)
