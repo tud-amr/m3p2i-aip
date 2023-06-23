@@ -174,6 +174,8 @@ class MPPI():
             u_init = torch.zeros_like(noise_mu)
             self.mean_action = torch.zeros(self.nu, device=self.tensor_args['device'], dtype=self.tensor_args['dtype'])
             self.best_traj = self.mean_action.clone()
+            self.mean_action_1 = torch.zeros((self.T, self.nu), device=self.tensor_args['device'], dtype=self.tensor_args['dtype'])
+            self.mean_action_2 = torch.zeros((self.T, self.nu), device=self.tensor_args['device'], dtype=self.tensor_args['dtype'])
 
         # Bound actions
         self.u_min = u_min
@@ -445,7 +447,10 @@ class MPPI():
         scaled_delta = torch.matmul(self.delta, torch.diag(self.scale_tril)).view(self.delta.shape[0], self.T, self.nu)
 
         # First time mean is zero then it is updated in the distribution
-        act_seq = self.mean_action + scaled_delta
+        # act_seq = self.mean_action + scaled_delta
+        act_seq_1 = self.mean_action_1 + scaled_delta[:self.half_K, :, :]
+        act_seq_2 = self.mean_action_2 + scaled_delta[self.half_K:, :, :]
+        act_seq = torch.cat((act_seq_1, act_seq_2), 0)
 
         # Scales action within bounds. act_seq is the same as perturbed actions
         act_seq = scale_ctrl(act_seq, self.u_min, self.u_max, squash_fn=self.squash_fn)
@@ -597,12 +602,12 @@ class MPPI():
         # self.best_traj = torch.index_select(actions, 0, best_idx).squeeze(0)
        
         weighted_seq = self.weights.view(-1, 1, 1) * actions # [K, T, nu]
-        new_mean_1 = torch.sum(weighted_seq[:self.half_K], dim=0)
-        new_mean_2 = torch.sum(weighted_seq[self.half_K:], dim=0)
+        self.mean_action_1 = torch.sum(weighted_seq[:self.half_K], dim=0)
+        self.mean_action_2 = torch.sum(weighted_seq[self.half_K:], dim=0)
 
         # Gradient update for the mean
         self.mean_action = (1.0 - self.step_size_mean) * self.mean_action +\
-            self.step_size_mean/2 * new_mean_1 + self.step_size_mean/2 * new_mean_2
+            self.step_size_mean/2 * self.mean_action_1 + self.step_size_mean/2 * self.mean_action_2
         # print(self.mean_action.size()) # [T, nu]
        
         delta = actions - self.mean_action.unsqueeze(0)
