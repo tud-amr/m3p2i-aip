@@ -209,7 +209,7 @@ class FUSION_MPPI(mppi.MPPI):
 
         return dyn_obs_cost
 
-    def get_panda_pick_cost(self):
+    def get_panda_pick_cost(self, hybrid):
         self.ee_state = (self.ee_l_state + self.ee_r_state) / 2
         reach_cost = torch.linalg.norm(self.ee_state[:,:3] - self.cube_state[:,:3], axis = 1) 
         goal_cost = torch.linalg.norm(self.cube_goal_state[:3] - self.cube_state[:,:3], axis = 1) #+ 2*torch.abs(self.block_goal[2] - block_state[:,2])
@@ -217,8 +217,6 @@ class FUSION_MPPI(mppi.MPPI):
         gripper_dist = torch.linalg.norm(self.ee_l_state[:, :3] - self.ee_r_state[:, :3], axis=1)
         gripper_cost = 2 * (1 - gripper_dist)
         gripper_cost[reach_cost < 0.1] = 0
-
-        ee_roll, ee_pitch, _ = torch_utils.get_euler_xyz(self.ee_state[:,3:7])
 
         if self.robot == 'omni_panda':
             # get jacobian tensor
@@ -242,9 +240,13 @@ class FUSION_MPPI(mppi.MPPI):
         ori_cube2goal = skill_utils.get_general_ori_cube2goal(cube_quaternion, goal_quatenion) 
         ori_cost = 3 * ori_cube2goal
 
-        total_cost = 0.2 * manip_cost + 10 * reach_cost + 5 * goal_cost + ori_cost + gripper_cost
+        # Compute the tilt value between ee and cube
+        tilt_cost = self.get_pick_tilt_cost(hybrid)
+        tilt_cost[reach_cost<=0.05] = 0
+        # print('reach', reach_cost)
+        # print('griper dist', gripper_dist)
+        total_cost = 0.2 * manip_cost + 10 * reach_cost + 10 * goal_cost + ori_cost + gripper_cost + tilt_cost
 
-        align_cost = torch.abs(ee_pitch) + torch.abs(ee_roll-3.14)
         return  total_cost #+ align_cost multiply 10*reach_cost when using mppi_mode == storm
 
     def get_pick_tilt_cost(self, hybrid):
@@ -355,7 +357,7 @@ class FUSION_MPPI(mppi.MPPI):
             # print('push cost', task_cost[:10])
             # print('pull cost', task_cost[self.num_envs-10:])
         elif self.task == 'pick':
-            return self.get_panda_pick_cost() + self.get_pick_tilt_cost(hybrid=True)
+            return self.get_panda_pick_cost(True)
         elif self.task == 'place':
             return self.get_panda_place_cost()
         else:
