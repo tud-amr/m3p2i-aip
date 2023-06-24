@@ -253,9 +253,10 @@ class MPPI():
         self.step_size_cov = 0.7
         self.kappa = 0.005
     
-    def set_mode(self, mppi_mode, sample_method):
+    def set_mode(self, mppi_mode, sample_method, multi_modal):
         self.mppi_mode = mppi_mode
         self.sample_method = sample_method
+        self.multi_modal = multi_modal and mppi_mode == 'halton-spline'
 
     @handle_batch_input
     def _dynamics(self, state, u, t):
@@ -381,9 +382,10 @@ class MPPI():
         cost_total += cost_samples.mean(dim=0)
         
         if self.mppi_mode == 'halton-spline':
-            # self.noise = self._update_distribution(cost_horizon, actions)
-            self.noise = self._update_multi_modal_distribution(cost_horizon, actions)
-
+            if self.multi_modal:
+                self.noise = self._update_multi_modal_distribution(cost_horizon, actions)
+            else:
+                self.noise = self._update_distribution(cost_horizon, actions)
         return cost_total, states, actions, ee_states
 
     #################### Random Sampling ####################

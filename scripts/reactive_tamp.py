@@ -88,8 +88,9 @@ class REACTIVE_TAMP:
                             filter_u = params.filter_u
                             )
         self.motion_planner.set_mode(
-            mppi_mode = 'halton-spline',     # 'halton-spline', 'simple'
-            sample_method = 'halton'  # 'halton', 'random'
+            mppi_mode = 'halton-spline', # 'halton-spline', 'simple'
+            sample_method = 'halton',    # 'halton', 'random'
+            multi_modal = True           # True, False
         )
         self.prefer_pull = -1
         

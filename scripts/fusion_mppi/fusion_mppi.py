@@ -255,7 +255,7 @@ class FUSION_MPPI(mppi.MPPI):
         cube_quaternion = self.cube_state[:, 3:7]
         if not hybrid:
             # To make the z-axis direction of end effector to be perpendicular to the cube surface
-            ori_ee2cube = skill_utils.get_general_ori_ee2cube(ee_quaternion, cube_quaternion, tilt_value=0.4)
+            ori_ee2cube = skill_utils.get_general_ori_ee2cube(ee_quaternion, cube_quaternion, tilt_value=0)
         else:
             # To combine costs of different tilt angles
             batch_num = int(self.num_envs/2)
@@ -357,7 +357,7 @@ class FUSION_MPPI(mppi.MPPI):
             # print('push cost', task_cost[:10])
             # print('pull cost', task_cost[self.num_envs-10:])
         elif self.task == 'pick':
-            return self.get_panda_pick_cost(True)
+            return self.get_panda_pick_cost(self.multi_modal)
         elif self.task == 'place':
             return self.get_panda_place_cost()
         else:
