@@ -449,10 +449,12 @@ class MPPI():
         scaled_delta = torch.matmul(self.delta, torch.diag(self.scale_tril)).view(self.delta.shape[0], self.T, self.nu)
 
         # First time mean is zero then it is updated in the distribution
-        # act_seq = self.mean_action + scaled_delta
-        act_seq_1 = self.mean_action_1 + scaled_delta[:self.half_K, :, :]
-        act_seq_2 = self.mean_action_2 + scaled_delta[self.half_K:, :, :]
-        act_seq = torch.cat((act_seq_1, act_seq_2), 0)
+        if self.multi_modal:
+            act_seq_1 = self.mean_action_1 + scaled_delta[:self.half_K, :, :]
+            act_seq_2 = self.mean_action_2 + scaled_delta[self.half_K:, :, :]
+            act_seq = torch.cat((act_seq_1, act_seq_2), 0)
+        else:
+            act_seq = self.mean_action + scaled_delta
 
         # Scales action within bounds. act_seq is the same as perturbed actions
         act_seq = scale_ctrl(act_seq, self.u_min, self.u_max, squash_fn=self.squash_fn)

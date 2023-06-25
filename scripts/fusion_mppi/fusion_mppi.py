@@ -243,9 +243,8 @@ class FUSION_MPPI(mppi.MPPI):
         # Compute the tilt value between ee and cube
         tilt_cost = self.get_pick_tilt_cost(hybrid)
         tilt_cost[reach_cost<=0.05] = 0
-        # print('reach', reach_cost)
-        # print('griper dist', gripper_dist)
-        total_cost = 0.2 * manip_cost + 10 * reach_cost + 10 * goal_cost + ori_cost + gripper_cost + tilt_cost
+        weight_goal = {True:10, False:5}
+        total_cost = 0.2 * manip_cost + 10 * reach_cost + weight_goal[self.multi_modal] * goal_cost + ori_cost + gripper_cost + tilt_cost
 
         return  total_cost #+ align_cost multiply 10*reach_cost when using mppi_mode == storm
 
