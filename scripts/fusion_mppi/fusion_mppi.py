@@ -258,11 +258,10 @@ class FUSION_MPPI(mppi.MPPI):
             ori_ee2cube = skill_utils.get_general_ori_ee2cube(ee_quaternion, cube_quaternion, tilt_value=0)
         else:
             # To combine costs of different tilt angles
-            batch_num = int(self.num_envs/2)
-            cost_1 = skill_utils.get_general_ori_ee2cube(ee_quaternion[:batch_num], 
-                                                         cube_quaternion[:batch_num], tilt_value=0) # 0.2
-            cost_2 = skill_utils.get_general_ori_ee2cube(ee_quaternion[batch_num:2*batch_num], 
-                                                         cube_quaternion[batch_num:2*batch_num], tilt_value=0.7) #0.9
+            cost_1 = skill_utils.get_general_ori_ee2cube(ee_quaternion[:self.half_K], 
+                                                         cube_quaternion[:self.half_K], tilt_value=0) # 0.2
+            cost_2 = skill_utils.get_general_ori_ee2cube(ee_quaternion[self.half_K:], 
+                                                         cube_quaternion[self.half_K:], tilt_value=0.7) #0.9
             ori_ee2cube =  torch.cat((cost_1, cost_2), dim=0)
 
         return 3 * ori_ee2cube
@@ -272,7 +271,7 @@ class FUSION_MPPI(mppi.MPPI):
         gripper_cost = 1 - gripper_dist
         self.ee_state = (self.ee_l_state + self.ee_r_state) / 2
         reach_cost = torch.linalg.norm(self.ee_state[:,:7] - self.ee_goal[:7], axis=1)
-        # If gripper is not fylly open, no reach cost
+        # If gripper is not fully open, no reach cost
         reach_cost[gripper_dist <= 0.078] = 0
         # If gripper is fully open, no gripper cost, retract the arm
         gripper_cost[gripper_dist > 0.078] = 0
@@ -284,14 +283,8 @@ class FUSION_MPPI(mppi.MPPI):
         u_ = skill_utils.apply_ik(self.robot, u)
         self.gym.set_dof_velocity_target_tensor(self.sim, gymtorch.unwrap_tensor(u_))
         
-        time_1 = time.monotonic()
         # Step the simulation
         sim_init.step(self.gym, self.sim)  # very essential 0.002s
-
-        time_2 = time.monotonic()
-        gap_2 = format(time_2-time_1, '.5f')
-        # print('very gap 2', gap_2) # 
-
         sim_init.refresh_states(self.gym, self.sim)
         sim_init.step_rendering(self.gym, self.sim, self.viewer, sync_frame_time=True)
 

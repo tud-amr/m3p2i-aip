@@ -93,13 +93,11 @@ class PLANNER_AIF_PANDA(PLANNER_SIMPLE):
         if cube_height_diff < 0.001:
             self.obs = 0
             self.ai_agent_task[0].set_preferences(np.array([[0], [1], [0]]))
-        elif dist_cost + ori_cost < 0.025: # 0.01
+        elif dist_cost + ori_cost < 0.01: # 0.025
             self.obs = 1
             self.ee_goal = ee_state.clone()
             self.ee_goal[2] += 0.2
             self.ai_agent_task[0].set_preferences(np.array([[1], [0], [0]]))
-        # elif cube_height_diff > 0.0499 and cube_height_diff < 0.0501: 
-        #     obs = 2
 
     def update_plan(self, cube_state, cube_goal, ee_state):
         self.get_obs(cube_state, cube_goal, ee_state)
