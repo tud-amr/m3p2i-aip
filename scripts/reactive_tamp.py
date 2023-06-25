@@ -120,7 +120,7 @@ class REACTIVE_TAMP:
         else:
             task_success = self.task_planner.check_task_success((self.ee_l_state[0, :7]+self.ee_r_state[0, :7])/2)
         task_success = task_success and not stay_still
-        self.save_data(task_success)
+        # self.save_data(task_success)
         return task_success
 
     def reset(self, i, reset_flag):

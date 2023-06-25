@@ -309,10 +309,10 @@ def add_panda_arena(gym, sim, env, robot_asset, i):
 
     # Define start pose for cubes
     cubeA_start_pose = gymapi.Transform()
-    cubeA_start_pose.p = gymapi.Vec3(0.2, 0.1, 1.05)
+    cubeA_start_pose.p = gymapi.Vec3(0.2, -0.2, 1.05)
     cubeA_start_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
     cubeB_start_pose = gymapi.Transform()
-    cubeB_start_pose.p = gymapi.Vec3(0.2, -0.1, 1.06)
+    cubeB_start_pose.p = gymapi.Vec3(0.2, 0.2, 1.06)
     cubeB_start_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
 
     # Create panda robot
