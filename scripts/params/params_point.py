@@ -7,7 +7,7 @@ num_envs = 100
 nx = 4
 noise_sigma = torch.tensor([[1, 0], [0, 1]], device="cuda:0", dtype=torch.float32) # for case 2 push
 # noise_sigma = torch.tensor([[1.5, 0], [0, 1.5]], device="cuda:0", dtype=torch.float32) # for case 2 pull
-horizon = 12
+horizon = 15
 lambda_ = 0.8
 device = "cuda:0" 
 u_max = torch.tensor([2, 2], device="cuda:0", dtype=torch.float32)

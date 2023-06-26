@@ -172,6 +172,14 @@ class SIM():
                     top_trajs = data_transfer.bytes_to_torch(_top_trajs)
                     sim_init.visualize_toptrajs(self.gym, self.viewer, self.envs[0], top_trajs, self.mobile_robot)
                 
+                # For multi-modal mppi
+                dir_robot_bloc = (self.robot_pos-self.block_pos).squeeze(0)
+                check = torch.sum(actions[0] * dir_robot_bloc).item()
+                dis = torch.linalg.norm(dir_robot_bloc)
+                self.suction_active = False
+                if dis < 0.55 and check > 0 and self.curr_planner_task in ['pull', 'hybrid']:
+                    self.suction_active = True
+                # print(self.suction_active)
                 # Apply forward kikematics and optimal action
                 self.action = skill_utils.apply_fk(self.robot, actions[0])
                 self.gym.set_dof_velocity_target_tensor(self.sim, gymtorch.unwrap_tensor(self.action))
@@ -198,9 +206,9 @@ class SIM():
                 sim_init.refresh_states(self.gym, self.sim)
 
                 # Debug
-                ee_rot_matrix = skill_utils.quaternion_rotation_matrix(self.ee_l_state[:, 3:7])
-                ee_zaxis = ee_rot_matrix[:, :, 2]
-                print('tilt value', format(ee_zaxis[0, 0].item(), '.2f'))
+                # ee_rot_matrix = skill_utils.quaternion_rotation_matrix(self.ee_l_state[:, 3:7])
+                # ee_zaxis = ee_rot_matrix[:, :, 2]
+                # print('tilt value', format(ee_zaxis[0, 0].item(), '.2f'))
 
                 # Step rendering and store data
                 self.sim_time = np.append(self.sim_time, t_prev)

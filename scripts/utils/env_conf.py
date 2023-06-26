@@ -9,8 +9,8 @@ box1_pose = gymapi.Transform()
 box1_pose.p = gymapi.Vec3(1, -2, 0)
 
 box2_pose = gymapi.Transform()
-# box2_pose.p = gymapi.Vec3(-2, 1, 0)         # for push, navigation
-box2_pose.p = gymapi.Vec3(2, -2, 0)       # for reactive push
+box2_pose.p = gymapi.Vec3(-2, 1, 0)         # for push, navigation
+# box2_pose.p = gymapi.Vec3(2, -2, 0)       # for reactive push
 # box2_pose.p = gymapi.Vec3(3.75, -3.75, 0) # at corner, pull first
 
 box3_pose = gymapi.Transform()
@@ -47,8 +47,8 @@ corner3_pose.p = gymapi.Vec3(-3.75, 3.75, 0)
 corner4_pose = gymapi.Transform()
 corner4_pose.p = gymapi.Vec3(3.75, 3.75, 0)
 
-docking_station_loc = torch.tensor([0, -3], dtype=torch.float32, device="cuda:0") # in the middle (for aif)
-# docking_station_loc = torch.tensor([-3.75, -3.75], dtype=torch.float32, device="cuda:0") # close to corner
+# docking_station_loc = torch.tensor([0, -3], dtype=torch.float32, device="cuda:0") # in the middle (for aif)
+docking_station_loc = torch.tensor([-3.75, -3.75], dtype=torch.float32, device="cuda:0") # close to corner
 recharge_pose = gymapi.Transform()
 recharge_pose.p = gymapi.Vec3(docking_station_loc[0], docking_station_loc[1], 0)
 

@@ -139,7 +139,7 @@ class FUSION_MPPI(mppi.MPPI):
         self.robot_to_block_dist = torch.linalg.norm(self.robot_to_block, axis = 1)
         self.block_to_goal_dist = torch.linalg.norm(self.block_to_goal, axis = 1)
         
-        self.dist_cost = self.robot_to_block_dist + self.block_to_goal_dist * 5
+        self.dist_cost = self.robot_to_block_dist + self.block_to_goal_dist * 10
         self.cos_theta = torch.sum(self.robot_to_block*self.block_to_goal, 1)/(self.robot_to_block_dist*self.block_to_goal_dist)
 
     def get_push_cost(self, hybrid):
@@ -147,7 +147,9 @@ class FUSION_MPPI(mppi.MPPI):
         self.calculate_dist()
 
         # Force the robot behind block and goal, align_cost is actually cos(theta)+1
-        align_cost = self.align_weight[self.robot] * (self.cos_theta + 1) * 5
+        # align_cost = self.align_weight[self.robot] * (self.cos_theta + 1) * 5
+        align_cost = torch.zeros(self.num_envs, dtype=torch.float32, device="cuda:0")
+        align_cost[self.cos_theta>0] = self.cos_theta[self.cos_theta>0]
         # print('push align', align_cost[:10])
         # if self.robot != 'boxer':
         #     align_cost += torch.abs(self.robot_to_goal_dist - self.block_to_goal_dist - self.align_offset[self.robot])
@@ -155,7 +157,7 @@ class FUSION_MPPI(mppi.MPPI):
         if hybrid:
             return self.dist_cost # [num_envs]
         else:
-            return self.dist_cost + 3 * align_cost + 10 * ori_cost# [num_envs]
+            return 3 * self.dist_cost + 3 * align_cost #+ 10 * ori_cost# [num_envs]
     
     def get_pull_cost(self, hybrid):
         pos_dir = self.block_pos - self.robot_pos
@@ -175,7 +177,9 @@ class FUSION_MPPI(mppi.MPPI):
         self.calculate_dist()
 
         # Force the robot to be in the middle between block and goal, align_cost is actually 1-cos(theta)
-        align_cost = (1 - self.cos_theta) * 5
+        # align_cost = (1 - self.cos_theta) * 5
+        align_cost = torch.zeros(self.num_envs, dtype=torch.float32, device="cuda:0")
+        align_cost[self.cos_theta<0] = -self.cos_theta[self.cos_theta<0]
         # print('pull align', align_cost[-10:])
 
         # Add the cost when the robot is close to the block and moves towards the block
@@ -187,7 +191,7 @@ class FUSION_MPPI(mppi.MPPI):
         if hybrid:
             return self.dist_cost + vel_cost # [num_envs]
         else:
-            return self.dist_cost + vel_cost + 3 * align_cost + 10 * ori_cost # [num_envs]
+            return 3 * self.dist_cost + vel_cost + 3 * align_cost #+ 10 * ori_cost # [num_envs]
 
     def get_push_not_goal_cost(self):
         non_goal_cost = torch.clamp((1/torch.linalg.norm(self.block_not_goal - self.block_pos,axis = 1)), min=0, max=10)
@@ -345,7 +349,7 @@ class FUSION_MPPI(mppi.MPPI):
         elif self.task == 'push_not_goal':
             task_cost = self.get_push_not_goal_cost()
         elif self.task == 'hybrid':
-            task_cost = torch.cat((self.get_push_cost(True)[:int(self.num_envs/2)], self.get_pull_cost(True)[int(self.num_envs/2):]), dim=0)
+            task_cost = torch.cat((self.get_push_cost(False)[:self.half_K], self.get_pull_cost(False)[self.half_K:]), dim=0)
             # print('push cost', task_cost[:10])
             # print('pull cost', task_cost[self.num_envs-10:])
         elif self.task == 'pick':

@@ -473,7 +473,8 @@ class MPPI():
 
         # Action perturbation cost
         perturbation_cost = torch.sum(self.mean_action * action_cost, dim=(1, 2))
-        # self.cost_total += perturbation_cost
+        # if not self.multi_modal:
+        #     self.cost_total += perturbation_cost
         return self.cost_total
 
     def _exp_util(self, costs):
