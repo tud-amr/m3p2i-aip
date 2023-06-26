@@ -177,7 +177,7 @@ class SIM():
                 check = torch.sum(actions[0] * dir_robot_bloc).item()
                 dis = torch.linalg.norm(dir_robot_bloc)
                 self.suction_active = False
-                if dis < 0.55 and check > 0 and self.curr_planner_task in ['pull', 'hybrid']:
+                if dis < 0.6 and check > 0 and self.curr_planner_task in ['pull', 'hybrid']:
                     self.suction_active = True
                 # print(self.suction_active)
                 # Apply forward kikematics and optimal action

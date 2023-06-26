@@ -309,7 +309,7 @@ class MPPI():
             action = torch.clone(self.mean_action) # !!
         
         # Compute top n trajs
-        self.top_values, self.top_idx = torch.topk(self.weights, 10)
+        self.top_values, self.top_idx = torch.topk(self.weights, 20)
         if self.ee_states != 'None':
             self.top_trajs = torch.index_select(self.ee_states, 0, self.top_idx)
         else:
@@ -490,9 +490,10 @@ class MPPI():
         exp_ = torch.exp((-1.0/self.beta) * total_costs)
         eta = torch.sum(exp_)       # tells how many significant samples we have, more or less
         self.weights = 1 / eta * exp_  # [K]
+        print('eta', eta)
 
         # Update beta to make eta converge within the bounds 
-        if self.env_type == 'cube':
+        if self.env_type == 'cube': # grady's thesis
             eta_u_bound = 20
             eta_l_bound = 10
             beta_lm = 0.9
@@ -588,10 +589,12 @@ class MPPI():
         exp_2 = torch.exp((-1.0/self.beta) * total_costs_2)
         eta_1 = torch.sum(exp_1)
         eta_2 = torch.sum(exp_2)
+        print('eta1', eta_1)
+        print('eta2', eta_2)
         self.weights_1 = 1 / eta_1 * exp_1 
         self.weights_2 = 1 / eta_2 * exp_2
-        self.weights = torch.cat((self.weights_1, self.weights_2), 0)
-        self.total_costs = torch.cat((total_costs_1, total_costs_2), 0)
+        #self.weights = torch.cat((self.weights_1, self.weights_2), 0)
+        #self.total_costs = torch.cat((total_costs_1, total_costs_2), 0)
     
     def _update_multi_modal_distribution(self, costs, actions):
         """
@@ -599,6 +602,7 @@ class MPPI():
             So far only mean is updated, eventually one could also update the covariance
         """
 
+        self._exp_util(costs)
         self._multi_modal_exp_util(costs)
 
         # # Update best action
@@ -607,12 +611,15 @@ class MPPI():
         # self.best_traj = torch.index_select(actions, 0, best_idx).squeeze(0)
        
         weighted_seq = self.weights.view(-1, 1, 1) * actions # [K, T, nu]
-        self.mean_action_1 = torch.sum(weighted_seq[:self.half_K], dim=0)
-        self.mean_action_2 = torch.sum(weighted_seq[self.half_K:], dim=0)
+        print(self.weights)
+        # print(actions)
+        self.mean_action_1 = torch.sum(self.weights_1.view(-1, 1, 1) * actions[:self.half_K], dim=0)
+        self.mean_action_2 = torch.sum(self.weights_2.view(-1, 1, 1) * actions[self.half_K:], dim=0)
 
         # Gradient update for the mean
         self.mean_action = (1.0 - self.step_size_mean) * self.mean_action +\
-            self.step_size_mean/2 * self.mean_action_1 + self.step_size_mean/2 * self.mean_action_2
+            self.step_size_mean * torch.sum(weighted_seq, 0)
+        # print(torch.sum(weighted_seq, 0))
         # print(self.mean_action.size()) # [T, nu]
        
         delta = actions - self.mean_action.unsqueeze(0)

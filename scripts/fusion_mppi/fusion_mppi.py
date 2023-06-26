@@ -349,7 +349,7 @@ class FUSION_MPPI(mppi.MPPI):
         elif self.task == 'push_not_goal':
             task_cost = self.get_push_not_goal_cost()
         elif self.task == 'hybrid':
-            task_cost = torch.cat((self.get_push_cost(False)[:self.half_K], self.get_pull_cost(False)[self.half_K:]), dim=0)
+            return torch.cat((self.get_push_cost(False)[:self.half_K], self.get_pull_cost(False)[self.half_K:]), dim=0)
             # print('push cost', task_cost[:10])
             # print('pull cost', task_cost[self.num_envs-10:])
         elif self.task == 'pick':
