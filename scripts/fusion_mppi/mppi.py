@@ -304,10 +304,12 @@ class MPPI():
             #     self.lambda_ = (1-lambda_mult)*self.lambda_
 
         elif self.mppi_mode == 'halton-spline':
-            # shift command 1 time step, mean_action [T, nu]
-            saved_action = self.mean_action[-1]
-            self.mean_action = torch.roll(self.mean_action, -1, dims=0)
-            self.mean_action[-1] = saved_action
+            # shift command 1 time step [T, nu]
+            self.mean_action = self._shift_action(self.mean_action)
+            self.mean_action_1 = self._shift_action(self.mean_action_1)
+            self.mean_action_1 = self._shift_action(self.mean_action_1)
+            self.best_traj_1 = self._shift_action(self.best_traj_1)
+            self.best_traj_2 = self._shift_action(self.best_traj_2)
 
             cost_total = self._compute_total_cost_batch_halton()
             action = torch.clone(self.mean_action) # !!
@@ -330,6 +332,15 @@ class MPPI():
             else:
                 action = torch.from_numpy(u_filtered).to('cuda')
         return action
+    
+    def _shift_action(self, action_seq):
+        """
+            Given an action_seq [T, nu], make a time shifted sequence
+        """
+        saved_action = action_seq[-1]
+        action_seq = torch.roll(action_seq, -1, dims=0)
+        action_seq[-1] = saved_action
+        return action_seq
 
     def _compute_rollout_costs(self, perturbed_actions):
         """
@@ -473,7 +484,6 @@ class MPPI():
         if self.multi_modal:
             act_seq[0, :, :] = self.best_traj_1
             act_seq[self.half_K, :, :] = self.best_traj_2
-        print(self.best_traj_1.size())
         
         self.perturbed_action = torch.clone(act_seq)
         if self.robot == 'panda':
