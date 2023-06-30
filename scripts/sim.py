@@ -173,12 +173,13 @@ class SIM():
                     sim_init.visualize_toptrajs(self.gym, self.viewer, self.envs[0], top_trajs, self.mobile_robot)
                 
                 # For multi-modal mppi
-                dir_robot_bloc = (self.robot_pos-self.block_pos).squeeze(0)
-                check = torch.sum(actions[0] * dir_robot_bloc).item()
-                dis = torch.linalg.norm(dir_robot_bloc)
-                self.suction_active = False
-                if dis < 0.6 and check > 0 and self.curr_planner_task in ['pull', 'hybrid']:
-                    self.suction_active = True
+                if self.environment_type == 'normal':
+                    dir_robot_bloc = (self.robot_pos-self.block_pos).squeeze(0)
+                    check = torch.sum(actions[0] * dir_robot_bloc).item()
+                    dis = torch.linalg.norm(dir_robot_bloc)
+                    self.suction_active = False
+                    if dis < 0.6 and check > 0 and self.curr_planner_task in ['pull', 'hybrid']:
+                        self.suction_active = True
                 # print(self.suction_active)
                 # Apply forward kikematics and optimal action
                 self.action = skill_utils.apply_fk(self.robot, actions[0])
