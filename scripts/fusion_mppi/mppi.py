@@ -172,8 +172,10 @@ class MPPI():
         # Inpu initialization
         if u_init is None:
             u_init = torch.zeros_like(noise_mu)
-            self.mean_action = torch.zeros(self.nu, device=self.tensor_args['device'], dtype=self.tensor_args['dtype'])
+            self.mean_action = torch.zeros((self.T, self.nu), device=self.tensor_args['device'], dtype=self.tensor_args['dtype'])
             self.best_traj = self.mean_action.clone()
+            self.best_traj_1 = self.mean_action.clone()
+            self.best_traj_2 = self.mean_action.clone()
             self.mean_action_1 = torch.zeros((self.T, self.nu), device=self.tensor_args['device'], dtype=self.tensor_args['dtype'])
             self.mean_action_2 = torch.zeros((self.T, self.nu), device=self.tensor_args['device'], dtype=self.tensor_args['dtype'])
 
@@ -236,6 +238,8 @@ class MPPI():
         self.gamma_seq = torch.cumprod(torch.tensor([1.0] + [self.gamma] * (self.T - 1)),dim=0).reshape(1, self.T)
         self.gamma_seq = self.gamma_seq.to(**self.tensor_args)
         self.beta = 1 # param storm
+        self.beta_1 = 1
+        self.beta_2 = 1
 
         # Filtering
         self.sgf_window = 9
@@ -383,7 +387,7 @@ class MPPI():
         
         if self.mppi_mode == 'halton-spline':
             if self.multi_modal:
-                self.noise = self._update_multi_modal_distribution_new(cost_horizon, actions)
+                self.noise = self._update_multi_modal_distribution(cost_horizon, actions)
             else:
                 self.noise = self._update_distribution(cost_horizon, actions)
         return cost_total, states, actions, ee_states
@@ -450,7 +454,7 @@ class MPPI():
 
         # First time mean is zero then it is updated in the distribution
         if self.multi_modal:
-            act_seq_1 = self.mean_action_1 + scaled_delta[:self.half_K, :, :]
+            act_seq_1 = self.mean_action_1 + scaled_delta[:self.half_K, :, :] # also time shift!!
             act_seq_2 = self.mean_action_2 + scaled_delta[self.half_K:, :, :]
             act_seq = torch.cat((act_seq_1, act_seq_2), 0)
         else:
@@ -460,6 +464,16 @@ class MPPI():
         act_seq = scale_ctrl(act_seq, self.u_min, self.u_max, squash_fn=self.squash_fn)
         # print(act_seq.size())
         # act_seq[self.nu, :, :] = self.best_traj # !!?
+
+        # New weight, pick yes
+        # New weight move no
+        # Old weight move two corner maybe yes, not sure, maybe tune the range of costheta
+        # Old weight move one corner yes, good 
+        # Old weight pick yes, good
+        if self.multi_modal:
+            act_seq[0, :, :] = self.best_traj_1
+            act_seq[self.half_K, :, :] = self.best_traj_2
+        print(self.best_traj_1.size())
         
         self.perturbed_action = torch.clone(act_seq)
         if self.robot == 'panda':
@@ -585,12 +599,16 @@ class MPPI():
         # print('1', total_costs_1)
         # print('2', total_costs_2)
         # Normalization of the weights
-        exp_1 = torch.exp((-1.0/self.beta) * total_costs_1)
-        exp_2 = torch.exp((-1.0/self.beta) * total_costs_2)
+        exp_1 = torch.exp((-1.0/self.beta_1) * total_costs_1)
+        exp_2 = torch.exp((-1.0/self.beta_2) * total_costs_2)
         eta_1 = torch.sum(exp_1)
         eta_2 = torch.sum(exp_2)
         print('eta1', eta_1)
         print('eta2', eta_2)
+        if self.env_type == 'normal':
+            # two corner
+            self.beta_1 = self.update_beta(self.beta_1, eta_1, 10, 1) 
+            self.beta_2 = self.update_beta(self.beta_2, eta_2, 10, 1)
         self.weights_1 = 1 / eta_1 * exp_1 
         self.weights_2 = 1 / eta_2 * exp_2
         self.weights = torch.cat((self.weights_1, self.weights_2), 0)
@@ -605,9 +623,12 @@ class MPPI():
         self._multi_modal_exp_util(costs)
 
         # # Update best action
-        # best_idx = torch.argmax(self.weights)
-        # self.best_idx = best_idx
-        # self.best_traj = torch.index_select(actions, 0, best_idx).squeeze(0)
+        self.best_idx_1 = torch.argmax(self.weights_1)
+        self.best_idx_2 = torch.argmax(self.weights_2)
+        self.best_traj_1 = torch.index_select(actions, 0, self.best_idx_1).squeeze(0)
+        self.best_traj_2 = torch.index_select(actions, 0, self.best_idx_2+self.half_K).squeeze(0)
+        # print('1', self.best_idx_1)
+        # print('2', self.best_idx_2)
        
         weighted_seq = self.weights.view(-1, 1, 1) * actions # [K, T, nu]
         self.mean_action_1 = torch.sum(weighted_seq[:self.half_K], dim=0)
@@ -636,18 +657,40 @@ class MPPI():
         # print('1', total_costs_1)
         # print('2', total_costs_2)
         # Normalization of the weights
-        exp_1 = torch.exp((-1.0/self.beta) * total_costs_1)
-        exp_2 = torch.exp((-1.0/self.beta) * total_costs_2)
+        exp_1 = torch.exp((-1.0/self.beta_1) * total_costs_1)
+        exp_2 = torch.exp((-1.0/self.beta_2) * total_costs_2)
         exp_ = torch.exp((-1.0/self.beta) * total_costs)
         eta_1 = torch.sum(exp_1)
         eta_2 = torch.sum(exp_2)
         eta = torch.sum(exp_)
         print('eta1', eta_1)
         print('eta2', eta_2)
+        print('eta', eta)
+        # Update beta to make eta converge within the bounds 
+        if self.env_type == 'cube': # grady's thesis
+            self.beta_1 = self.update_beta(self.beta_1, eta_1, eta_u_bound=25, eta_l_bound=5)
+            self.beta_2 = self.update_beta(self.beta_2, eta_2, eta_u_bound=25, eta_l_bound=5)
+        elif self.env_type == 'normal':
+            # two corner
+            self.beta_1 = self.update_beta(self.beta_1, eta_1, 10, 1) 
+            self.beta_2 = self.update_beta(self.beta_2, eta_2, 10, 1)
+            # # one corner
+            # self.beta_1 = self.update_beta(self.beta_1, eta_1, 10, 3) 
+            # self.beta_2 = self.update_beta(self.beta_2, eta_2, 10, 3)
+
         self.weights_1 = 1 / eta_1 * exp_1 
         self.weights_2 = 1 / eta_2 * exp_2
         self.weights = 1 / eta * exp_ 
         # print('weights', self.weights)
+    
+    def update_beta(self, beta, eta, eta_u_bound, eta_l_bound):
+        beta_lm = 0.9
+        beta_um = 1.2
+        if eta > eta_u_bound:
+            beta = beta * beta_lm
+        elif eta < eta_l_bound:
+            beta = beta * beta_um
+        return beta
     
     def _update_multi_modal_distribution_new(self, costs, actions):
         """
@@ -658,9 +701,10 @@ class MPPI():
         self._multi_modal_exp_util_new(costs)
 
         # # Update best action
-        # best_idx = torch.argmax(self.weights)
-        # self.best_idx = best_idx
-        # self.best_traj = torch.index_select(actions, 0, best_idx).squeeze(0)
+        self.best_idx_1 = torch.argmax(self.weights_1)
+        self.best_idx_2 = torch.argmax(self.weights_2)
+        self.best_traj_1 = torch.index_select(actions, 0, self.best_idx_1).squeeze(0)
+        self.best_traj_2 = torch.index_select(actions, 0, self.best_idx_2+self.half_K).squeeze(0)
        
         weighted_seq = self.weights.view(-1, 1, 1) * actions # [K, T, nu]
         # print(actions)
