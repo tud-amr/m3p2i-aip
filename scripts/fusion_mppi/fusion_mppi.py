@@ -142,7 +142,7 @@ class FUSION_MPPI(mppi.MPPI):
         self.dist_cost = self.robot_to_block_dist + self.block_to_goal_dist * 10
         self.cos_theta = torch.sum(self.robot_to_block*self.block_to_goal, 1)/(self.robot_to_block_dist*self.block_to_goal_dist)
 
-    def get_push_cost(self, hybrid):
+    def get_push_cost(self):
         # Calculate dist cost
         self.calculate_dist()
 
@@ -154,10 +154,8 @@ class FUSION_MPPI(mppi.MPPI):
         # if self.robot != 'boxer':
         #     align_cost += torch.abs(self.robot_to_goal_dist - self.block_to_goal_dist - self.align_offset[self.robot])
         ori_cost = skill_utils.get_general_ori_cube2goal(self.block_quat, self.goal_quaternion)
-        if hybrid:
-            return self.dist_cost # [num_envs]
-        else:
-            return 3 * self.dist_cost + 3 * align_cost #+ 10 * ori_cost# [num_envs]
+ 
+        return 3 * self.dist_cost + 3 * align_cost #+ 10 * ori_cost# [num_envs]
     
     def get_pull_cost(self, hybrid):
         pos_dir = self.block_pos - self.robot_pos
@@ -169,7 +167,7 @@ class FUSION_MPPI(mppi.MPPI):
         # Set no suction force if robot moves towards the block
         suction_force[flag_towards_block] = 0
         if hybrid:
-            suction_force[:int(self.num_envs/2)] = 0
+            suction_force[:self.half_K] = 0
         # Apply suction/magnetic force
         self.gym.apply_rigid_body_force_tensors(self.sim, gymtorch.unwrap_tensor(torch.reshape(suction_force, (self.num_envs*self.bodies_per_env, 3))), None, gymapi.ENV_SPACE)
 
@@ -188,10 +186,8 @@ class FUSION_MPPI(mppi.MPPI):
         vel_cost[flag_towards_block*robot_block_close] = 0.5
 
         ori_cost = skill_utils.get_general_ori_cube2goal(self.block_quat, self.goal_quaternion)
-        if hybrid:
-            return self.dist_cost + vel_cost # [num_envs]
-        else:
-            return 3 * self.dist_cost + vel_cost + 3 * align_cost #+ 10 * ori_cost # [num_envs]
+
+        return 3 * self.dist_cost + vel_cost + 3 * align_cost #+ 10 * ori_cost # [num_envs]
 
     def get_push_not_goal_cost(self):
         non_goal_cost = torch.clamp((1/torch.linalg.norm(self.block_not_goal - self.block_pos,axis = 1)), min=0, max=10)
@@ -343,13 +339,13 @@ class FUSION_MPPI(mppi.MPPI):
         if self.task == 'navigation' or self.task == 'go_recharge':
             task_cost = self.get_navigation_cost()
         elif self.task == 'push':
-            task_cost = self.get_push_cost(False)
+            task_cost = self.get_push_cost()
         elif self.task == 'pull':
             task_cost = 10 * self.get_pull_cost(False)
         elif self.task == 'push_not_goal':
             task_cost = self.get_push_not_goal_cost()
         elif self.task == 'hybrid':
-            return torch.cat((self.get_push_cost(False)[:self.half_K], self.get_pull_cost(False)[self.half_K:]), dim=0)
+            return torch.cat((self.get_push_cost()[:self.half_K], self.get_pull_cost(True)[self.half_K:]), dim=0)
             # print('push cost', task_cost[:10])
             # print('pull cost', task_cost[self.num_envs-10:])
         elif self.task == 'pick':

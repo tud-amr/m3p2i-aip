@@ -398,7 +398,7 @@ class MPPI():
         
         if self.mppi_mode == 'halton-spline':
             if self.multi_modal:
-                self.noise = self._update_multi_modal_distribution(cost_horizon, actions)
+                self.noise = self._update_multi_modal_distribution_new(cost_horizon, actions)
             else:
                 self.noise = self._update_distribution(cost_horizon, actions)
         return cost_total, states, actions, ee_states
@@ -682,8 +682,8 @@ class MPPI():
             self.beta_2 = self.update_beta(self.beta_2, eta_2, eta_u_bound=25, eta_l_bound=5)
         elif self.env_type == 'normal':
             # two corner
-            self.beta_1 = self.update_beta(self.beta_1, eta_1, 10, 1) 
-            self.beta_2 = self.update_beta(self.beta_2, eta_2, 10, 1)
+            self.beta_1 = self.update_beta(self.beta_1, eta_1, 10, 3) 
+            self.beta_2 = self.update_beta(self.beta_2, eta_2, 10, 3)
             # # one corner
             # self.beta_1 = self.update_beta(self.beta_1, eta_1, 10, 3) 
             # self.beta_2 = self.update_beta(self.beta_2, eta_2, 10, 3)
