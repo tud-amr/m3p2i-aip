@@ -320,7 +320,7 @@ class FUSION_MPPI(mppi.MPPI):
         past_u = torch.clone(u)
 
         # Avoid dynamic obstacle
-        penalty_factor = 2 # the larger the factor, the more penalty to geting close to the obs
+        penalty_factor = 3 # the larger the factor, the more penalty to geting close to the obs
         dyn_obs_cost = self._predict_dyn_obs(penalty_factor, t+1) if allow_dyn_obs else 0
 
         return w_c*coll_cost + acc_cost + dyn_obs_cost

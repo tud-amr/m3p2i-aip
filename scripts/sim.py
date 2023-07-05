@@ -152,12 +152,12 @@ class SIM():
                 task_success = int(freq_data[6])
                 if len(self.sim_time) > 0:
                     self.elapsed_time = self.sim_time[-1]-self.sim_time[0]
-                if task_success or self.elapsed_time >= 20:
-                    if self.environment_type != 'cube':
-                        self.plot()
+                # if task_success or self.elapsed_time >= 20:
+                #     if self.environment_type != 'cube':
+                #         self.plot()
                         # if self.allow_save_data:
                         #     self.save_data()
-                    self.destroy()
+                    # self.destroy()
 
                 # Clear lines at the beginning
                 self.gym.clear_lines(self.viewer)
