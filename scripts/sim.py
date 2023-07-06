@@ -72,10 +72,13 @@ class SIM():
         reset_flag = False
         cubeA_index = 3
         cubeB_index = 4
+        obs_index = 6
         x_pos = torch.tensor([0.03, 0, 0], dtype=torch.float32, device='cuda:0').repeat(self.num_envs)
         y_pos = torch.tensor([0, 0.03, 0], dtype=torch.float32, device='cuda:0').repeat(self.num_envs)
+        z_pos = torch.tensor([0, 0, 0.03], dtype=torch.float32, device='cuda:0').repeat(self.num_envs)
         cube_targets = {'key_up':-y_pos, 'key_down':y_pos, 'key_left':x_pos, 'key_right':-x_pos}
         goal_targets = {'up':-y_pos, 'down':y_pos, 'left':x_pos, 'right':-x_pos}
+        obs_targets = {'1':x_pos, '2':-x_pos, '3':-y_pos, '4':y_pos, '5':z_pos, '6':-z_pos}
         for evt in self.gym.query_viewer_action_events(self.viewer):
             # Press 'R' to reset the simulation
             if evt.action == 'reset' and evt.value > 0:
@@ -88,6 +91,8 @@ class SIM():
                     self.root_states[cubeA_index, 0:3] += cube_targets[evt.action]
                 if evt.action in ['up', 'down', 'left', 'right']:
                     self.root_states[cubeB_index, 0:3] += goal_targets[evt.action]
+                if evt.action in ['1', '2', '3', '4', '5', '6']:
+                    self.root_states[obs_index, 0:3] += obs_targets[evt.action]
                 self.gym.set_actor_root_state_tensor(self.sim, gymtorch.unwrap_tensor(self.root_states))
         sim_init.step(self.gym, self.sim)
         sim_init.refresh_states(self.gym, self.sim)

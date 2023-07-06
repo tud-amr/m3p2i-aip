@@ -280,14 +280,21 @@ def add_panda_arena(gym, sim, env, robot_asset, i):
     table_stand_pos = [-0.5, 0.0, 1.0 + table_thickness / 2 + table_stand_height / 2]
     table_stand_opts = gymapi.AssetOptions()
     table_stand_opts.fix_base_link = True
-    table_stand_asset = gym.create_box(sim, *[0.2, 0.2, table_stand_height], table_opts)
+    table_stand_asset = gym.create_box(sim, *[0.2, 0.2, table_stand_height], table_stand_opts)
 
     # Create shelf asset 
     shelf_stand_height = 0.3
     shelf_stand_pos = [0.5, 0.0, 1.0 + table_thickness / 2 + shelf_stand_height / 2]
     shelf_stand_opts = gymapi.AssetOptions()
     shelf_stand_opts.fix_base_link = True
-    shelf_stand_asset = gym.create_box(sim, *[0.2, 0.2, shelf_stand_height], table_opts)
+    shelf_stand_asset = gym.create_box(sim, *[0.2, 0.2, shelf_stand_height], shelf_stand_opts)
+
+    # Create obstacle asset
+    obs_height = 0.02
+    obs_pos = [0.5, 0.0, 1.7 + table_thickness / 2 + obs_height / 2]
+    obs_opts = gymapi.AssetOptions()
+    obs_opts.disable_gravity = True
+    obs_asset = gym.create_box(sim, *[0.2, 0.2, obs_height], obs_opts)
 
     # Create cubeA asset
     cubeA_opts = gymapi.AssetOptions()
@@ -322,6 +329,11 @@ def add_panda_arena(gym, sim, env, robot_asset, i):
     shelf_stand_start_pose = gymapi.Transform()
     shelf_stand_start_pose.p = gymapi.Vec3(*shelf_stand_pos)
     shelf_stand_start_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
+    
+    # Define start pose for obs
+    obs_start_pose = gymapi.Transform()
+    obs_start_pose.p = gymapi.Vec3(*obs_pos)
+    obs_start_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
 
     # Define start pose for cubes
     cubeA_start_pose = gymapi.Transform()
@@ -347,6 +359,9 @@ def add_panda_arena(gym, sim, env, robot_asset, i):
 
     # Create shelf
     shelf_creator = gym.create_actor(env, shelf_stand_asset, shelf_stand_start_pose, "shelf_stand",i, 1, 0)
+
+    # Create obstacle
+    obs_creater = gym.create_actor(env, obs_asset, obs_start_pose, "obs",i, 1, 0)
 
     cubeA_rbid = gym.get_actor_rigid_body_index(env, cubeA_id, 0, gymapi.DOMAIN_SIM) # 13
     cubeB_rbid = gym.get_actor_rigid_body_index(env, cubeB_id, 0, gymapi.DOMAIN_SIM) # 14
