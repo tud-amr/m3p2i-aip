@@ -398,7 +398,7 @@ class MPPI():
         
         if self.mppi_mode == 'halton-spline':
             if self.multi_modal:
-                self.noise = self._update_multi_modal_distribution_new(cost_horizon, actions)
+                self.noise = self._update_multi_modal_distribution(cost_horizon, actions)
             else:
                 self.noise = self._update_distribution(cost_horizon, actions)
         return cost_total, states, actions, ee_states

@@ -79,12 +79,12 @@ class FUSION_MPPI(mppi.MPPI):
         self.allow_dyn_obs = True
         if self.env_type == 'normal':   
             self.obs_list = torch.arange(6, device="cuda:0")
-            # self.obs_list = torch.arange(self.bodies_per_env, device="cuda:0") # avoid all obstacles
         elif self.env_type == 'lab':
             self.obs_list = torch.arange(4, device="cuda:0") 
         elif self.env_type == 'cube':
-            self.obs_list = torch.arange(5, device="cuda:0") 
+            self.obs_list = torch.tensor(16, device="cuda:0") 
             self.allow_dyn_obs = False
+        # self.obs_list = torch.arange(self.bodies_per_env, device="cuda:0") # avoid all obstacles
 
     def update_gym(self, gym, sim, viewer=None):
         self.gym = gym
@@ -343,7 +343,7 @@ class FUSION_MPPI(mppi.MPPI):
             # print('push cost', task_cost[:10])
             # print('pull cost', task_cost[self.num_envs-10:])
         elif self.task == 'pick':
-            return self.get_panda_pick_cost(self.multi_modal)
+            task_cost =  self.get_panda_pick_cost(self.multi_modal)
         elif self.task == 'place':
             return self.get_panda_place_cost()
         else:
