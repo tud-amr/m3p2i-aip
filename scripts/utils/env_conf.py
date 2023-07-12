@@ -129,7 +129,8 @@ def load_albert(gym, sim):
     point_robot_asset_file = "urdf/albert/albert.urdf"
     print("Loading asset '%s' from '%s'" % (point_robot_asset_file, asset_root))
     asset_options = gymapi.AssetOptions()
-    asset_options.fix_base_link = False
+    # asset_options.fix_base_link = True
+    # asset_options.disable_gravity = True
     asset_options.armature = 0.01
     robot_asset = gym.load_asset(sim, asset_root, point_robot_asset_file, asset_options)
     pose = gymapi.Transform()
@@ -370,6 +371,65 @@ def add_panda_arena(gym, sim, env, robot_asset, i):
 
     return panda_actor
 
+def add_albert_arena(gym, sim, env, robot_asset, i):
+    # Create table asset
+    table_pos = [0.0, 0.0, 1.0]
+    table_thickness = 0.05
+    table_opts = gymapi.AssetOptions()
+    table_opts.fix_base_link = True
+    table_asset = gym.create_box(sim, *[1.2, 1.2, table_thickness], table_opts)
+
+    # Create cubeA asset
+    cubeA_opts = gymapi.AssetOptions()
+    cubeA_size = 0.050
+    cubeA_asset = gym.create_box(sim, *([cubeA_size] * 3), cubeA_opts)
+    cubeA_color = gymapi.Vec3(0.6, 0.1, 0.0)
+
+    # Create cubeB asset
+    cubeB_opts = gymapi.AssetOptions()
+    cubeB_size = 0.050
+    cubeB_asset = gym.create_box(sim, *([cubeB_size] * 3), cubeB_opts)
+    cubeB_color = gymapi.Vec3(0.0, 0.4, 0.1)
+
+    # Define start pose for panda
+    albert_start_pose = gymapi.Transform()
+    albert_start_pose.p = gymapi.Vec3(1.5, 1.5, 0)
+    albert_start_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
+
+    # Define start pose for table
+    table_start_pose = gymapi.Transform()
+    table_start_pose.p = gymapi.Vec3(*table_pos)
+    table_start_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
+    table_surface_pos = np.array(table_pos) + np.array([0, 0, table_thickness / 2])
+    # self.reward_settings["table_height"] = self._table_surface_pos[2]
+
+
+    # Define start pose for cubes
+    cubeA_start_pose = gymapi.Transform()
+    cubeA_start_pose.p = gymapi.Vec3(0.2, -0.2, 1.05) # on the table
+    cubeA_start_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
+    cubeB_start_pose = gymapi.Transform()
+    cubeB_start_pose.p = gymapi.Vec3(0.2, 0.2, 1.06)
+    cubeB_start_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
+
+    # Create table
+    table_actor = gym.create_actor(env, table_asset, table_start_pose, "table", i, 1, 0)
+
+    # Create cubes
+    cubeA_id = gym.create_actor(env, cubeA_asset, cubeA_start_pose, "cubeA", i, 2, 0)
+    cubeB_id = gym.create_actor(env, cubeB_asset, cubeB_start_pose, "cubeB", i, 4, 0)
+    gym.set_rigid_body_color(env, cubeA_id, 0, gymapi.MESH_VISUAL, cubeA_color)
+    gym.set_rigid_body_color(env, cubeB_id, 0, gymapi.MESH_VISUAL, cubeB_color)
+
+    # Create panda robot
+    albert_actor = gym.create_actor(env, robot_asset, albert_start_pose, "albert", i, 0, 0)
+
+    cubeA_rbid = gym.get_actor_rigid_body_index(env, cubeA_id, 0, gymapi.DOMAIN_SIM) 
+    cubeB_rbid = gym.get_actor_rigid_body_index(env, cubeB_id, 0, gymapi.DOMAIN_SIM) 
+
+    return albert_actor
+
+
 def get_default_franka_state(gym, robot_asset):
 
     franka_dof_props = gym.get_asset_dof_properties(robot_asset)
@@ -413,6 +473,8 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, e
             if 'default_dof_state' not in locals():
                 default_dof_state = get_default_franka_state(gym, robot_asset)
             gym.set_actor_dof_states(env, robot_handle, default_dof_state, gymapi.STATE_ALL)
+        elif environment_type == "albert_arena":
+            robot_handle = add_albert_arena(gym, sim, env, robot_asset, i)
 
         robot_handles.append(robot_handle)
 
@@ -449,6 +511,18 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, e
             shape_props[2].friction = 0.
             shape_props[2].torsion_friction = 0.
             shape_props[2].rolling_friction = 0.
+            gym.set_actor_rigid_shape_properties(env, robot_handle, shape_props)
+
+        albert_rigid_body_names = ['base_link', 'chassis_link', 'internal_link', 'lift_link', 'top_mount_bottom', 'extrusion1', 'top_mount', 'mmrobot_link0', 'mmrobot_link1', 'mmrobot_link2', 'mmrobot_link3', 'mmrobot_link4', 'mmrobot_link5', 'mmrobot_link6', 'mmrobot_link7', 'mmrobot_link8', 'mmrobot_hand', 'mmrobot_leftfinger', 'mmrobot_rightfinger', 'extrusion2', 'extrusion3', 'extrusion4', 'rotacastor_left_link', 'rotacastor_right_link', 'wheel_left_link', 'wheel_right_link']
+        if gym.get_asset_rigid_body_names(robot_asset) == albert_rigid_body_names:
+            # Rigid bodies and rigid shapes are different. A rigid bodies can have 0 to n rigid shapes
+            shape_props = gym.get_actor_rigid_shape_properties(env, robot_handle)
+            shape_props[20].friction = 0.
+            shape_props[20].torsion_friction = 0.
+            shape_props[20].rolling_friction = 0.
+            shape_props[21].friction = 0.
+            shape_props[21].torsion_friction = 0.
+            shape_props[21].rolling_friction = 0.
             gym.set_actor_rigid_shape_properties(env, robot_handle, shape_props)
 
     return envs, robot_handles

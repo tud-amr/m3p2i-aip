@@ -13,8 +13,8 @@ class Params:
         self.allow_viewer = True
         self.num_envs = 1
         self.spacing = 10.0
-        self.robot = "panda"          # "point_robot", "boxer", "husky", "albert", "panda", and "heijn"
-        self.environment_type = "cube"    # "normal", "battery"
+        self.robot = "albert"          # "point_robot", "boxer", "husky", "albert", "panda", and "heijn"
+        self.environment_type = "albert_arena"    # "normal", "battery"
         self.control_type = "vel_control"   # "vel_control", "pos_control", "force_control"
 
 
@@ -46,18 +46,24 @@ gym, sim, viewer, envs, robot_handles = sim_init.make(params.allow_viewer,
 # Acquire states
 states_dict = sim_init.acquire_states(gym, sim, params)
 dof_states = states_dict["dof_states"]
+robot_states = states_dict["robot_states"]
+root_states = states_dict["root_states"]
+shaped_rb_states = states_dict["shaped_rb_states"]
 num_dofs = states_dict["num_dofs"]
 dofs_per_robot = states_dict["dofs_per_robot"]
 actors_per_env = states_dict["actors_per_env"]
 bodies_per_env = states_dict["bodies_per_env"]
 block_pos = states_dict["block_pos"]
 robot_pos = states_dict["robot_pos"]
+robot_vel = states_dict["robot_vel"]
 cube_state = states_dict["cube_state"]
+cube_goal_state = states_dict["cube_goal_state"]
 hand_state = states_dict["hand_state"]
 ee_l_state = states_dict["ee_l_state"]
 ee_r_state = states_dict["ee_r_state"]
 
-
+flag = True
+i = 0
 # Main loop
 while viewer is None or not gym.query_viewer_has_closed(viewer):
     # Step the simulation
@@ -74,16 +80,26 @@ while viewer is None or not gym.query_viewer_has_closed(viewer):
     # Respond to keyboard
     sim_init.keyboard_control(gym, sim, viewer, params.robot, num_dofs, params.num_envs, dof_states, params.control_type)
 
-    quarternion = ee_l_state[:, 3:7]
-    rot_ee = skill_utils.quaternion_rotation_matrix(quarternion)
-    zaxis_ee = rot_ee[:, :, 2]
-    print('ee z axis', zaxis_ee)
-    quarternion_cube = cube_state[:, 3:7]
-    rot_cube = skill_utils.quaternion_rotation_matrix(quarternion_cube)
-    zaxis_cube = rot_cube[:, :, 2]
-    print('cube z axis', zaxis_cube)
-    cos_theta = torch.sum(torch.mul(zaxis_ee, zaxis_cube), dim=1)
-    print('cos', cos_theta)
+    if int(i%10) ==0:
+        print('rob', robot_states)
+        # print('rob pos', robot_pos)
+        # print('rob vel', robot_vel)
+        # print('cube', cube_state)
+        # print('goal', cube_goal_state)
+        # print('hand', hand_state)
+        # print('l', ee_l_state)
+        # print('r', ee_r_state)
+    i += 1
+    # quarternion = ee_l_state[:, 3:7]
+    # rot_ee = skill_utils.quaternion_rotation_matrix(quarternion)
+    # zaxis_ee = rot_ee[:, :, 2]
+    # print('ee z axis', zaxis_ee)
+    # quarternion_cube = cube_state[:, 3:7]
+    # rot_cube = skill_utils.quaternion_rotation_matrix(quarternion_cube)
+    # zaxis_cube = rot_cube[:, :, 2]
+    # print('cube z axis', zaxis_cube)
+    # cos_theta = torch.sum(torch.mul(zaxis_ee, zaxis_cube), dim=1)
+    # print('cos', cos_theta)
 
     # Step rendering
     sim_init.step_rendering(gym, sim, viewer)

@@ -133,6 +133,11 @@ def acquire_states(gym, sim, params, flag="none"):
         cube_state = shaped_root_states[:, 3, :]
         cube_goal_state = shaped_root_states[:, 4, :]
         block_pos = shaped_root_states[:, 3, :]
+    elif params.environment_type == "albert_arena":
+        cube_state = shaped_root_states[:, 1, :]
+        cube_goal_state = shaped_root_states[:, 2, :]
+        block_pos = shaped_root_states[:, 2, :2]
+        block_state = shaped_root_states[:, 2, :]
     elif params.block_index != "None":
         block_state = shaped_root_states[:, params.block_index, :7]
         block_pos = shaped_root_states[:, params.block_index, :2] # [num_envs, 2]
@@ -151,6 +156,10 @@ def acquire_states(gym, sim, params, flag="none"):
         hand_index = 8
         ee_l_index = 9
         ee_r_index = 10
+    elif params.robot == "albert" and params.environment_type == "albert_arena":
+        hand_index = 19
+        ee_l_index = 20
+        ee_r_index = 21
     else:
         hand_index, ee_l_index, ee_r_index = ["None"] * 3
     hand_state = shaped_rb_states[:, hand_index, :] if hand_index != "None" else "None"
@@ -167,6 +176,7 @@ def acquire_states(gym, sim, params, flag="none"):
     states_dict = {"dof_states": dof_states,
                    "root_states": root_states,
                    "shaped_root_states": shaped_root_states,
+                   "shaped_rb_states": shaped_rb_states,
                    "rb_states": rb_states,
                    "robot_states": robot_states,
                    "num_dofs": num_dofs,

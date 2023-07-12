@@ -1,5 +1,5 @@
 import argparse
-from params import params_point, params_boxer, params_heijn, params_panda
+from params import params_point, params_boxer, params_heijn, params_panda, params_albert
 
 def load_params():
     # Read arguments from the command line
@@ -17,5 +17,7 @@ def load_params():
         params = params_heijn
     elif args.robot == "panda":
         params = params_panda
+    elif args.robot == "albert":
+        params = params_albert
     params.task = args.task
     return params

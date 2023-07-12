@@ -417,6 +417,8 @@ class MPPI():
         self.perturbed_action = self._bound_action(self.perturbed_action)
         if self.robot == 'panda':
             self.perturbed_action[:, :, 8] = self.perturbed_action[:, :, 7]
+        elif self.robot == 'albert':
+            self.perturbed_action[:, :, :11] = 0
 
         self.cost_total, self.states, self.actions, self.ee_states = self._compute_rollout_costs(self.perturbed_action)
         self.actions /= self.u_scale
@@ -488,6 +490,8 @@ class MPPI():
         self.perturbed_action = torch.clone(act_seq)
         if self.robot == 'panda':
             self.perturbed_action[:, :, 8] = self.perturbed_action[:, :, 7]
+        elif self.robot == 'albert':
+            self.perturbed_action[:, :, :11] = 0
 
         self.cost_total, self.states, self.actions, self.ee_states = self._compute_rollout_costs(self.perturbed_action)
 

@@ -84,6 +84,9 @@ class FUSION_MPPI(mppi.MPPI):
         elif self.env_type == 'cube':
             self.obs_list = torch.tensor(16, device="cuda:0") 
             self.allow_dyn_obs = False
+        elif self.env_type == 'albert_arena':
+            self.obs_list = torch.tensor(0, device="cuda:0") 
+            self.allow_dyn_obs = False
         # self.obs_list = torch.arange(self.bodies_per_env, device="cuda:0") # avoid all obstacles
 
     def update_gym(self, gym, sim, viewer=None):
