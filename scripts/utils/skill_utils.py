@@ -43,13 +43,18 @@ def apply_fk(robot, u):
     '''
     u has the size of [dofs_per_robot]
     '''
+    r = 0.08
+    L = 2 * 0.157
     if robot == 'boxer':
-        r = 0.08
-        L = 2 * 0.157
         # Diff drive fk
         u_fk = u.clone()
         u_fk[0] = (u[0] / r) - ((L * u[1]) / (2 * r))
         u_fk[1] = (u[0] / r) + ((L * u[1]) / (2 * r))
+        return u_fk
+    elif robot == 'albert':
+        u_fk = u.clone()
+        u_fk[11] = (u[11] / r) - ((L * u[12]) / (2 * r))
+        u_fk[12] = (u[11] / r) + ((L * u[12]) / (2 * r))
         return u_fk
     else:
         return u
@@ -73,7 +78,6 @@ def apply_ik(robot, u):
         u_ik[:, 11] = (u[:, 11] / r) - ((L*u[:, 12])/(2*r))
         u_ik[:, 12] = (u[:, 11] / r) + ((L*u[:, 12])/(2*r))
         return u_ik
-
     else: 
         return u
 

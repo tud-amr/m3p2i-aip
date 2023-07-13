@@ -419,6 +419,7 @@ class MPPI():
             self.perturbed_action[:, :, 8] = self.perturbed_action[:, :, 7]
         elif self.robot == 'albert':
             self.perturbed_action[:, :, :11] = 0
+            # self.perturbed_action[:, :, 12] = 0
 
         self.cost_total, self.states, self.actions, self.ee_states = self._compute_rollout_costs(self.perturbed_action)
         self.actions /= self.u_scale
@@ -458,7 +459,9 @@ class MPPI():
             self.delta = self.get_samples(self.K, base_seed=0)
         elif self.delta == None and self.sample_method == 'halton':
             self.delta = self.get_samples(self.K, base_seed=0)
-        # print(self.delta[0, :, :])
+        if self.robot == 'albert':
+            self.delta[:, :, :11] = 0
+            # self.delta[:, :, 12] = 0
 
         # Add zero-noise seq so mean is always a part of samples
         self.delta[-1,:,:] = self.Z_seq
@@ -518,7 +521,7 @@ class MPPI():
         exp_ = torch.exp((-1.0/self.beta) * total_costs)
         eta = torch.sum(exp_)       # tells how many significant samples we have, more or less
         self.weights = 1 / eta * exp_  # [K]
-        print('eta', eta)
+        # print('eta', eta)
 
         # Update beta to make eta converge within the bounds 
         if self.env_type == 'cube': # grady's thesis

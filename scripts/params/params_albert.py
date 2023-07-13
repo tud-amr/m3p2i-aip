@@ -8,16 +8,16 @@ nx = 22
 noise_sigma = 2 * torch.eye(13, device="cuda:0", dtype=torch.float32)
 noise_sigma[7, 7] = 0.8  # finger 
 noise_sigma[8, 8] = 0.8  # finger
-noise_sigma[11, 11] = 100   # forward
-noise_sigma[12, 12] = 50 # theta
+noise_sigma[11, 11] = 5   # forward
+noise_sigma[12, 12] = 6 # theta
 horizon = 12
 lambda_ = 0.01
 device = "cuda:0" 
 u_max = 2 * torch.ones(13, device="cuda:0", dtype=torch.float32)
 u_max[7] = 0.5
 u_max[8] = 0.5
-u_max[11] = 20
-u_max[12] = 10 
+u_max[11] = 5
+u_max[12] = 6
 u_min = -u_max
 step_dependent_dynamics = True
 terminal_state_cost = None

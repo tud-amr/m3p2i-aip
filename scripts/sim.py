@@ -187,7 +187,14 @@ class SIM():
                         self.suction_active = True
                 # print(self.suction_active)
                 # Apply forward kikematics and optimal action
+                print(actions[0])
                 self.action = skill_utils.apply_fk(self.robot, actions[0])
+                # self.action = torch.zeros(13, device="cuda:0")
+                # self.action[9] = -50
+                # self.action[10] = -50
+                # self.action[11] = 8
+                # self.action[12] = -8
+                print('optimal', self.action)
                 self.gym.set_dof_velocity_target_tensor(self.sim, gymtorch.unwrap_tensor(self.action))
 
                 if self.suction_active:  

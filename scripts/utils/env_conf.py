@@ -129,7 +129,7 @@ def load_albert(gym, sim):
     point_robot_asset_file = "urdf/albert/albert.urdf"
     print("Loading asset '%s' from '%s'" % (point_robot_asset_file, asset_root))
     asset_options = gymapi.AssetOptions()
-    # asset_options.fix_base_link = True
+    asset_options.fix_base_link = False
     # asset_options.disable_gravity = True
     asset_options.armature = 0.01
     robot_asset = gym.load_asset(sim, asset_root, point_robot_asset_file, asset_options)
