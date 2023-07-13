@@ -43,7 +43,7 @@
   <link name="chassis_link">
     <inertial>
       <origin rpy="0 0 0" xyz="0 0 0.07"/>
-      <mass value="250"/>
+      <mass value="2500"/>
       <inertia ixx="2.3" ixy="0" ixz="0" iyy="3.35" iyz="0.00" izz="1.22"/>
     </inertial>
     <visual>

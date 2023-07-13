@@ -289,11 +289,16 @@ class FUSION_MPPI(mppi.MPPI):
         # If gripper is fully open, no gripper cost, retract the arm
         gripper_cost[gripper_dist > 0.078] = 0
         return 10 * gripper_cost + 10 * reach_cost
+    
+    def get_albert_cost(self):
+        cost = torch.clamp(torch.linalg.norm(self.robot_pos - self.nav_goal, axis=1)-0.05, min=0, max=1999)
+        # print(cost)
+        return 10 * cost
 
     @mppi.handle_batch_input
     def _dynamics(self, state, u, t):
         # Use inverse kinematics if the MPPI action space is different than dof velocity space
-        u_ = skill_utils.apply_ik(self.robot, u)
+        u_ = skill_utils.apply_ik(self.robot, u) # forward simulate for the rollouts
         self.gym.set_dof_velocity_target_tensor(self.sim, gymtorch.unwrap_tensor(u_))
         
         # Step the simulation
@@ -333,6 +338,8 @@ class FUSION_MPPI(mppi.MPPI):
 
     @mppi.handle_batch_input
     def _running_cost(self, state, u, t):
+        if self.robot == 'albert':
+            return self.get_albert_cost()
         if self.task == 'navigation' or self.task == 'go_recharge':
             task_cost = self.get_navigation_cost()
         elif self.task == 'push':

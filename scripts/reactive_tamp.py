@@ -56,7 +56,7 @@ class REACTIVE_TAMP:
             # start plotting battery level
             plot_class.start_dash_server()
         elif self.task == "simple":
-            self.task_planner = task_planner.PLANNER_SIMPLE("navigation", [1, 2])  # "hybrid", [-3.75, -3.75]
+            self.task_planner = task_planner.PLANNER_SIMPLE("navigation", [1, 0])  # "hybrid", [-3.75, -3.75]
         elif self.task == "pick":
             self.task_planner = task_planner.PLANNER_PICK("pick", self.cube_goal_state_new)
         elif self.task == "reactive_pick":
