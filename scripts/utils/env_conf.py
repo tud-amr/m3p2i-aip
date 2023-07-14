@@ -129,7 +129,7 @@ def load_albert(gym, sim):
     point_robot_asset_file = "urdf/albert/albert.urdf"
     print("Loading asset '%s' from '%s'" % (point_robot_asset_file, asset_root))
     asset_options = gymapi.AssetOptions()
-    asset_options.fix_base_link = False
+    asset_options.fix_base_link = True
     # asset_options.disable_gravity = True
     asset_options.armature = 0.01
     robot_asset = gym.load_asset(sim, asset_root, point_robot_asset_file, asset_options)
@@ -391,10 +391,10 @@ def add_albert_arena(gym, sim, env, robot_asset, i):
     cubeB_asset = gym.create_box(sim, *([cubeB_size] * 3), cubeB_opts)
     cubeB_color = gymapi.Vec3(0.0, 0.4, 0.1)
 
-    # Define start pose for panda
+    # Define start pose for albert
     albert_start_pose = gymapi.Transform()
-    albert_start_pose.p = gymapi.Vec3(1.5, 1.5, 0)
-    albert_start_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
+    albert_start_pose.p = gymapi.Vec3(0.9, 0, 0)
+    albert_start_pose.r = gymapi.Quat(0.0, 0.0, 0, 1)
 
     # Define start pose for table
     table_start_pose = gymapi.Transform()
@@ -406,10 +406,10 @@ def add_albert_arena(gym, sim, env, robot_asset, i):
 
     # Define start pose for cubes
     cubeA_start_pose = gymapi.Transform()
-    cubeA_start_pose.p = gymapi.Vec3(0.2, -0.2, 1.05) # on the table
+    cubeA_start_pose.p = gymapi.Vec3(0.5, -0.2, 1.05)
     cubeA_start_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
     cubeB_start_pose = gymapi.Transform()
-    cubeB_start_pose.p = gymapi.Vec3(0.2, 0.2, 1.06)
+    cubeB_start_pose.p = gymapi.Vec3(0.5, 0.2, 1.06)
     cubeB_start_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
 
     # Create table
@@ -441,7 +441,7 @@ def get_default_franka_state(gym, robot_asset):
     franka_num_dofs = gym.get_asset_dof_count(robot_asset)
     # franka_mids[7:] = franka_upper_limits[7:] # grippers open
     default_dof_state = np.zeros(franka_num_dofs, gymapi.DofState.dtype)
-    default_dof_state["pos"] = franka_mids[:10]
+    default_dof_state["pos"] = franka_mids[:]
     default_dof_state["pos"][3] = -2
 
     return default_dof_state
@@ -468,13 +468,14 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, e
             robot_handle = gym.create_actor(env, robot_asset, pose, "robot", i, 1)
             if environment_type == "battery":
                 gym.set_rigid_body_color(env, robot_handle, -1, gymapi.MESH_VISUAL_AND_COLLISION, color_vec_battery_ok)
-        elif environment_type == "cube":
-            robot_handle = add_panda_arena(gym, sim, env, robot_asset, i)
+        else:
+            if environment_type == "cube":
+                robot_handle = add_panda_arena(gym, sim, env, robot_asset, i)
+            elif environment_type == "albert_arena":
+                robot_handle = add_albert_arena(gym, sim, env, robot_asset, i)
             if 'default_dof_state' not in locals():
                 default_dof_state = get_default_franka_state(gym, robot_asset)
             gym.set_actor_dof_states(env, robot_handle, default_dof_state, gymapi.STATE_ALL)
-        elif environment_type == "albert_arena":
-            robot_handle = add_albert_arena(gym, sim, env, robot_asset, i)
 
         robot_handles.append(robot_handle)
 
