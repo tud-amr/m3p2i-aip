@@ -70,8 +70,12 @@ class SIM():
 
     def reset(self):
         reset_flag = False
-        cubeA_index = 3
-        cubeB_index = 4
+        if self.environment_type == 'cube':
+            cubeA_index = 3
+            cubeB_index = 4
+        elif self.environment_type == 'albert_arena':
+            cubeA_index = 1
+            cubeB_index = 2
         obs_index = 6
         x_pos = torch.tensor([0.03, 0, 0], dtype=torch.float32, device='cuda:0').repeat(self.num_envs)
         y_pos = torch.tensor([0, 0.03, 0], dtype=torch.float32, device='cuda:0').repeat(self.num_envs)
@@ -86,12 +90,12 @@ class SIM():
                 self.gym.set_dof_state_tensor(self.sim, gymtorch.unwrap_tensor(self.initial_dof_states))
                 reset_flag = True
             # Press WASD and up,left,right,down to interact with the cubes
-            elif self.environment_type == 'cube' and evt.value > 0:
+            elif self.environment_type in ['cube', 'albert_arena'] and evt.value > 0:
                 if evt.action in ['key_up', 'key_down', 'key_left', 'key_right']:
                     self.root_states[cubeA_index, 0:3] += cube_targets[evt.action]
                 if evt.action in ['up', 'down', 'left', 'right']:
                     self.root_states[cubeB_index, 0:3] += goal_targets[evt.action]
-                if evt.action in ['1', '2', '3', '4', '5', '6']:
+                if evt.action in ['1', '2', '3', '4', '5', '6'] and self.environment_type == 'cube':
                     self.root_states[obs_index, 0:3] += obs_targets[evt.action]
                 self.gym.set_actor_root_state_tensor(self.sim, gymtorch.unwrap_tensor(self.root_states))
         sim_init.step(self.gym, self.sim)
@@ -219,9 +223,10 @@ class SIM():
                 sim_init.refresh_states(self.gym, self.sim)
 
                 # Debug
-                # ee_rot_matrix = skill_utils.quaternion_rotation_matrix(self.ee_l_state[:, 3:7])
-                # ee_zaxis = ee_rot_matrix[:, :, 2]
+                ee_rot_matrix = skill_utils.quaternion_rotation_matrix(self.ee_l_state[:, 3:7])
+                ee_zaxis = ee_rot_matrix[:, :, 2]
                 # print('tilt value', format(ee_zaxis[0, 0].item(), '.2f'))
+                print('tilt value', format(ee_zaxis[0, 2].item(), '.2f'))
 
                 # Step rendering and store data
                 self.sim_time = np.append(self.sim_time, t_prev)

@@ -460,7 +460,7 @@ class MPPI():
         elif self.delta == None and self.sample_method == 'halton':
             self.delta = self.get_samples(self.K, base_seed=0)
         if self.robot == 'albert':
-            self.delta[:, :, :11] = 0
+            self.delta[:, :, 9:11] = 0
             # self.delta[:, :, 12] = 0
 
         # Add zero-noise seq so mean is always a part of samples
@@ -494,7 +494,7 @@ class MPPI():
         if self.robot == 'panda':
             self.perturbed_action[:, :, 8] = self.perturbed_action[:, :, 7]
         elif self.robot == 'albert':
-            self.perturbed_action[:, :, :11] = 0
+            self.perturbed_action[:, :, 9:11] = 0
 
         self.cost_total, self.states, self.actions, self.ee_states = self._compute_rollout_costs(self.perturbed_action)
 

@@ -229,4 +229,4 @@ def get_general_ori_ee2cube(ee_quaternion, cube_quaternion, tilt_value = 0):
                                         1 - cos_omega2,
                                         1 - cos_omega3]), dim=0)[0]
 
-    return  cost_zaxis + cost_yaxis
+    return  5 * cost_zaxis + cost_yaxis #!!

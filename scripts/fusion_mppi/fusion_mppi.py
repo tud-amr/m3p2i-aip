@@ -126,6 +126,8 @@ class FUSION_MPPI(mppi.MPPI):
             self.cube_goal_state = goal
         elif self.task == 'place':
             self.ee_goal = goal
+        if self.robot == 'albert':
+            self.cube_goal_state = torch.tensor([0.5, 0.2, 0.7, 0, 0, 0, 1], device='cuda:0')
     
     def update_params(self, params, weight_prefer_pull):
         self.params = params
@@ -230,7 +232,8 @@ class FUSION_MPPI(mppi.MPPI):
         # Close the gripper when close to the cube
         gripper_dist = torch.linalg.norm(self.ee_l_state[:, :3] - self.ee_r_state[:, :3], axis=1)
         gripper_cost = 2 * (1 - gripper_dist)
-        gripper_cost[reach_cost < 0.1] = 0
+        threshold_gripper = {'panda':0.1, 'albert':0.08}
+        gripper_cost[reach_cost < threshold_gripper[self.robot]] = 0
 
         if self.robot == 'omni_panda':
             # get jacobian tensor
@@ -291,9 +294,22 @@ class FUSION_MPPI(mppi.MPPI):
         return 10 * gripper_cost + 10 * reach_cost
     
     def get_albert_cost(self):
-        cost = torch.clamp(torch.linalg.norm(self.robot_pos - self.nav_goal, axis=1)-0.05, min=0, max=1999)
-        # print(cost)
-        return 10 * cost
+        # nav_cost = 10 * torch.clamp(torch.linalg.norm(self.robot_pos - self.nav_goal, axis=1)-0.05, min=0, max=1999)
+        # # print(cost)
+        # base_quaternion = self.robot_states[:,3:7]
+        # base_goal_quaternion = torch.tensor([0, 0, 0.714, 0.714], device='cuda:0').repeat(self.num_envs).view(self.num_envs, 4)
+        # nav_ori = 3 * skill_utils.get_ori_cube2goal(base_quaternion, base_goal_quaternion)
+        # nav_cost += nav_ori
+        # print(self.robot_states)
+        pick_cost = self.get_panda_pick_cost(False)
+
+        gripper_dist = torch.linalg.norm(self.ee_l_state[:, :3] - self.ee_r_state[:, :3], axis=1)
+        gripper_cost = 1 - gripper_dist
+        goal_cost = torch.linalg.norm(self.cube_goal_state[:3] - self.cube_state[:,:3], axis = 1)
+        gripper_cost[goal_cost>0.1]=0
+        pick_cost[goal_cost<0.1] = 0
+        print(gripper_cost)
+        return pick_cost #+ 100 * gripper_cost
 
     @mppi.handle_batch_input
     def _dynamics(self, state, u, t):

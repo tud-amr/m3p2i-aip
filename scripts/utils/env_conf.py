@@ -129,7 +129,7 @@ def load_albert(gym, sim):
     point_robot_asset_file = "urdf/albert/albert.urdf"
     print("Loading asset '%s' from '%s'" % (point_robot_asset_file, asset_root))
     asset_options = gymapi.AssetOptions()
-    asset_options.fix_base_link = True
+    # asset_options.fix_base_link = True
     # asset_options.disable_gravity = True
     asset_options.armature = 0.01
     robot_asset = gym.load_asset(sim, asset_root, point_robot_asset_file, asset_options)
@@ -338,8 +338,8 @@ def add_panda_arena(gym, sim, env, robot_asset, i):
 
     # Define start pose for cubes
     cubeA_start_pose = gymapi.Transform()
-    # cubeA_start_pose.p = gymapi.Vec3(0.2, -0.2, 1.05) # on the table
-    cubeA_start_pose.p = gymapi.Vec3(0.45, 0, 1.35) # on the shelf # 0.42
+    cubeA_start_pose.p = gymapi.Vec3(0.2, -0.2, 1.05) # on the table
+    # cubeA_start_pose.p = gymapi.Vec3(0.45, 0, 1.35) # on the shelf # 0.42
     cubeA_start_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
     cubeB_start_pose = gymapi.Transform()
     cubeB_start_pose.p = gymapi.Vec3(0.2, 0.2, 1.06)
@@ -373,7 +373,7 @@ def add_panda_arena(gym, sim, env, robot_asset, i):
 
 def add_albert_arena(gym, sim, env, robot_asset, i):
     # Create table asset
-    table_pos = [0.0, 0.0, 1.0]
+    table_pos = [0.0, 0.0, 0.5]
     table_thickness = 0.05
     table_opts = gymapi.AssetOptions()
     table_opts.fix_base_link = True
@@ -393,7 +393,7 @@ def add_albert_arena(gym, sim, env, robot_asset, i):
 
     # Define start pose for albert
     albert_start_pose = gymapi.Transform()
-    albert_start_pose.p = gymapi.Vec3(0.9, 0, 0)
+    albert_start_pose.p = gymapi.Vec3(0.9, 0, 0) # 2, 2
     albert_start_pose.r = gymapi.Quat(0.0, 0.0, 0, 1)
 
     # Define start pose for table
@@ -406,10 +406,10 @@ def add_albert_arena(gym, sim, env, robot_asset, i):
 
     # Define start pose for cubes
     cubeA_start_pose = gymapi.Transform()
-    cubeA_start_pose.p = gymapi.Vec3(0.5, -0.2, 1.05)
+    cubeA_start_pose.p = gymapi.Vec3(0.5, -0.3, 0.55)
     cubeA_start_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
     cubeB_start_pose = gymapi.Transform()
-    cubeB_start_pose.p = gymapi.Vec3(0.5, 0.2, 1.06)
+    cubeB_start_pose.p = gymapi.Vec3(0.5, 0.2, 0.56)
     cubeB_start_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
 
     # Create table
@@ -454,6 +454,8 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, e
     num_per_row = int(math.sqrt(num_envs))
     if environment_type == 'cube':
         gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(0, 1.5, 2.8), gymapi.Vec3(0, 0, 1))
+    elif environment_type == 'albert_arena':
+        gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(0, 4, 2.8), gymapi.Vec3(0, 0, 1))
     else:
         gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(1.5, 6, 8), gymapi.Vec3(1.5, 0, 0))
 
