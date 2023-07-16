@@ -39,7 +39,7 @@ class REACTIVE_TAMP:
         self.cube_goal_state = states_dict["cube_goal_state"]
         self.ee_l_state = states_dict["ee_l_state"]
         self.ee_r_state = states_dict["ee_r_state"]
-        if self.environment_type == 'cube':
+        if self.environment_type in ['cube', 'albert_arena']:
             self.cube_goal_state_new = self.cube_goal_state[0, :7].clone()
             self.cube_goal_state_new[2] += 0.06
 

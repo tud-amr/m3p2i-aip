@@ -51,13 +51,15 @@ class PLANNER_PICK(PLANNER_SIMPLE):
             cube_goal = cube_goal.clone()
             cube_state = cube_state.clone()
             ee_goal = ee_state.clone()
-            cube_goal[2] += 0.052
+            # cube_goal[2] += 0.052 # panda
+            cube_goal[2] += 0.2
             self.curr_goal = cube_goal
             dist_cost = torch.linalg.norm(cube_goal[:3] - cube_state[:3])
-            ori_cost = skill_utils.get_ori_cube2goal(cube_goal[3:].view(-1,4), cube_state[3:].view(-1,4))
+            ori_cost = skill_utils.get_general_ori_cube2goal(cube_goal[3:].view(-1,4), cube_state[3:].view(-1,4))
             print('dis', dist_cost)
             print('ori', ori_cost[0])
-            if dist_cost + ori_cost < 0.01:
+            # if dist_cost + ori_cost < 0.01: # panda
+            if dist_cost + ori_cost < 0.05:
                 self.task = 'place'
                 ee_goal[2] += 0.2
                 self.curr_goal = ee_goal

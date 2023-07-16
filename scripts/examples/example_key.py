@@ -80,8 +80,8 @@ while viewer is None or not gym.query_viewer_has_closed(viewer):
     # Respond to keyboard
     sim_init.keyboard_control(gym, sim, viewer, params.robot, num_dofs, params.num_envs, dof_states, params.control_type)
 
-    if int(i%10) ==0:
-        print('rob', robot_states)
+    # if int(i%10) ==0:
+        # print('rob', robot_states)
         # print('rob pos', robot_pos)
         # print('rob vel', robot_vel)
         # print('cube', cube_state)

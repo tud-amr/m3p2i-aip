@@ -126,8 +126,8 @@ class FUSION_MPPI(mppi.MPPI):
             self.cube_goal_state = goal
         elif self.task == 'place':
             self.ee_goal = goal
-        if self.robot == 'albert':
-            self.cube_goal_state = torch.tensor([0.5, 0.2, 0.7, 0, 0, 0, 1], device='cuda:0')
+        # if self.robot == 'albert':
+        #     self.cube_goal_state = torch.tensor([0.5, 0.2, 0.7, 0, 0, 0, 1], device='cuda:0')
     
     def update_params(self, params, weight_prefer_pull):
         self.params = params
@@ -263,6 +263,11 @@ class FUSION_MPPI(mppi.MPPI):
         weight_goal = {True:15, False:5}
         total_cost = 0.2 * manip_cost + 10 * reach_cost + weight_goal[self.multi_modal] * goal_cost + ori_cost + gripper_cost + tilt_cost
 
+        # if self.robot == 'albert':
+        #     vel_cost = torch.linalg.norm(self.robot_vel, axis=1)
+        #     vel_cost[goal_cost > 0.25] = 0
+        #     print(vel_cost)
+        #     total_cost += 5 * vel_cost
         return  total_cost #+ align_cost multiply 10*reach_cost when using mppi_mode == storm
 
     def get_pick_tilt_cost(self, hybrid):
@@ -291,7 +296,11 @@ class FUSION_MPPI(mppi.MPPI):
         reach_cost[gripper_dist <= 0.078] = 0
         # If gripper is fully open, no gripper cost, retract the arm
         gripper_cost[gripper_dist > 0.078] = 0
-        return 10 * gripper_cost + 10 * reach_cost
+        if self.robot == 'albert':
+            vel_cost = torch.linalg.norm(self.robot_vel, axis=1)
+            return 10 * gripper_cost + 10 * vel_cost
+        elif self.robot == 'panda':
+            return 10 * gripper_cost + 10 * reach_cost
     
     def get_albert_cost(self):
         # nav_cost = 10 * torch.clamp(torch.linalg.norm(self.robot_pos - self.nav_goal, axis=1)-0.05, min=0, max=1999)
@@ -308,7 +317,6 @@ class FUSION_MPPI(mppi.MPPI):
         goal_cost = torch.linalg.norm(self.cube_goal_state[:3] - self.cube_state[:,:3], axis = 1)
         gripper_cost[goal_cost>0.1]=0
         pick_cost[goal_cost<0.1] = 0
-        print(gripper_cost)
         return pick_cost #+ 100 * gripper_cost
 
     @mppi.handle_batch_input
@@ -354,8 +362,8 @@ class FUSION_MPPI(mppi.MPPI):
 
     @mppi.handle_batch_input
     def _running_cost(self, state, u, t):
-        if self.robot == 'albert':
-            return self.get_albert_cost()
+        # if self.robot == 'albert':
+        #     return self.get_albert_cost()
         if self.task == 'navigation' or self.task == 'go_recharge':
             task_cost = self.get_navigation_cost()
         elif self.task == 'push':
@@ -369,7 +377,8 @@ class FUSION_MPPI(mppi.MPPI):
             # print('push cost', task_cost[:10])
             # print('pull cost', task_cost[self.num_envs-10:])
         elif self.task == 'pick':
-            task_cost =  self.get_panda_pick_cost(self.multi_modal)
+            return self.get_panda_pick_cost(self.multi_modal) # for albert
+            # task_cost = self.get_panda_pick_cost(self.multi_modal) # for panda
         elif self.task == 'place':
             return self.get_panda_place_cost()
         else:
