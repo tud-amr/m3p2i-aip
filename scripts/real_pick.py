@@ -34,24 +34,23 @@ class IsaacgymMppiRos:
         self.init_isaacgym_mppi()
         self.tf_listener = tf.TransformListener()
 
-        rospy.Subscriber('/joint_states_filtered', JointState, self.state_cb, queue_size=1)
-        rospy.Subscriber('/optitrack_state_estimator/CubeA/state', Odometry, self.cubeA_cb, queue_size=1)
-        rospy.Subscriber('/optitrack_state_estimator/CubeB/state', Odometry, self.cubeB_cb, queue_size=1)
+        rospy.Subscriber('/joint_states', JointState, self.state_cb, queue_size=1)
+        rospy.Subscriber('/optitrack_state_estimator/BlueBlock/state', Odometry, self.cubeA_cb, queue_size=1)
+        rospy.Subscriber('/optitrack_state_estimator/RedBlock/state', Odometry, self.cubeB_cb, queue_size=1)
 
         self.pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
         time.sleep(1)
         
     # Get dof states of the panda arm
     def state_cb(self, msg):
-        self.q = torch.tensor(msg.position[5:], device='cuda:0')
-        self.qdot = torch.tensor(msg.velocity[5:], device='cuda:0')                       
+        self.q = torch.tensor(msg.position[3:], device='cuda:0')
+        self.qdot = torch.tensor(msg.velocity[3:], device='cuda:0')                       
 
     def cubeA_cb(self, msg):
-        _, _, yaw = euler_from_quaternion(list(msg.pose.pose.orientation))
         self.cubeA_state = torch.tensor([
             msg.pose.pose.position.x,
             msg.pose.pose.position.y,
-            0,
+            msg.pose.pose.position.z,
             msg.pose.pose.orientation.x,
             msg.pose.pose.orientation.y,
             msg.pose.pose.orientation.z,
@@ -63,14 +62,12 @@ class IsaacgymMppiRos:
             msg.twist.twist.angular.y,
             msg.twist.twist.angular.z,
             ], device='cuda:0')
-        self.cubeA_R = np.array([[np.cos(yaw), -np.sin(yaw)], [np.sin(yaw), np.cos(yaw)]])
     
     def cubeB_cb(self, msg):
-        _, _, yaw = euler_from_quaternion(list(msg.pose.pose.orientation))
         self.cubeB_state = torch.tensor([
             msg.pose.pose.position.x,
             msg.pose.pose.position.y,
-            0,
+            msg.pose.pose.position.z,
             msg.pose.pose.orientation.x,
             msg.pose.pose.orientation.y,
             msg.pose.pose.orientation.z,
@@ -82,13 +79,12 @@ class IsaacgymMppiRos:
             msg.twist.twist.angular.y,
             msg.twist.twist.angular.z,
             ], device='cuda:0')
-        self.cubeB_R = np.array([[np.cos(yaw), -np.sin(yaw)], [np.sin(yaw), np.cos(yaw)]])
 
     def get_ee_state(self):
         ee_state = torch.zeros(7, device='cuda:0')
         try: 
             (ee_pos, ee_quat) = self.tf_listener.lookupTransform(
-                "/panda_link0", "/panda_link7", rospy.Time(0)
+                "/world", "/panda_EE", rospy.Time(0)
             )
             ee_state = torch.tensor(ee_pos+ee_quat, device='cuda:0')
             return ee_state
@@ -116,6 +112,7 @@ class IsaacgymMppiRos:
         self.ee_r_state = states_dict["ee_r_state"]
         self.cube_goal_state_new = self.cube_goal_state[0, :7].clone()
         self.cube_goal_state_new[2] += 0.06
+        self.root_states = states_dict["root_states"]
 
         # Choose the task planner
         # self.task_planner = task_planner.PLANNER_PICK("pick", self.cube_goal_state_new)
@@ -176,10 +173,9 @@ class IsaacgymMppiRos:
         while not rospy.is_shutdown():
             # Reset states of the arm
             dof_state = torch.zeros((9, 2), device='cuda:0')
-            dof_state[:7, 0] = self.q
-            dof_state[:7, 0] = self.qdot
-            if True:
-                dof_state[7:, 0] = 0.02
+            dof_state[:9, 0] = self.q
+            dof_state[:9, 1] = self.qdot
+            print('dof', dof_state)
             s = dof_state.repeat(params.num_envs, 1) # [j1, v_j1, yj2, v_j2, j3, v_j3, ..., ]
             self.gym.set_dof_state_tensor(self.sim, gymtorch.unwrap_tensor(s))
             # Reset the states of the cubes
@@ -190,35 +186,38 @@ class IsaacgymMppiRos:
             self.gym.set_actor_root_state_tensor(self.sim, gymtorch.unwrap_tensor(self.root_states))
             # Get state of ee
             self.ee_state = self.get_ee_state()
+            print('A', self.cubeA_state)
+            print('B', self.cubeB_state)
+            print('ee', self.ee_state)
 
-            # Step the simulation
-            sim_init.step(self.gym, self.sim) # !!
-            sim_init.refresh_states(self.gym, self.sim)
+            # # Step the simulation
+            # sim_init.step(self.gym, self.sim) # !!
+            # sim_init.refresh_states(self.gym, self.sim)
 
-            # Update TAMP interface
-            task_success = self.tamp_interface()
+            # # Update TAMP interface
+            # task_success = self.tamp_interface()
 
-            # Update gym in mppi
-            self.motion_planner.update_gym(self.gym, self.sim, self.viewer)
+            # # Update gym in mppi
+            # self.motion_planner.update_gym(self.gym, self.sim, self.viewer)
 
-            # Compute optimal action and send to real simulator
-            action = np.array(self.motion_planner.command(s)[0].cpu())
-            # Griiper command should be discrete? TODO
+            # # Compute optimal action and send to real simulator
+            # action = np.array(self.motion_planner.command(s)[0].cpu())
+            # # Griiper command should be discrete? TODO
 
-            # TODO
-            # # Tranform world->robot frame
-            # action[:2] = self.R.T.dot(action[:2].T)
-            # # Publish action command 
-            command = Twist()
-            command.linear.x = action[0]
-            command.linear.y = action[1]
-            command.angular.z = action[2]
+            # # TODO
+            # # # Tranform world->robot frame
+            # # action[:2] = self.R.T.dot(action[:2].T)
+            # # # Publish action command 
+            # command = Twist()
+            # command.linear.x = action[0]
+            # command.linear.y = action[1]
+            # command.angular.z = action[2]
 
-            self.pub.publish(command)
+            # self.pub.publish(command)
 
             self.rate.sleep()
 
 
-# test = IsaacgymMppiRos(params)
-# test.run()
+test = IsaacgymMppiRos(params)
+test.run()
 
