@@ -7,9 +7,11 @@ from utils import env_conf, sim_init, data_transfer
 import time
 import copy
 import rospy
+import tf
 from tf.transformations import euler_from_quaternion
 import numpy as np
 from geometry_msgs.msg import PoseStamped, Twist, Quaternion
+from sensor_msgs.msg import JointState
 from nav_msgs.msg import Odometry
 torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 from params import params_panda as params
@@ -30,29 +32,19 @@ class IsaacgymMppiRos:
         self.frequency = 10
         self.rate = rospy.Rate(self.frequency)
         self.init_isaacgym_mppi()
+        self.tf_listener = tf.TransformListener()
 
-        rospy.Subscriber('/optitrack_state_estimator/Panda/state', Odometry, self.state_cb, queue_size=1)
+        rospy.Subscriber('/joint_states_filtered', JointState, self.state_cb, queue_size=1)
         rospy.Subscriber('/optitrack_state_estimator/CubeA/state', Odometry, self.cubeA_cb, queue_size=1)
         rospy.Subscriber('/optitrack_state_estimator/CubeB/state', Odometry, self.cubeB_cb, queue_size=1)
 
         self.pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
         time.sleep(1)
         
-    # TODO get dof states of the panda arm
+    # Get dof states of the panda arm
     def state_cb(self, msg):
-        _, _, yaw = euler_from_quaternion(list(msg.pose.pose.orientation))
-        self.state = torch.tensor([
-            msg.pose.pose.position.x,
-            msg.twist.twist.linear.x,
-            msg.pose.pose.position.y,
-            msg.twist.twist.linear.y,
-            yaw,
-            msg.twist.twist.angular.z,
-            ], device='cuda:0')
-        self.R = np.array([[np.cos(yaw), -np.sin(yaw)], [np.sin(yaw), np.cos(yaw)]])
-        # get states of the end effector TODO
-        # self.ee_state
-
+        self.q = torch.tensor(msg.position[5:], device='cuda:0')
+        self.qdot = torch.tensor(msg.velocity[5:], device='cuda:0')                       
 
     def cubeA_cb(self, msg):
         _, _, yaw = euler_from_quaternion(list(msg.pose.pose.orientation))
@@ -91,6 +83,21 @@ class IsaacgymMppiRos:
             msg.twist.twist.angular.z,
             ], device='cuda:0')
         self.cubeB_R = np.array([[np.cos(yaw), -np.sin(yaw)], [np.sin(yaw), np.cos(yaw)]])
+
+    def get_ee_state(self):
+        ee_state = torch.zeros(7, device='cuda:0')
+        try: 
+            (ee_pos, ee_quat) = self.tf_listener.lookupTransform(
+                "/panda_link0", "/panda_link7", rospy.Time(0)
+            )
+            ee_state = torch.tensor(ee_pos+ee_quat, device='cuda:0')
+            return ee_state
+        except(
+            tf.LookupException,
+            tf.ConnectivityException,
+            tf.ExtrapolationException
+        ):
+            print('Something wrong')
 
     def init_isaacgym_mppi(self):
         # Make the environment and simulation
@@ -167,9 +174,13 @@ class IsaacgymMppiRos:
 
     def run(self):
         while not rospy.is_shutdown():
-            # Reset the simulator to requested state
-            # Reset states of the arm TODO
-            s = self.state.repeat(params.num_envs, 1) # [x, v_x, y, v_y, yaw, v_yaw]
+            # Reset states of the arm
+            dof_state = torch.zeros((9, 2), device='cuda:0')
+            dof_state[:7, 0] = self.q
+            dof_state[:7, 0] = self.qdot
+            if True:
+                dof_state[7:, 0] = 0.02
+            s = dof_state.repeat(params.num_envs, 1) # [j1, v_j1, yj2, v_j2, j3, v_j3, ..., ]
             self.gym.set_dof_state_tensor(self.sim, gymtorch.unwrap_tensor(s))
             # Reset the states of the cubes
             self.root_states = self.root_states.reshape([params.num_envs, self.actors_per_env, 13])
@@ -177,6 +188,10 @@ class IsaacgymMppiRos:
             self.root_states[:, self.cubeB_index, :] = self.cubeB_state
             self.root_states = self.root_states.reshape([params.num_envs * self.actors_per_env, 13])
             self.gym.set_actor_root_state_tensor(self.sim, gymtorch.unwrap_tensor(self.root_states))
+            # Get state of ee
+            self.ee_state = self.get_ee_state()
+
+            # Step the simulation
             sim_init.step(self.gym, self.sim) # !!
             sim_init.refresh_states(self.gym, self.sim)
 
