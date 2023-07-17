@@ -130,9 +130,9 @@ def acquire_states(gym, sim, params, flag="none"):
     # Get states of block, cube and robot
     block_state, block_pos, block_quat, cube_state, cube_goal_state, robot_pos, robot_vel, robot_states= ["None"] * 8
     if params.environment_type == "cube":
-        cube_state = shaped_root_states[:, 3, :]
-        cube_goal_state = shaped_root_states[:, 4, :]
-        block_pos = shaped_root_states[:, 3, :]
+        cube_state = shaped_root_states[:, 2, :]
+        cube_goal_state = shaped_root_states[:, 3, :]
+        block_pos = shaped_root_states[:, 2, :]
     elif params.environment_type == "albert_arena":
         cube_state = shaped_root_states[:, 1, :]
         cube_goal_state = shaped_root_states[:, 2, :]

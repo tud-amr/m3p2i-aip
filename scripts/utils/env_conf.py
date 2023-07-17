@@ -270,32 +270,11 @@ def add_obstacles(sim, gym, env, environment_type, index):
 
 def add_panda_arena(gym, sim, env, robot_asset, i):
     # Create table asset
-    table_pos = [0.0, 0.0, 1.0]
+    table_pos = [0.6, 0.0, 0.0925]
     table_thickness = 0.05
     table_opts = gymapi.AssetOptions()
     table_opts.fix_base_link = True
-    table_asset = gym.create_box(sim, *[1.2, 1.2, table_thickness], table_opts)
-    
-    # Create table stand asset
-    table_stand_height = 0.1
-    table_stand_pos = [-0.5, 0.0, 1.0 + table_thickness / 2 + table_stand_height / 2]
-    table_stand_opts = gymapi.AssetOptions()
-    table_stand_opts.fix_base_link = True
-    table_stand_asset = gym.create_box(sim, *[0.2, 0.2, table_stand_height], table_stand_opts)
-
-    # Create shelf asset 
-    shelf_stand_height = 0.3
-    shelf_stand_pos = [0.5, 0.0, 1.0 + table_thickness / 2 + shelf_stand_height / 2]
-    shelf_stand_opts = gymapi.AssetOptions()
-    shelf_stand_opts.fix_base_link = True
-    shelf_stand_asset = gym.create_box(sim, *[0.2, 0.2, shelf_stand_height], shelf_stand_opts)
-
-    # Create obstacle asset
-    obs_height = 0.02
-    obs_pos = [0.35, 0.0, 1.7 + table_thickness / 2 + obs_height / 2]
-    obs_opts = gymapi.AssetOptions()
-    obs_opts.disable_gravity = True
-    obs_asset = gym.create_box(sim, *[0.2, 0.2, obs_height], obs_opts)
+    table_asset = gym.create_box(sim, *[1, 1, table_thickness], table_opts) # 9.5
 
     # Create cubeA asset
     cubeA_opts = gymapi.AssetOptions()
@@ -311,7 +290,7 @@ def add_panda_arena(gym, sim, env, robot_asset, i):
 
     # Define start pose for panda
     panda_start_pose = gymapi.Transform()
-    panda_start_pose.p = gymapi.Vec3(-0.45, 0.0, 1.0 + table_thickness / 2 + table_stand_height)
+    panda_start_pose.p = gymapi.Vec3(0, 0.0, 0)
     panda_start_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
 
     # Define start pose for table
@@ -320,21 +299,6 @@ def add_panda_arena(gym, sim, env, robot_asset, i):
     table_start_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
     table_surface_pos = np.array(table_pos) + np.array([0, 0, table_thickness / 2])
     # self.reward_settings["table_height"] = self._table_surface_pos[2]
-
-    # Define start pose for table stand
-    table_stand_start_pose = gymapi.Transform()
-    table_stand_start_pose.p = gymapi.Vec3(*table_stand_pos)
-    table_stand_start_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
-
-    # Define start pose for shelf stand
-    shelf_stand_start_pose = gymapi.Transform()
-    shelf_stand_start_pose.p = gymapi.Vec3(*shelf_stand_pos)
-    shelf_stand_start_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
-    
-    # Define start pose for obs
-    obs_start_pose = gymapi.Transform()
-    obs_start_pose.p = gymapi.Vec3(*obs_pos)
-    obs_start_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
 
     # Define start pose for cubes
     cubeA_start_pose = gymapi.Transform()
@@ -350,7 +314,6 @@ def add_panda_arena(gym, sim, env, robot_asset, i):
 
     # Create table
     table_actor = gym.create_actor(env, table_asset, table_start_pose, "table", i, 1, 0)
-    table_stand_actor = gym.create_actor(env, table_stand_asset, table_stand_start_pose, "table_stand",i, 1, 0)
     
     # Create cubes
     cubeA_id = gym.create_actor(env, cubeA_asset, cubeA_start_pose, "cubeA", i, 2, 0)
@@ -358,16 +321,8 @@ def add_panda_arena(gym, sim, env, robot_asset, i):
     gym.set_rigid_body_color(env, cubeA_id, 0, gymapi.MESH_VISUAL, cubeA_color)
     gym.set_rigid_body_color(env, cubeB_id, 0, gymapi.MESH_VISUAL, cubeB_color)
 
-    # Create shelf
-    shelf_creator = gym.create_actor(env, shelf_stand_asset, shelf_stand_start_pose, "shelf_stand",i, 1, 0)
-
-    # Create obstacle
-    obs_creater = gym.create_actor(env, obs_asset, obs_start_pose, "obs",i, 1, 0)
-
     cubeA_rbid = gym.get_actor_rigid_body_index(env, cubeA_id, 0, gymapi.DOMAIN_SIM) # 13
     cubeB_rbid = gym.get_actor_rigid_body_index(env, cubeB_id, 0, gymapi.DOMAIN_SIM) # 14
-    shelf_rbid = gym.get_actor_rigid_body_index(env, shelf_creator, 0, gymapi.DOMAIN_SIM) # 15
-    obs_rbid = gym.get_actor_rigid_body_index(env, obs_creater, 0, gymapi.DOMAIN_SIM) # 16
 
     return panda_actor
 

@@ -13,9 +13,11 @@ import numpy as np
 from geometry_msgs.msg import PoseStamped, Twist, Quaternion
 from sensor_msgs.msg import JointState
 from nav_msgs.msg import Odometry
+from std_msgs.msg import Float64MultiArray
 torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 from params import params_panda as params
 from active_inference import task_planner
+from utils import skill_utils
 
 # Helpers
 def _it(self):
@@ -35,10 +37,11 @@ class IsaacgymMppiRos:
         self.tf_listener = tf.TransformListener()
 
         rospy.Subscriber('/joint_states', JointState, self.state_cb, queue_size=1)
-        rospy.Subscriber('/optitrack_state_estimator/BlueBlock/state', Odometry, self.cubeA_cb, queue_size=1)
-        rospy.Subscriber('/optitrack_state_estimator/RedBlock/state', Odometry, self.cubeB_cb, queue_size=1)
+        # rospy.Subscriber('/optitrack_state_estimator/BlueBlock/state', Odometry, self.cubeA_cb, queue_size=1)
+        # rospy.Subscriber('/optitrack_state_estimator/RedBlock/state', Odometry, self.cubeB_cb, queue_size=1)
 
-        self.pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
+        self.pub = rospy.Publisher('/panda_joint_velocity_controller/command', 
+                                   Float64MultiArray, queue_size=10)
         time.sleep(1)
         
     # Get dof states of the panda arm
@@ -46,48 +49,14 @@ class IsaacgymMppiRos:
         self.q = torch.tensor(msg.position[3:], device='cuda:0')
         self.qdot = torch.tensor(msg.velocity[3:], device='cuda:0')                       
 
-    def cubeA_cb(self, msg):
-        self.cubeA_state = torch.tensor([
-            msg.pose.pose.position.x,
-            msg.pose.pose.position.y,
-            msg.pose.pose.position.z,
-            msg.pose.pose.orientation.x,
-            msg.pose.pose.orientation.y,
-            msg.pose.pose.orientation.z,
-            msg.pose.pose.orientation.w,
-            msg.twist.twist.linear.x,
-            msg.twist.twist.linear.y,
-            msg.twist.twist.linear.z,
-            msg.twist.twist.angular.x,
-            msg.twist.twist.angular.y,
-            msg.twist.twist.angular.z,
-            ], device='cuda:0')
-    
-    def cubeB_cb(self, msg):
-        self.cubeB_state = torch.tensor([
-            msg.pose.pose.position.x,
-            msg.pose.pose.position.y,
-            msg.pose.pose.position.z,
-            msg.pose.pose.orientation.x,
-            msg.pose.pose.orientation.y,
-            msg.pose.pose.orientation.z,
-            msg.pose.pose.orientation.w,
-            msg.twist.twist.linear.x,
-            msg.twist.twist.linear.y,
-            msg.twist.twist.linear.z,
-            msg.twist.twist.angular.x,
-            msg.twist.twist.angular.y,
-            msg.twist.twist.angular.z,
-            ], device='cuda:0')
-
-    def get_ee_state(self):
-        ee_state = torch.zeros(7, device='cuda:0')
+    def get_state_cb(self, cube_frame):
+        state = torch.zeros(7, device='cuda:0')
         try: 
-            (ee_pos, ee_quat) = self.tf_listener.lookupTransform(
-                "/world", "/panda_EE", rospy.Time(0)
+            (pos, quat) = self.tf_listener.lookupTransform(
+                "/Panda", cube_frame, rospy.Time(0)
             )
-            ee_state = torch.tensor(ee_pos+ee_quat, device='cuda:0')
-            return ee_state
+            state = torch.tensor(pos+quat, device='cuda:0')
+            return state
         except(
             tf.LookupException,
             tf.ConnectivityException,
@@ -149,8 +118,8 @@ class IsaacgymMppiRos:
             multi_modal = False           # True, False
         )
         self.prefer_pull = -1
-        self.cubeA_index = 3
-        self.cubeB_index = 4
+        self.cubeA_index = 2
+        self.cubeB_index = 3
     
     def tamp_interface(self):
         # Update task and goal in the task planner
@@ -159,7 +128,7 @@ class IsaacgymMppiRos:
                                       self.ee_state[:7])
 
         # Update task and goal in the motion planner
-        # print('task:', self.task_planner.task, 'goal:', self.task_planner.curr_goal)
+        print('task:', self.task_planner.task, 'goal:', self.task_planner.curr_goal)
         self.motion_planner.update_task(self.task_planner.task, self.task_planner.curr_goal)
 
         # Update params in the motion planner
@@ -175,44 +144,47 @@ class IsaacgymMppiRos:
             dof_state = torch.zeros((9, 2), device='cuda:0')
             dof_state[:9, 0] = self.q
             dof_state[:9, 1] = self.qdot
-            print('dof', dof_state)
+            # print('dof', dof_state)
             s = dof_state.repeat(params.num_envs, 1) # [j1, v_j1, yj2, v_j2, j3, v_j3, ..., ]
             self.gym.set_dof_state_tensor(self.sim, gymtorch.unwrap_tensor(s))
             # Reset the states of the cubes
+            self.cubeA_state = self.get_state_cb("/BlueBlock")
+            self.cubeB_state = self.get_state_cb("/RedBlock")
             self.root_states = self.root_states.reshape([params.num_envs, self.actors_per_env, 13])
-            self.root_states[:, self.cubeA_index, :] = self.cubeA_state
-            self.root_states[:, self.cubeB_index, :] = self.cubeB_state
+            self.root_states[:, self.cubeA_index, :7] = self.cubeA_state
+            self.root_states[:, self.cubeB_index, :7] = self.cubeB_state
             self.root_states = self.root_states.reshape([params.num_envs * self.actors_per_env, 13])
             self.gym.set_actor_root_state_tensor(self.sim, gymtorch.unwrap_tensor(self.root_states))
             # Get state of ee
-            self.ee_state = self.get_ee_state()
+            self.ee_state = self.get_state_cb("/panda_EE")
             print('A', self.cubeA_state)
             print('B', self.cubeB_state)
             print('ee', self.ee_state)
 
-            # # Step the simulation
-            # sim_init.step(self.gym, self.sim) # !!
-            # sim_init.refresh_states(self.gym, self.sim)
+            cubeA_quat = self.cubeA_state[3:7].view(1, 4)
+            cubeB_quat = self.cubeB_state[3:7].view(1, 4)
+            ori_cost = skill_utils.get_general_ori_cube2goal(cubeA_quat, cubeB_quat)
+            # print('ori', ori_cost)
 
-            # # Update TAMP interface
-            # task_success = self.tamp_interface()
+            # Step the simulation
+            sim_init.step(self.gym, self.sim) # !!
+            sim_init.refresh_states(self.gym, self.sim)
 
-            # # Update gym in mppi
-            # self.motion_planner.update_gym(self.gym, self.sim, self.viewer)
+            # Update TAMP interface
+            task_success = self.tamp_interface()
 
-            # # Compute optimal action and send to real simulator
-            # action = np.array(self.motion_planner.command(s)[0].cpu())
-            # # Griiper command should be discrete? TODO
+            # Update gym in mppi
+            self.motion_planner.update_gym(self.gym, self.sim, self.viewer)
 
-            # # TODO
-            # # # Tranform world->robot frame
-            # # action[:2] = self.R.T.dot(action[:2].T)
-            # # # Publish action command 
-            # command = Twist()
-            # command.linear.x = action[0]
-            # command.linear.y = action[1]
-            # command.angular.z = action[2]
+            # Compute optimal action and send to real simulator
+            action = np.array(self.motion_planner.command(s)[0].cpu())
+            print('hyy', action)
+            # Griiper command should be discrete? TODO
 
+            # Publish action command 
+            command = Float64MultiArray()
+            command.data = action[:7]
+            print('comma', command)
             # self.pub.publish(command)
 
             self.rate.sleep()

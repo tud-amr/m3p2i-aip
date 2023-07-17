@@ -1,20 +1,20 @@
 import torch
 
 # Paramters in the reactive_tamp file
-allow_viewer = False
+allow_viewer = True
 task = "simple"                   # "simple", "patrolling", "reactive"
 num_envs = 200
 nx = 18
-noise_sigma = 10 * torch.eye(9, device="cuda:0", dtype=torch.float32)
+noise_sigma = 1 * torch.eye(9, device="cuda:0", dtype=torch.float32)
 noise_sigma[7, 7] = 0.8
 noise_sigma[8, 8] = 0.8
 horizon = 12
 lambda_ = 0.01
 device = "cuda:0" 
-u_max = 2 * torch.ones(9, device="cuda:0", dtype=torch.float32)
-u_max[7:] = 1.5
-u_min = -2 * torch.ones(9, device="cuda:0", dtype=torch.float32)
-u_min[7:] = -1.5
+u_max = 0.2 * torch.ones(9, device="cuda:0", dtype=torch.float32)
+u_max[7:] = 0.5
+u_min = -0.2 * torch.ones(9, device="cuda:0", dtype=torch.float32)
+u_min[7:] = -0.5
 step_dependent_dynamics = True
 terminal_state_cost = None
 sample_null_action = True
