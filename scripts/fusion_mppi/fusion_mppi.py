@@ -112,6 +112,8 @@ class FUSION_MPPI(mppi.MPPI):
             self.dyn_obs_pos = states_dict["dyn_obs_pos"]
             self.dyn_obs_vel = states_dict["dyn_obs_vel"]
             self.cube_state = states_dict["cube_state"]
+            self.ee_state = states_dict["ee_state"]
+            # self.cube_goal_state = states_dict["cube_goal_state"]
             self.ee_l_state = states_dict["ee_l_state"]
             self.ee_r_state = states_dict["ee_r_state"]
             self.flag = False
@@ -226,14 +228,21 @@ class FUSION_MPPI(mppi.MPPI):
         return dyn_obs_cost
 
     def get_panda_pick_cost(self, hybrid):
-        self.ee_state = (self.ee_l_state + self.ee_r_state) / 2
+        # self.ee_state = (self.ee_l_state + self.ee_r_state) / 2
+        # print('ee', self.ee_state[0, :])
+        # print('cube', self.cube_state[0, :])
         reach_cost = torch.linalg.norm(self.ee_state[:,:3] - self.cube_state[:,:3], axis = 1) 
+        # print(reach_cost)
+        # print('low', torch.min(reach_cost))
+        # print('high', torch.max(reach_cost))
         goal_cost = torch.linalg.norm(self.cube_goal_state[:3] - self.cube_state[:,:3], axis = 1) #+ 2*torch.abs(self.block_goal[2] - block_state[:,2])
         # Close the gripper when close to the cube
         gripper_dist = torch.linalg.norm(self.ee_l_state[:, :3] - self.ee_r_state[:, :3], axis=1)
         gripper_cost = 2 * (1 - gripper_dist)
-        threshold_gripper = {'panda':0.1, 'albert':0.08}
+        threshold_gripper = {'panda':0.07, 'albert':0.08} # maybe change here the threshold!
         gripper_cost[reach_cost < threshold_gripper[self.robot]] = 0
+
+        return 10 * reach_cost + gripper_cost
 
         if self.robot == 'omni_panda':
             # get jacobian tensor

@@ -18,6 +18,8 @@ torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 from params import params_panda as params
 from active_inference import task_planner
 from utils import skill_utils
+import actionlib
+from franka_gripper.msg import MoveAction, MoveActionGoal, MoveGoal, GraspAction, GraspActionGoal, GraspGoal
 
 # Helpers
 def _it(self):
@@ -79,6 +81,7 @@ class IsaacgymMppiRos:
         self.cube_goal_state = states_dict["cube_goal_state"] # cubeB
         self.ee_l_state = states_dict["ee_l_state"]
         self.ee_r_state = states_dict["ee_r_state"]
+        self.ee_state = states_dict["ee_state"]
         self.cube_goal_state_new = self.cube_goal_state[0, :7].clone()
         self.cube_goal_state_new[2] += 0.06
         self.root_states = states_dict["root_states"]
@@ -120,7 +123,15 @@ class IsaacgymMppiRos:
         self.prefer_pull = -1
         self.cubeA_index = 2
         self.cubeB_index = 3
-    
+        self.flag = True
+        
+        self.close_client = actionlib.SimpleActionClient('franka_gripper/move', MoveAction)
+        # self.open_client = actionlib.SimpleActionClient('franka_gripper/grasp', GraspAction)
+
+        self.close_client.wait_for_server()
+        # self.open_client.wait_for_server()
+
+
     def tamp_interface(self):
         # Update task and goal in the task planner
         self.task_planner.update_plan(self.cubeA_state[:7], 
@@ -128,7 +139,7 @@ class IsaacgymMppiRos:
                                       self.ee_state[:7])
 
         # Update task and goal in the motion planner
-        print('task:', self.task_planner.task, 'goal:', self.task_planner.curr_goal)
+        # print('task:', self.task_planner.task, 'goal:', self.task_planner.curr_goal)
         self.motion_planner.update_task(self.task_planner.task, self.task_planner.curr_goal)
 
         # Update params in the motion planner
@@ -146,7 +157,10 @@ class IsaacgymMppiRos:
             dof_state[:9, 1] = self.qdot
             # print('dof', dof_state)
             s = dof_state.repeat(params.num_envs, 1) # [j1, v_j1, yj2, v_j2, j3, v_j3, ..., ]
-            self.gym.set_dof_state_tensor(self.sim, gymtorch.unwrap_tensor(s))
+            if self.flag:
+                # print('kkkk')
+                self.gym.set_dof_state_tensor(self.sim, gymtorch.unwrap_tensor(s))
+                # self.flag = False
             # Reset the states of the cubes
             self.cubeA_state = self.get_state_cb("/BlueBlock")
             self.cubeB_state = self.get_state_cb("/RedBlock")
@@ -156,10 +170,13 @@ class IsaacgymMppiRos:
             self.root_states = self.root_states.reshape([params.num_envs * self.actors_per_env, 13])
             self.gym.set_actor_root_state_tensor(self.sim, gymtorch.unwrap_tensor(self.root_states))
             # Get state of ee
-            self.ee_state = self.get_state_cb("/panda_EE")
-            print('A', self.cubeA_state)
-            print('B', self.cubeB_state)
-            print('ee', self.ee_state)
+            # self.ee_state = self.get_state_cb("/panda_EE")
+            gripper_dist = torch.linalg.norm(self.ee_l_state[:, :3] - self.ee_r_state[:, :3], axis=1)
+            # print('A', self.cubeA_state)
+            # print('B', self.cubeB_state)
+            # print('ee', self.ee_state)
+            # print('ee sim', self.ee_state_sim)
+            # print('gripper', gripper_dist) # not very precise, 4.5-5 cm
 
             cubeA_quat = self.cubeA_state[3:7].view(1, 4)
             cubeB_quat = self.cubeB_state[3:7].view(1, 4)
@@ -178,14 +195,30 @@ class IsaacgymMppiRos:
 
             # Compute optimal action and send to real simulator
             action = np.array(self.motion_planner.command(s)[0].cpu())
-            print('hyy', action)
+            print('hyy', action[7:])
             # Griiper command should be discrete? TODO
 
             # Publish action command 
             command = Float64MultiArray()
             command.data = action[:7]
-            print('comma', command)
-            # self.pub.publish(command)
+            # print('comma', command)
+            self.pub.publish(command)
+
+            # Send the command of gripper
+            if action[7] > 0.1: #!!!
+                grasp_goal = MoveGoal()
+                grasp_goal.width = 0.0
+                grasp_goal.speed = 0.1
+                print(grasp_goal)
+                self.close_client.send_goal(grasp_goal)
+            # rospy.sleep(5)
+
+            # open_goal = GraspGoal()
+            # open_goal.width = 0.38
+            # open_goal.speed = 0.1
+            # open_goal.force = 0.1
+            # self.open_client.send_goal(open_goal)
+            # rospy.sleep(5)
 
             self.rate.sleep()
 

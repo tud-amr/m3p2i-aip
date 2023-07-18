@@ -90,9 +90,9 @@ class PLANNER_AIF_PANDA(PLANNER_SIMPLE):
         cube_height_diff = torch.linalg.norm(cube_state[2] - cube_goal[2])
         dist_cost = torch.linalg.norm(self.curr_goal[:3] - cube_state[:3]) # self.curr_goal
         ori_cost = skill_utils.get_general_ori_cube2goal(self.curr_goal[3:].view(-1,4), cube_state[3:].view(-1,4))
-        print('dis', dist_cost)
-        print('ori', ori_cost[0])
-        if cube_height_diff < 0.001:
+        # print('dis', dist_cost)
+        # print('ori', ori_cost[0])
+        if cube_height_diff < 0.01:
             self.obs = 0
             self.ai_agent_task[0].set_preferences(np.array([[0], [1], [0]]))
         elif dist_cost + ori_cost < 0.01: # 0.025

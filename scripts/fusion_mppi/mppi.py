@@ -313,6 +313,10 @@ class MPPI():
 
             cost_total = self._compute_total_cost_batch_halton()
             action = torch.clone(self.mean_action) # !!
+
+            # print('ee', self.ee_state[0, :])
+            # print('cube', self.cube_state[0, :])
+            # print('cube goal', self.cube_goal_state[0, :])
         
         # Compute top n trajs
         self.top_values, self.top_idx = torch.topk(self.weights, 20)
@@ -492,9 +496,10 @@ class MPPI():
         
         self.perturbed_action = torch.clone(act_seq)
         if self.robot == 'panda':
-            self.perturbed_action[:, :, 8] = self.perturbed_action[:, :, 7]
+            # self.perturbed_action[:, :, :7] = 0
+            self.perturbed_action[:, :, 7] = self.perturbed_action[:, :, 8]
         elif self.robot == 'albert':
-            self.perturbed_action[:, :, 9:11] = 0
+            self.perturbed_action[:, :, 9:11] = 0 # front wheels
 
         self.cost_total, self.states, self.actions, self.ee_states = self._compute_rollout_costs(self.perturbed_action)
 
