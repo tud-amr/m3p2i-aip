@@ -240,6 +240,13 @@
     <limit effort="20" lower="0.0" upper="0.04" velocity="0.2"/>
     <mimic joint="panda_finger_joint1"/>
   </joint>
+  <link name="panda_ee"/>
+  <joint name="panda_ee" type="fixed">
+    <origin rpy="0 0 0" xyz="0 0 0.23"/>
+    <parent link="panda_link7"/>
+    <child link="panda_ee"/>
+    <axis xyz="0 0 0"/>
+  </joint>
 </robot>
 
 
