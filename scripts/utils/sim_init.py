@@ -152,16 +152,19 @@ def acquire_states(gym, sim, params, flag="none"):
         robot_states = dof_states.reshape([num_envs, dofs_per_robot*2]) # [num_envs, 4] or [num_envs, 6] for each row [pos1, vel1, pos2, vel2...]
     
     # Get states of end effector
+    ee_index = "None"
     if params.robot == "panda":
-        hand_index = 8
-        ee_l_index = 9
-        ee_r_index = 10
+        ee_index = 8
+        hand_index = 9
+        ee_l_index = 10
+        ee_r_index = 11
     elif params.robot == "albert" and params.environment_type == "albert_arena":
         hand_index = 19
         ee_l_index = 20
         ee_r_index = 21
     else:
         hand_index, ee_l_index, ee_r_index = ["None"] * 3
+    ee_state = shaped_rb_states[:, ee_index, :] if ee_index != "None" else "None"
     hand_state = shaped_rb_states[:, hand_index, :] if hand_index != "None" else "None"
     ee_l_state = shaped_rb_states[:, ee_l_index, :] if ee_l_index != "None" else "None"
     ee_r_state = shaped_rb_states[:, ee_r_index, :] if ee_r_index != "None" else "None"
@@ -192,6 +195,7 @@ def acquire_states(gym, sim, params, flag="none"):
                    "cube_state": cube_state,
                    "cube_goal_state": cube_goal_state,
                    "hand_state": hand_state, 
+                   "ee_state":ee_state,
                    "ee_l_state": ee_l_state, 
                    "ee_r_state": ee_r_state, 
                    "dyn_obs_pos": dyn_obs_pos, 

@@ -270,7 +270,7 @@ def add_obstacles(sim, gym, env, environment_type, index):
 
 def add_panda_arena(gym, sim, env, robot_asset, i):
     # Create table asset
-    table_pos = [0.6, 0.0, 0.0925]
+    table_pos = [0.6, 0.0, 0.045]
     table_thickness = 0.05
     table_opts = gymapi.AssetOptions()
     table_opts.fix_base_link = True
@@ -278,15 +278,15 @@ def add_panda_arena(gym, sim, env, robot_asset, i):
 
     # Create cubeA asset
     cubeA_opts = gymapi.AssetOptions()
-    cubeA_size = 0.050
+    cubeA_size = 0.040
     cubeA_asset = gym.create_box(sim, *([cubeA_size] * 3), cubeA_opts)
-    cubeA_color = gymapi.Vec3(0.6, 0.1, 0.0)
+    cubeA_color = gymapi.Vec3(0, 0, 1) # blue
 
     # Create cubeB asset
     cubeB_opts = gymapi.AssetOptions()
-    cubeB_size = 0.050
+    cubeB_size = 0.040
     cubeB_asset = gym.create_box(sim, *([cubeB_size] * 3), cubeB_opts)
-    cubeB_color = gymapi.Vec3(0.0, 0.4, 0.1)
+    cubeB_color = gymapi.Vec3(1, 0, 0) # red
 
     # Define start pose for panda
     panda_start_pose = gymapi.Transform()
