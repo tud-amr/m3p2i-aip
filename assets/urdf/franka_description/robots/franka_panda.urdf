@@ -242,7 +242,7 @@
   </joint>
   <link name="panda_ee"/>
   <joint name="panda_ee" type="fixed">
-    <origin rpy="0 0 0" xyz="0 0 0.23"/>
+    <origin rpy="0 0 0" xyz="0 0 0.21"/>
     <parent link="panda_link7"/>
     <child link="panda_ee"/>
     <axis xyz="0 0 0"/>

@@ -82,7 +82,7 @@ class FUSION_MPPI(mppi.MPPI):
         elif self.env_type == 'lab':
             self.obs_list = torch.arange(4, device="cuda:0") 
         elif self.env_type == 'cube':
-            self.obs_list = torch.tensor(16, device="cuda:0") 
+            self.obs_list = torch.tensor(12, device="cuda:0") 
             self.allow_dyn_obs = False
         elif self.env_type == 'albert_arena':
             self.obs_list = torch.tensor(0, device="cuda:0") 
@@ -238,12 +238,16 @@ class FUSION_MPPI(mppi.MPPI):
         goal_cost = torch.linalg.norm(self.cube_goal_state[:3] - self.cube_state[:,:3], axis = 1) #+ 2*torch.abs(self.block_goal[2] - block_state[:,2])
         # Close the gripper when close to the cube
         gripper_dist = torch.linalg.norm(self.ee_l_state[:, :3] - self.ee_r_state[:, :3], axis=1)
-        gripper_cost = 2 * (1 - gripper_dist)
-        threshold_gripper = {'panda':0.07, 'albert':0.08} # maybe change here the threshold!
+        gripper_cost = 10 * (1 - gripper_dist)
+        # 0.01 for the no collision cost 
+        threshold_gripper = {'panda':0.01, 'albert':0.08} # maybe change here the threshold!
         gripper_cost[reach_cost < threshold_gripper[self.robot]] = 0
 
-        return 10 * reach_cost + gripper_cost
-
+        # gripper_cost =  10 * gripper_dist
+        # gripper_cost[reach_cost>0.01] = 10 * (1 - gripper_dist[reach_cost>0.01]) # 0.01
+        # print(gripper_cost)
+        return 10 * reach_cost + 10 * goal_cost + gripper_cost #+ goal_cost
+ 
         if self.robot == 'omni_panda':
             # get jacobian tensor
             self.gym.refresh_jacobian_tensors(self.sim)
@@ -353,15 +357,16 @@ class FUSION_MPPI(mppi.MPPI):
         _net_cf = self.gym.refresh_net_contact_force_tensor(self.sim)
 
         # Take only forces in x,y in modulus for each environment.
-        net_cf_xy = torch.sum(torch.abs(net_cf[:, :2]),1) # [total_num_bodies]
+        net_cf_xy = torch.sum(torch.abs(net_cf[:, :3]),1) # [total_num_bodies]
         net_cf_xy = net_cf_xy.reshape([self.num_envs, self.bodies_per_env])
 
         # Consider collision costs from obstacle list
         coll_cost = torch.sum(torch.index_select(net_cf_xy, 1, self.obs_list), 1) # [num_envs]
-        w_c = 1000
+        w_c = 0.5
         # Binary check for collisions.
-        coll_cost[coll_cost>0.1] = 1
-        coll_cost[coll_cost<=0.1] = 0
+        # coll_cost[coll_cost>0.1] = 1
+        # coll_cost[coll_cost<=0.1] = 0
+        # print(coll_cost)
 
         # Avoid dynamic obstacle
         penalty_factor = 2 # the larger the factor, the more penalty to geting close to the obs
@@ -386,7 +391,7 @@ class FUSION_MPPI(mppi.MPPI):
             # print('push cost', task_cost[:10])
             # print('pull cost', task_cost[self.num_envs-10:])
         elif self.task == 'pick':
-            return self.get_panda_pick_cost(self.multi_modal) # for albert
+            task_cost = self.get_panda_pick_cost(self.multi_modal) # for albert
             # task_cost = self.get_panda_pick_cost(self.multi_modal) # for panda
         elif self.task == 'place':
             return self.get_panda_place_cost()

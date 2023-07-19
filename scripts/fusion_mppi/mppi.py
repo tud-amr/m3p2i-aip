@@ -222,11 +222,11 @@ class MPPI():
         # self.degree = 2
 
         # Halton sampling 
-        self.knot_scale = 4             # From mppi config storm
+        self.knot_scale = 2             # From mppi config storm
         self.seed_val = 0               # From mppi config storm
         self.n_knots = self.T//self.knot_scale
         self.ndims = self.n_knots * self.nu
-        self.degree = 2                # From sample_lib storm
+        self.degree = 1                # From sample_lib storm
         self.Z_seq = torch.zeros(1, self.T, self.nu, **self.tensor_args)
         self.cov_action = torch.diagonal(noise_sigma, 0)
         self.scale_tril = torch.sqrt(self.cov_action)
@@ -313,7 +313,13 @@ class MPPI():
 
             cost_total = self._compute_total_cost_batch_halton()
             action = torch.clone(self.mean_action) # !!
-
+            optimal_gripper_vel = action[0, 7]
+            # print(optimal_gripper_vel)
+            # action[:, 7:] = -0.1
+            if optimal_gripper_vel > 0:
+                action[:, 7:] = -0.1
+            else:
+                action[:, 7:] = 0.1
             # print('ee', self.ee_state[0, :])
             # print('cube', self.cube_state[0, :])
             # print('cube goal', self.cube_goal_state[0, :])
@@ -497,7 +503,15 @@ class MPPI():
         self.perturbed_action = torch.clone(act_seq)
         if self.robot == 'panda':
             # self.perturbed_action[:, :, :7] = 0
+            self.perturbed_action[:self.half_K, :, 8] = 0.1
+            self.perturbed_action[self.half_K:, :, 8] = -0.1
             self.perturbed_action[:, :, 7] = self.perturbed_action[:, :, 8]
+
+            # self.perturbed_action[:, :, 7][self.perturbed_action[:, :, 7]>0.1] = 0.1
+            # self.perturbed_action[:, :, 7][self.perturbed_action[:, :, 7]<-0.1] = -0.1
+            # self.perturbed_action[:, :, 8] = self.perturbed_action[:, :, 7]
+            # self.perturbed_action[:, :, 7] = -0.1 # close
+            # self.perturbed_action[:, :, 8] = -0.1
         elif self.robot == 'albert':
             self.perturbed_action[:, :, 9:11] = 0 # front wheels
 
@@ -522,22 +536,47 @@ class MPPI():
         traj_costs = traj_costs[:,0] # [K] Costs for the next timestep
         total_costs = traj_costs - torch.min(traj_costs) #!! different from storm
         
-        # Normalization of the weights
-        exp_ = torch.exp((-1.0/self.beta) * total_costs)
-        eta = torch.sum(exp_)       # tells how many significant samples we have, more or less
-        self.weights = 1 / eta * exp_  # [K]
+        # # Normalization of the weights
+        # exp_ = torch.exp((-1.0/self.beta) * total_costs)
+        # eta = torch.sum(exp_)       # tells how many significant samples we have, more or less
+        # self.weights = 1 / eta * exp_  # [K]
         # print('eta', eta)
 
-        # Update beta to make eta converge within the bounds 
-        if self.env_type == 'cube': # grady's thesis
-            eta_u_bound = 20
-            eta_l_bound = 10
-            beta_lm = 0.9
-            beta_um = 1.2
-            if eta > eta_u_bound:
-                self.beta = self.beta*beta_lm
-            elif eta < eta_l_bound:
-                self.beta = self.beta*beta_um
+        # # Update beta to make eta converge within the bounds 
+        # if self.env_type == 'cube': # grady's thesis
+        #     eta_u_bound = 30
+        #     eta_l_bound = 20
+        #     beta_lm = 0.9
+        #     beta_um = 1.2
+        #     if eta > eta_u_bound:
+        #         self.beta = self.beta*beta_lm
+        #     elif eta < eta_l_bound:
+        #         self.beta = self.beta*beta_um
+
+        found = False
+
+        
+        # Makes sure beta is properly tuned before computing the weights
+        while not found:
+        # Normalization of the weights
+            exp_ = torch.exp((-1.0/self.beta) * total_costs)
+            eta = torch.sum(exp_)       # tells how many significant samples we have, more or less
+
+            # Update beta to make eta converge within the bounds 
+            if self.env_type == 'cube': # grady's thesis
+                eta_u_bound = 30
+                eta_l_bound = 20
+                beta_lm = 0.9
+                beta_um = 1.2
+                if eta > eta_u_bound:
+                    self.beta = self.beta*beta_lm
+                elif eta < eta_l_bound:
+                    self.beta = self.beta*beta_um
+                else:
+                    found = True
+    
+        print('eta', eta)
+        self.weights = 1 / eta * exp_  # [K]
         
         self.total_costs = total_costs
 

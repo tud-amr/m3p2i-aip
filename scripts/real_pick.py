@@ -33,12 +33,13 @@ class IsaacgymMppiRos:
     def __init__(self, params):
         rospy.init_node(name="mppi_panda")
         self.params = params
-        self.frequency = 10
+        self.frequency = 20
         self.rate = rospy.Rate(self.frequency)
         self.init_isaacgym_mppi()
         self.tf_listener = tf.TransformListener()
 
-        rospy.Subscriber('/joint_states', JointState, self.state_cb, queue_size=1)
+        rospy.Subscriber('/joint_states_filtered', JointState, self.state_cb_arm, queue_size=1)
+        rospy.Subscriber('/joint_states', JointState, self.state_cb_fingers, queue_size=1)
         # rospy.Subscriber('/optitrack_state_estimator/BlueBlock/state', Odometry, self.cubeA_cb, queue_size=1)
         # rospy.Subscriber('/optitrack_state_estimator/RedBlock/state', Odometry, self.cubeB_cb, queue_size=1)
 
@@ -47,9 +48,14 @@ class IsaacgymMppiRos:
         time.sleep(1)
         
     # Get dof states of the panda arm
-    def state_cb(self, msg):
-        self.q = torch.tensor(msg.position[3:], device='cuda:0')
-        self.qdot = torch.tensor(msg.velocity[3:], device='cuda:0')                       
+    def state_cb_arm(self, msg):
+        self.q_arm = torch.tensor(msg.position[5:], device='cuda:0')
+        self.qdot_arm = torch.tensor(msg.velocity[5:], device='cuda:0')
+
+    # Get dof states of the panda arm
+    def state_cb_fingers(self, msg):
+        self.q_fingers = torch.tensor(msg.position[-2:], device='cuda:0')
+        self.qdot_fingers = torch.tensor(msg.velocity[-2:], device='cuda:0')                             
 
     def get_state_cb(self, cube_frame):
         state = torch.zeros(7, device='cuda:0')
@@ -126,10 +132,10 @@ class IsaacgymMppiRos:
         self.flag = True
         
         self.close_client = actionlib.SimpleActionClient('franka_gripper/move', MoveAction)
-        # self.open_client = actionlib.SimpleActionClient('franka_gripper/grasp', GraspAction)
+        self.open_client = actionlib.SimpleActionClient('franka_gripper/grasp', GraspAction)
 
         self.close_client.wait_for_server()
-        # self.open_client.wait_for_server()
+        self.open_client.wait_for_server()
 
 
     def tamp_interface(self):
@@ -153,8 +159,12 @@ class IsaacgymMppiRos:
         while not rospy.is_shutdown():
             # Reset states of the arm
             dof_state = torch.zeros((9, 2), device='cuda:0')
-            dof_state[:9, 0] = self.q
-            dof_state[:9, 1] = self.qdot
+            dof_state[:7, 0] = self.q_arm
+            dof_state[7:, 0] = self.q_fingers
+            # print('finger', self.q_fingers)
+            dof_state[:7, 1] = self.qdot_arm
+            dof_state[7:, 1] = self.qdot_fingers
+            # print('finger_vel', self.qdot_fingers)
             # print('dof', dof_state)
             s = dof_state.repeat(params.num_envs, 1) # [j1, v_j1, yj2, v_j2, j3, v_j3, ..., ]
             if self.flag:
@@ -169,6 +179,7 @@ class IsaacgymMppiRos:
             self.root_states[:, self.cubeB_index, :7] = self.cubeB_state
             self.root_states = self.root_states.reshape([params.num_envs * self.actors_per_env, 13])
             self.gym.set_actor_root_state_tensor(self.sim, gymtorch.unwrap_tensor(self.root_states))
+            self.gym.refresh_actor_root_state_tensor(self.sim)
             # Get state of ee
             # self.ee_state = self.get_state_cb("/panda_EE")
             gripper_dist = torch.linalg.norm(self.ee_l_state[:, :3] - self.ee_r_state[:, :3], axis=1)
@@ -195,7 +206,7 @@ class IsaacgymMppiRos:
 
             # Compute optimal action and send to real simulator
             action = np.array(self.motion_planner.command(s)[0].cpu())
-            print('hyy', action[7:])
+            # print('hyy', action[7:])
             # Griiper command should be discrete? TODO
 
             # Publish action command 
@@ -205,19 +216,20 @@ class IsaacgymMppiRos:
             self.pub.publish(command)
 
             # Send the command of gripper
-            if action[7] > 0.1: #!!!
+            # >0.18 for the no collision cost
+            if action[7] >= 0.1: #!!!
                 grasp_goal = MoveGoal()
                 grasp_goal.width = 0.0
                 grasp_goal.speed = 0.1
-                print(grasp_goal)
+                # print(grasp_goal)
                 self.close_client.send_goal(grasp_goal)
-            # rospy.sleep(5)
-
-            # open_goal = GraspGoal()
-            # open_goal.width = 0.38
-            # open_goal.speed = 0.1
-            # open_goal.force = 0.1
-            # self.open_client.send_goal(open_goal)
+            elif action[7] <= -0.1:
+                # print('llllll')
+                open_goal = GraspGoal()
+                open_goal.width = 0.38
+                open_goal.speed = 0.1
+                open_goal.force = 0.1
+                self.open_client.send_goal(open_goal)
             # rospy.sleep(5)
 
             self.rate.sleep()

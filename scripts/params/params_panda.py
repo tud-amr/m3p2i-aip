@@ -3,24 +3,24 @@ import torch
 # Paramters in the reactive_tamp file
 allow_viewer = False
 task = "simple"                   # "simple", "patrolling", "reactive"
-num_envs = 200
+num_envs = 500
 nx = 18
-noise_sigma = 1 * torch.eye(9, device="cuda:0", dtype=torch.float32)
-noise_sigma[7, 7] = 0.8
+noise_sigma = 0.05 * torch.eye(9, device="cuda:0", dtype=torch.float32) #0.05
+noise_sigma[7, 7] = 0.8 # 0.8 original no collision cost 
 noise_sigma[8, 8] = 0.8
-horizon = 12
+horizon = 8
 lambda_ = 0.01
 device = "cuda:0" 
-u_max = 0.3 * torch.ones(9, device="cuda:0", dtype=torch.float32)
+u_max = 0.2 * torch.ones(9, device="cuda:0", dtype=torch.float32)
 u_max[7:] = 0.5
-u_min = -0.3 * torch.ones(9, device="cuda:0", dtype=torch.float32)
+u_min = -0.2 * torch.ones(9, device="cuda:0", dtype=torch.float32)
 u_min[7:] = -0.5
 step_dependent_dynamics = True
 terminal_state_cost = None
 sample_null_action = False
 use_priors = False
-u_per_command = 12
-filter_u = True
+u_per_command = 8
+filter_u = False
 
 # Parameters in the sim file
 sim_allow_viewer = True
