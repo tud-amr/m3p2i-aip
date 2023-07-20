@@ -194,3 +194,45 @@ class MDPIsCubeAt:
         # Learning rate for state update
         # -----------------------------------------------------------
         self.kappa_d = 0.8
+
+class MDPIsCubeAtReal:
+    def __init__(self): 
+        self.state_name = 'isCubeAt'                               
+        self.state_names = ['cube_at_table', 'cube_close_to_gripper', 'cube_at_pre_place', 'cube_at_goal']          
+        self.action_names = ['idle', 'reach', 'pick', 'place']   
+
+        self.V = np.array([0, 1, 2, 3])      
+        self.B = np.zeros((4, 4, 4))    
+        # Transition matrices
+        # ----------------------------------------------------------
+        self.B[:, :, 0] = np.eye(4)
+        self.B[:, :, 1] = np.array([[1, 1, 1, 1],  # reach
+                                    [0, 0, 0, 0],
+                                    [0, 0, 0, 0], 
+                                    [0, 0, 0, 0]])
+        self.B[:, :, 2] = np.array([[1, 1, 1, 1],  # pick
+                                    [0, 0, 0, 0],
+                                    [0, 0, 0, 0], 
+                                    [0, 0, 0, 0]])
+        self.B[:, :, 3] = np.array([[1, 1, 1, 1],  # place
+                                    [0, 0, 0, 0],
+                                    [0, 0, 0, 0], 
+                                    [0, 0, 0, 0]])
+        # # Preconditions of the actions above
+        # ----------------------------------------------------------
+        self.preconditions = [['cube_at_goal'], ['cube_at_table'], ['cube_close_to_gripper'], ['cube_at_pre_place']]
+        # Likelihood matrix matrices
+        # ----------------------------------------------------------
+        self.A = np.eye(4)  # Identity mapping
+        # Prior preferences. Initially none
+        # -----------------------------------------------------------
+        self.C = np.array([[0], [0], [0], [0]])
+        # Initial guess about the states d, all equally possible, this is updated over time
+        # -----------------------------------------------------------
+        self.D = np.array([[0.5], [0.5], [0.5], [0.5]])
+        # Preference about actions.
+        # -----------------------------------------------------------
+        self.E = np.array([[1.], [1.01], [1.], [1]])
+        # Learning rate for state update
+        # -----------------------------------------------------------
+        self.kappa_d = 0.8

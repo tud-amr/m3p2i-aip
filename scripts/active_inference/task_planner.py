@@ -122,6 +122,60 @@ class PLANNER_AIF_PANDA(PLANNER_SIMPLE):
         self.prev_ee_state = ee_state.clone()
         return flag
 
+class PLANNER_AIF_PANDA_REAL(PLANNER_SIMPLE):
+    def __init__(self) -> None:
+        PLANNER_SIMPLE.__init__(self, "idle", [0, 0, 0, 0, 0, 0, 0])
+        # Define the required mdp structures from the templates
+        mdp_isCubeAtReal = isaac_state_action_templates.MDPIsCubeAtReal()
+
+        # Agent with following states [isCubeAt]
+        self.ai_agent_task = [ai_agent.AiAgent(mdp_isCubeAtReal)]
+        self.obs = 0
+        self.prev_ee_state = torch.zeros(7, device="cuda:0")
+
+    def get_obs(self, cube_state, cube_goal, ee_state):
+        cube_height_diff = torch.linalg.norm(cube_state[2] - cube_goal[2])
+        reach_cost = torch.linalg.norm(ee_state[:3 - cube_state[:3]])
+        dist_cost = torch.linalg.norm(self.curr_goal[:3] - cube_state[:3]) # self.curr_goal
+        ori_cost = skill_utils.get_general_ori_cube2goal(self.curr_goal[3:].view(-1,4), cube_state[3:].view(-1,4))
+        # print('dis', dist_cost)
+        # print('ori', ori_cost[0])
+        if dist_cost < 0.025:
+            self.obs = 2
+            self.ee_goal = ee_state.clone()
+            self.ee_goal[2] += 0.2
+            self.ai_agent_task[0].set_preferences(np.array([[1.], [0], [0], [0]]))
+        else:
+            if cube_height_diff < 0.01:
+                self.obs = 0
+                self.ai_agent_task[0].set_preferences(np.array([[0], [1], [0], [0]]))
+            if reach_cost < 0.02: 
+                self.obs = 1
+                self.ai_agent_task[0].set_preferences(np.array([[1], [0], [0], [0]]))
+
+    def update_plan(self, cube_state, cube_goal, ee_state):
+        self.get_obs(cube_state, cube_goal, ee_state)
+        outcome, curr_action = adaptive_action_selection.adapt_act_sel(self.ai_agent_task, [self.obs])
+        # print('Status:', outcome)
+        # print('Current action:', curr_action)
+
+        self.task = curr_action
+        if curr_action == 'reach':
+            self.curr_goal = 0
+        if curr_action == 'pick':
+            self.curr_goal = cube_goal.clone()
+            self.curr_goal[2] += 0.0525
+        elif curr_action == "place":
+            # self.ai_agent_task[0].set_preferences(np.array([[1], [0], [0]]))
+            self.curr_goal = self.ee_goal
+    
+    def check_task_success(self, ee_state):
+        flag = False
+        if self.task == 'place' and torch.linalg.norm(ee_state - self.prev_ee_state) < 0.001:
+            flag = True
+        self.prev_ee_state = ee_state.clone()
+        return flag
+
 class PLANNER_PATROLLING(PLANNER_SIMPLE):
     def __init__(self, goals) -> None:
         self.task = "navigation"
