@@ -270,7 +270,7 @@ def add_obstacles(sim, gym, env, environment_type, index):
 
 def add_panda_arena(gym, sim, env, robot_asset, i):
     # Create table asset
-    table_pos = [0.6, 0.0, 0.045]
+    table_pos = [0.6, 0.0, 0.0525]
     table_thickness = 0.05
     table_opts = gymapi.AssetOptions()
     table_opts.fix_base_link = True

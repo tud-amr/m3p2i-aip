@@ -87,14 +87,14 @@ class IsaacgymMppiRos:
         self.cube_goal_state = states_dict["cube_goal_state"] # cubeB
         self.ee_l_state = states_dict["ee_l_state"]
         self.ee_r_state = states_dict["ee_r_state"]
-        self.ee_state = states_dict["ee_state"]
+        # self.ee_state = states_dict["ee_state"]
         self.cube_goal_state_new = self.cube_goal_state[0, :7].clone()
         self.cube_goal_state_new[2] += 0.06
         self.root_states = states_dict["root_states"]
 
         # Choose the task planner
         # self.task_planner = task_planner.PLANNER_PICK("pick", self.cube_goal_state_new)
-        self.task_planner = task_planner.PLANNER_AIF_PANDA()
+        self.task_planner = task_planner.PLANNER_AIF_PANDA_REAL()
 
         # Choose the motion planner
         self.motion_planner = fusion_mppi.FUSION_MPPI(
@@ -142,7 +142,7 @@ class IsaacgymMppiRos:
         # Update task and goal in the task planner
         self.task_planner.update_plan(self.cubeA_state[:7], 
                                       self.cubeB_state[:7], 
-                                      self.ee_state[:7])
+                                      self.ee_state_real[:7])
 
         # Update task and goal in the motion planner
         # print('task:', self.task_planner.task, 'goal:', self.task_planner.curr_goal)
@@ -152,7 +152,7 @@ class IsaacgymMppiRos:
         self.params = self.motion_planner.update_params(params, self.prefer_pull)
 
         # Check task succeeds or not
-        task_success = self.task_planner.check_task_success(self.ee_state[:7])
+        task_success = self.task_planner.check_task_success(self.ee_state_real[:7])
         return task_success
 
     def run(self):
@@ -181,13 +181,16 @@ class IsaacgymMppiRos:
             self.gym.set_actor_root_state_tensor(self.sim, gymtorch.unwrap_tensor(self.root_states))
             self.gym.refresh_actor_root_state_tensor(self.sim)
             # Get state of ee
-            # self.ee_state = self.get_state_cb("/panda_EE")
+            self.ee_state_real = self.get_state_cb("/panda_ee_low")
             gripper_dist = torch.linalg.norm(self.ee_l_state[:, :3] - self.ee_r_state[:, :3], axis=1)
             # print('A', self.cubeA_state)
+            # print('sim A', self.cube_state[0,:])
             # print('B', self.cubeB_state)
-            # print('ee', self.ee_state)
-            # print('ee sim', self.ee_state_sim)
+            # print('ee real', self.ee_state_real)
+            # print('ee sim', self.ee_state[0, :])
             # print('gripper', gripper_dist) # not very precise, 4.5-5 cm
+            # print('sim', torch.linalg.norm(self.ee_state[0, :3] - self.cube_state[0, :3]))
+            # print('real', torch.linalg.norm(self.ee_state_real[:3] - self.cubeA_state[:3]))
 
             cubeA_quat = self.cubeA_state[3:7].view(1, 4)
             cubeB_quat = self.cubeB_state[3:7].view(1, 4)
@@ -206,7 +209,7 @@ class IsaacgymMppiRos:
 
             # Compute optimal action and send to real simulator
             action = np.array(self.motion_planner.command(s)[0].cpu())
-            # print('hyy', action[7:])
+            # print('hyy', action[:])
             # Griiper command should be discrete? TODO
 
             # Publish action command 
@@ -217,12 +220,13 @@ class IsaacgymMppiRos:
 
             # Send the command of gripper
             # >0.18 for the no collision cost
-            if action[7] >= 0.1: #!!!
+            if action[7] >= 0.1 and self.flag: #!!!
                 grasp_goal = MoveGoal()
                 grasp_goal.width = 0.0
                 grasp_goal.speed = 0.1
                 # print(grasp_goal)
                 self.close_client.send_goal(grasp_goal)
+                # self.flag = False
             elif action[7] <= -0.1:
                 # print('llllll')
                 open_goal = GraspGoal()

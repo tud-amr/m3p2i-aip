@@ -5,7 +5,7 @@ allow_viewer = False
 task = "simple"                   # "simple", "patrolling", "reactive"
 num_envs = 500
 nx = 18
-noise_sigma = 0.05 * torch.eye(9, device="cuda:0", dtype=torch.float32) #0.05
+noise_sigma = 0.01 * torch.eye(9, device="cuda:0", dtype=torch.float32) #0.05
 noise_sigma[7, 7] = 0.8 # 0.8 original no collision cost 
 noise_sigma[8, 8] = 0.8
 horizon = 8

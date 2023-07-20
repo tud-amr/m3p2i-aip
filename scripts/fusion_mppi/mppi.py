@@ -274,7 +274,6 @@ class MPPI():
         """
             Given a state, returns the best action sequence
         """
-        
         if not torch.is_tensor(state):
             state = torch.tensor(state)
         self.state = state.to(dtype=self.tensor_args['dtype'], device=self.tensor_args['device'])
@@ -314,11 +313,11 @@ class MPPI():
             cost_total = self._compute_total_cost_batch_halton()
             action = torch.clone(self.mean_action) # !!
             optimal_gripper_vel = action[0, 7]
-            # print(optimal_gripper_vel)
+            # print('optimal', optimal_gripper_vel)
             # action[:, 7:] = -0.1
             if optimal_gripper_vel > 0:
                 action[:, 7:] = -0.1
-            else:
+            elif optimal_gripper_vel < 0:
                 action[:, 7:] = 0.1
             # print('ee', self.ee_state[0, :])
             # print('cube', self.cube_state[0, :])
@@ -372,6 +371,8 @@ class MPPI():
         states = []
         actions = []
         ee_states = []
+
+        self.old_reach_cost = 1
 
         for t in range(T):
             u = self.u_scale * perturbed_actions[:, t]
@@ -503,13 +504,13 @@ class MPPI():
         self.perturbed_action = torch.clone(act_seq)
         if self.robot == 'panda':
             # self.perturbed_action[:, :, :7] = 0
-            self.perturbed_action[:self.half_K, :, 8] = 0.1
-            self.perturbed_action[self.half_K:, :, 8] = -0.1
+            if self.task in ['reach']:
+                self.perturbed_action[:, :, 8] = 0
+            elif self.task in ['place']:
+                self.perturbed_action[:, :, 8] = 0.1
+            elif self.task == 'pick':
+                self.perturbed_action[:, :, 8] = -0.1
             self.perturbed_action[:, :, 7] = self.perturbed_action[:, :, 8]
-
-            # self.perturbed_action[:, :, 7][self.perturbed_action[:, :, 7]>0.1] = 0.1
-            # self.perturbed_action[:, :, 7][self.perturbed_action[:, :, 7]<-0.1] = -0.1
-            # self.perturbed_action[:, :, 8] = self.perturbed_action[:, :, 7]
             # self.perturbed_action[:, :, 7] = -0.1 # close
             # self.perturbed_action[:, :, 8] = -0.1
         elif self.robot == 'albert':
@@ -575,7 +576,7 @@ class MPPI():
                 else:
                     found = True
     
-        print('eta', eta)
+        # print('eta', eta)
         self.weights = 1 / eta * exp_  # [K]
         
         self.total_costs = total_costs

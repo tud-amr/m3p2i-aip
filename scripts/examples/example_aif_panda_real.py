@@ -29,11 +29,14 @@ for i in range(20):
         ai_agent_task[0].set_preferences(np.array([[0.], [1], [0], [0]]))
         obs = [0] # cube_at_table -> reach
     elif i < 10:
-        ai_agent_task[0].set_preferences(np.array([[1], [0], [0], [0]]))
+        ai_agent_task[0].set_preferences(np.array([[0], [1], [0], [0]]))
         obs = [1] # cube_closeto_gripper -> pick
-    elif i < 15:
-        ai_agent_task[0].set_preferences(np.array([[1.], [0], [0], [0]]))
-        obs = [2] # cube_at_preplace -> place
+    if i < 15:     
+        ai_agent_task[0].set_preferences(np.array([[0.], [1], [0], [0]]))
+        obs = [0] # cube_at_table -> reach
+    # elif i < 15:
+    #     ai_agent_task[0].set_preferences(np.array([[1.], [0], [0], [0]]))
+    #     obs = [2] # cube_at_preplace -> place
     elif i < 20:
         ai_agent_task[0].set_preferences(np.array([[0.], [0], [0], [1]]))
         obs = [3] # cube_at_goal -> idle

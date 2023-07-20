@@ -74,6 +74,7 @@ class FUSION_MPPI(mppi.MPPI):
         self.align_weight = {"heijn":1, "point_robot":0.5, "boxer":1}
         self.align_offset = {"heijn":0.1, "point_robot":0.05}
         self.goal_quaternion = torch.tensor([0, 0, 0, 1], device="cuda:0").repeat(self.num_envs).view(self.num_envs, 4)
+        self.old_reach_cost = 0.3
 
         # Store obstacle list
         self.allow_dyn_obs = True
@@ -226,49 +227,28 @@ class FUSION_MPPI(mppi.MPPI):
         dyn_obs_cost = factor * torch.exp(-torch.norm(pred_pos - self.robot_pos, dim=1))
 
         return dyn_obs_cost
-
-    def get_panda_pick_cost(self, hybrid):
-        # self.ee_state = (self.ee_l_state + self.ee_r_state) / 2
-        # print('ee', self.ee_state[0, :])
-        # print('cube', self.cube_state[0, :])
+    
+    def get_panda_reach_cost(self, hybrid):
         reach_cost = torch.linalg.norm(self.ee_state[:,:3] - self.cube_state[:,:3], axis = 1) 
+        new_reach_cost = reach_cost / self.old_reach_cost
+        self.old_reach_cost = reach_cost.clone()
         # print(reach_cost)
         # print('low', torch.min(reach_cost))
         # print('high', torch.max(reach_cost))
-        goal_cost = torch.linalg.norm(self.cube_goal_state[:3] - self.cube_state[:,:3], axis = 1) #+ 2*torch.abs(self.block_goal[2] - block_state[:,2])
-        # Close the gripper when close to the cube
-        gripper_dist = torch.linalg.norm(self.ee_l_state[:, :3] - self.ee_r_state[:, :3], axis=1)
-        gripper_cost = 10 * (1 - gripper_dist)
-        # 0.01 for the no collision cost 
-        threshold_gripper = {'panda':0.01, 'albert':0.08} # maybe change here the threshold!
-        gripper_cost[reach_cost < threshold_gripper[self.robot]] = 0
+        ori_cost = self.get_pick_tilt_cost(hybrid)
 
-        # gripper_cost =  10 * gripper_dist
-        # gripper_cost[reach_cost>0.01] = 10 * (1 - gripper_dist[reach_cost>0.01]) # 0.01
-        # print(gripper_cost)
-        return 10 * reach_cost + 10 * goal_cost + gripper_cost #+ goal_cost
- 
-        if self.robot == 'omni_panda':
-            # get jacobian tensor
-            self.gym.refresh_jacobian_tensors(self.sim)
-            # for fixed-base franka, tensor has shape (num envs, 10, 6, 9)
-            _jacobian = self.gym.acquire_jacobian_tensor(self.sim, "franka")
-            jacobian = gymtorch.wrap_tensor(_jacobian)
-            # jacobian entries corresponding to franka hand 
-            j_eef = jacobian[:, 11, :, 3:10]
-            A = torch.bmm(j_eef, torch.transpose(j_eef, 1,2))
-            eig = torch.real(torch.linalg.eigvals(A))
-            manip_cost = torch.sqrt(torch.max(eig, dim = 1)[0]/torch.min(eig, dim = 1)[0])
-            manip_cost = torch.nan_to_num(manip_cost, nan=500)
-        else:
-            manip_cost = torch.zeros_like(reach_cost)
-        
+        return 20 * reach_cost + ori_cost
+
+    def get_panda_pick_cost(self, hybrid):
+        goal_cost = torch.linalg.norm(self.cube_goal_state[:3] - self.cube_state[:,:3], axis = 1) #+ 2*torch.abs(self.block_goal[2] - block_state[:,2])
         # Compute the orientation cost
         cube_quaternion = self.cube_state[:, 3:7]
         goal_quatenion = self.cube_goal_state[3:7].repeat(self.num_envs).view(self.num_envs, 4)
         # To make the cube fit the goal's orientation well
         ori_cube2goal = skill_utils.get_general_ori_cube2goal(cube_quaternion, goal_quatenion) 
         ori_cost = 3 * ori_cube2goal
+
+        return  20 * goal_cost + ori_cost
 
         # Compute the tilt value between ee and cube
         tilt_cost = self.get_pick_tilt_cost(hybrid)
@@ -305,15 +285,16 @@ class FUSION_MPPI(mppi.MPPI):
         gripper_cost = 1 - gripper_dist
         self.ee_state = (self.ee_l_state + self.ee_r_state) / 2
         reach_cost = torch.linalg.norm(self.ee_state[:,:7] - self.ee_goal[:7], axis=1)
+        goal_cost = torch.linalg.norm(self.cube_goal_state[:3] - self.cube_state[:,:3], axis = 1)
         # If gripper is not fully open, no reach cost
-        reach_cost[gripper_dist <= 0.078] = 0
+        # reach_cost[gripper_dist <= 0.078] = 0
         # If gripper is fully open, no gripper cost, retract the arm
         gripper_cost[gripper_dist > 0.078] = 0
         if self.robot == 'albert':
             vel_cost = torch.linalg.norm(self.robot_vel, axis=1)
             return 10 * gripper_cost + 10 * vel_cost
         elif self.robot == 'panda':
-            return 10 * gripper_cost + 10 * reach_cost
+            return reach_cost
     
     def get_albert_cost(self):
         # nav_cost = 10 * torch.clamp(torch.linalg.norm(self.robot_pos - self.nav_goal, axis=1)-0.05, min=0, max=1999)
@@ -390,9 +371,10 @@ class FUSION_MPPI(mppi.MPPI):
             return torch.cat((self.get_push_cost()[:self.half_K], self.get_pull_cost(True)[self.half_K:]), dim=0)
             # print('push cost', task_cost[:10])
             # print('pull cost', task_cost[self.num_envs-10:])
+        elif self.task == 'reach':
+            task_cost = self.get_panda_reach_cost(self.multi_modal)
         elif self.task == 'pick':
-            task_cost = self.get_panda_pick_cost(self.multi_modal) # for albert
-            # task_cost = self.get_panda_pick_cost(self.multi_modal) # for panda
+            task_cost = self.get_panda_pick_cost(self.multi_modal)
         elif self.task == 'place':
             return self.get_panda_place_cost()
         else:

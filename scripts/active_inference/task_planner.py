@@ -135,36 +135,42 @@ class PLANNER_AIF_PANDA_REAL(PLANNER_SIMPLE):
 
     def get_obs(self, cube_state, cube_goal, ee_state):
         cube_height_diff = torch.linalg.norm(cube_state[2] - cube_goal[2])
-        reach_cost = torch.linalg.norm(ee_state[:3 - cube_state[:3]])
+        reach_cost = torch.linalg.norm(ee_state[:3] - cube_state[:3])
         dist_cost = torch.linalg.norm(self.curr_goal[:3] - cube_state[:3]) # self.curr_goal
         ori_cost = skill_utils.get_general_ori_cube2goal(self.curr_goal[3:].view(-1,4), cube_state[3:].view(-1,4))
-        # print('dis', dist_cost)
-        # print('ori', ori_cost[0])
-        if dist_cost < 0.025:
+        print('dis', dist_cost)
+        print('ori', ori_cost[0])
+        if dist_cost + ori_cost < 0.05:
             self.obs = 2
             self.ee_goal = ee_state.clone()
             self.ee_goal[2] += 0.2
             self.ai_agent_task[0].set_preferences(np.array([[1.], [0], [0], [0]]))
-        else:
-            if cube_height_diff < 0.01:
-                self.obs = 0
-                self.ai_agent_task[0].set_preferences(np.array([[0], [1], [0], [0]]))
-            if reach_cost < 0.02: 
-                self.obs = 1
-                self.ai_agent_task[0].set_preferences(np.array([[1], [0], [0], [0]]))
+        elif reach_cost < 0.008: 
+            self.obs = 1
+            self.ai_agent_task[0].set_preferences(np.array([[1], [0], [0], [0]]))
+        elif cube_height_diff < 0.01: # reach
+            self.obs = 0
+            self.ai_agent_task[0].set_preferences(np.array([[0], [1], [0], [0]]))
 
     def update_plan(self, cube_state, cube_goal, ee_state):
         self.get_obs(cube_state, cube_goal, ee_state)
-        outcome, curr_action = adaptive_action_selection.adapt_act_sel(self.ai_agent_task, [self.obs])
+        # outcome, curr_action = adaptive_action_selection.adapt_act_sel(self.ai_agent_task, [self.obs])
         # print('Status:', outcome)
         # print('Current action:', curr_action)
 
+        if self.obs == 0:
+            curr_action = 'reach'
+        elif self.obs == 1:
+            curr_action = 'pick'
+        elif self.obs == 2:
+            curr_action = 'place'
+
         self.task = curr_action
         if curr_action == 'reach':
-            self.curr_goal = 0
-        if curr_action == 'pick':
+            self.curr_goal = torch.zeros(7, device='cuda:0')
+        elif curr_action == 'pick':
             self.curr_goal = cube_goal.clone()
-            self.curr_goal[2] += 0.0525
+            self.curr_goal[2] += 0.0125
         elif curr_action == "place":
             # self.ai_agent_task[0].set_preferences(np.array([[1], [0], [0]]))
             self.curr_goal = self.ee_goal
