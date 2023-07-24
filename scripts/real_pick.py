@@ -87,7 +87,7 @@ class IsaacgymMppiRos:
         self.cube_goal_state = states_dict["cube_goal_state"] # cubeB
         self.ee_l_state = states_dict["ee_l_state"]
         self.ee_r_state = states_dict["ee_r_state"]
-        # self.ee_state = states_dict["ee_state"]
+        self.ee_state = states_dict["ee_state"]
         self.cube_goal_state_new = self.cube_goal_state[0, :7].clone()
         self.cube_goal_state_new[2] += 0.06
         self.root_states = states_dict["root_states"]
@@ -129,6 +129,7 @@ class IsaacgymMppiRos:
         self.prefer_pull = -1
         self.cubeA_index = 2
         self.cubeB_index = 3
+        self.magicwand_index = 4
         self.flag = True
         
         self.close_client = actionlib.SimpleActionClient('franka_gripper/move', MoveAction)
@@ -145,7 +146,7 @@ class IsaacgymMppiRos:
                                       self.ee_state_real[:7])
 
         # Update task and goal in the motion planner
-        # print('task:', self.task_planner.task, 'goal:', self.task_planner.curr_goal)
+        print('task:', self.task_planner.task, 'goal:', self.task_planner.curr_goal)
         self.motion_planner.update_task(self.task_planner.task, self.task_planner.curr_goal)
 
         # Update params in the motion planner
@@ -174,9 +175,12 @@ class IsaacgymMppiRos:
             # Reset the states of the cubes
             self.cubeA_state = self.get_state_cb("/BlueBlock")
             self.cubeB_state = self.get_state_cb("/RedBlock")
+            self.magicwand_state = self.get_state_cb("/MagicWand")
             self.root_states = self.root_states.reshape([params.num_envs, self.actors_per_env, 13])
             self.root_states[:, self.cubeA_index, :7] = self.cubeA_state
             self.root_states[:, self.cubeB_index, :7] = self.cubeB_state
+            self.root_states[:, self.magicwand_index, :7] = self.magicwand_state
+            self.root_states[:, self.magicwand_index, 7:] = 0
             self.root_states = self.root_states.reshape([params.num_envs * self.actors_per_env, 13])
             self.gym.set_actor_root_state_tensor(self.sim, gymtorch.unwrap_tensor(self.root_states))
             self.gym.refresh_actor_root_state_tensor(self.sim)
@@ -191,6 +195,7 @@ class IsaacgymMppiRos:
             # print('gripper', gripper_dist) # not very precise, 4.5-5 cm
             # print('sim', torch.linalg.norm(self.ee_state[0, :3] - self.cube_state[0, :3]))
             # print('real', torch.linalg.norm(self.ee_state_real[:3] - self.cubeA_state[:3]))
+            # print('magic', self.magicwand_state)
 
             cubeA_quat = self.cubeA_state[3:7].view(1, 4)
             cubeB_quat = self.cubeB_state[3:7].view(1, 4)
@@ -215,26 +220,25 @@ class IsaacgymMppiRos:
             # Publish action command 
             command = Float64MultiArray()
             command.data = action[:7]
-            # print('comma', command)
-            self.pub.publish(command)
+            if not params.allow_viewer:
+                self.pub.publish(command)
 
-            # Send the command of gripper
-            # >0.18 for the no collision cost
-            if action[7] >= 0.1 and self.flag: #!!!
-                grasp_goal = MoveGoal()
-                grasp_goal.width = 0.0
-                grasp_goal.speed = 0.1
-                # print(grasp_goal)
-                self.close_client.send_goal(grasp_goal)
-                # self.flag = False
-            elif action[7] <= -0.1:
-                # print('llllll')
-                open_goal = GraspGoal()
-                open_goal.width = 0.38
-                open_goal.speed = 0.1
-                open_goal.force = 0.1
-                self.open_client.send_goal(open_goal)
-            # rospy.sleep(5)
+                # Send the command of gripper
+                # >0.18 for the no collision cost
+                if action[7] >= 0.1 and self.flag: #!!!
+                    grasp_goal = MoveGoal()
+                    grasp_goal.width = 0.0
+                    grasp_goal.speed = 0.1
+                    # print(grasp_goal)
+                    self.close_client.send_goal(grasp_goal)
+                    # self.flag = False
+                elif action[7] <= -0.1:
+                    # print('llllll')
+                    open_goal = GraspGoal()
+                    open_goal.width = 0.38
+                    open_goal.speed = 0.1
+                    open_goal.force = 0.1
+                    self.open_client.send_goal(open_goal)
 
             self.rate.sleep()
 

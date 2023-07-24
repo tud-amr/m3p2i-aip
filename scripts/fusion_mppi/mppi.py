@@ -503,13 +503,19 @@ class MPPI():
         
         self.perturbed_action = torch.clone(act_seq)
         if self.robot == 'panda':
-            # self.perturbed_action[:, :, :7] = 0
+            if self.params.allow_viewer:
+                self.perturbed_action[:, :, :7] = 0
             if self.task in ['reach']:
                 self.perturbed_action[:, :, 8] = 0
             elif self.task in ['place']:
-                self.perturbed_action[:, :, 8] = 0.1
+                self.perturbed_action[:, :, :7] = 0
+                self.perturbed_action[:, :, 8] = 0.05
             elif self.task == 'pick':
-                self.perturbed_action[:, :, 8] = -0.1
+                self.perturbed_action[:, :, 8] = -0.05 
+                # -0.05 can grasp the cube in static hand, but may be faster than the ral picking so there is a delay
+            elif self.task == 'idle':
+                self.perturbed_action[:, :, :] = 0 # why number error??
+                # self.perturbed_action[:, :, 8] = 0.05
             self.perturbed_action[:, :, 7] = self.perturbed_action[:, :, 8]
             # self.perturbed_action[:, :, 7] = -0.1 # close
             # self.perturbed_action[:, :, 8] = -0.1

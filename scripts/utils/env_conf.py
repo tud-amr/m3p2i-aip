@@ -278,15 +278,21 @@ def add_panda_arena(gym, sim, env, robot_asset, i):
 
     # Create cubeA asset
     cubeA_opts = gymapi.AssetOptions()
-    cubeA_size = 0.040
+    cubeA_size = 0.062
     cubeA_asset = gym.create_box(sim, *([cubeA_size] * 3), cubeA_opts)
     cubeA_color = gymapi.Vec3(0, 0, 1) # blue
 
     # Create cubeB asset
     cubeB_opts = gymapi.AssetOptions()
-    cubeB_size = 0.040
+    cubeB_size = 0.062
     cubeB_asset = gym.create_box(sim, *([cubeB_size] * 3), cubeB_opts)
     cubeB_color = gymapi.Vec3(1, 0, 0) # red
+
+    # Create magic wand asset
+    wand_pos = [0.35, 0.0, 1]
+    wand_opts = gymapi.AssetOptions()
+    wand_opts.disable_gravity = True
+    wand_asset = gym.create_box(sim, *[0.27, 0.27, 0.02], wand_opts)
 
     # Define start pose for panda
     panda_start_pose = gymapi.Transform()
@@ -309,6 +315,11 @@ def add_panda_arena(gym, sim, env, robot_asset, i):
     cubeB_start_pose.p = gymapi.Vec3(0.2, 0.2, 1.06)
     cubeB_start_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
 
+    # Define start pose for obs
+    wand_start_pose = gymapi.Transform()
+    wand_start_pose.p = gymapi.Vec3(*wand_pos)
+    wand_start_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
+
     # Create panda robot
     panda_actor = gym.create_actor(env, robot_asset, panda_start_pose, "panda", i, 0, 0)
 
@@ -320,6 +331,9 @@ def add_panda_arena(gym, sim, env, robot_asset, i):
     cubeB_id = gym.create_actor(env, cubeB_asset, cubeB_start_pose, "cubeB", i, 4, 0)
     gym.set_rigid_body_color(env, cubeA_id, 0, gymapi.MESH_VISUAL, cubeA_color)
     gym.set_rigid_body_color(env, cubeB_id, 0, gymapi.MESH_VISUAL, cubeB_color)
+
+    # Create obstacle
+    wand_creater = gym.create_actor(env, wand_asset, wand_start_pose, "wand",i, 1, 0)
 
     cubeA_rbid = gym.get_actor_rigid_body_index(env, cubeA_id, 0, gymapi.DOMAIN_SIM) # 13
     cubeB_rbid = gym.get_actor_rigid_body_index(env, cubeB_id, 0, gymapi.DOMAIN_SIM) # 14

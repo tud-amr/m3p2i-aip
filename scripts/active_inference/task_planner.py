@@ -132,23 +132,36 @@ class PLANNER_AIF_PANDA_REAL(PLANNER_SIMPLE):
         self.ai_agent_task = [ai_agent.AiAgent(mdp_isCubeAtReal)]
         self.obs = 0
         self.prev_ee_state = torch.zeros(7, device="cuda:0")
+        self.pick_always = False
+        self.place_forever = False
+        self.ee_goal_once = 0
 
     def get_obs(self, cube_state, cube_goal, ee_state):
         cube_height_diff = torch.linalg.norm(cube_state[2] - cube_goal[2])
         reach_cost = torch.linalg.norm(ee_state[:3] - cube_state[:3])
-        dist_cost = torch.linalg.norm(self.curr_goal[:3] - cube_state[:3]) # self.curr_goal
+        dist_cost = torch.linalg.norm(self.curr_goal[:3] - cube_state[:3]) # self.curr_goal !!
         ori_cost = skill_utils.get_general_ori_cube2goal(self.curr_goal[3:].view(-1,4), cube_state[3:].view(-1,4))
+        # print('cost hh', reach_cost)
+        # print()
         print('dis', dist_cost)
         print('ori', ori_cost[0])
-        if dist_cost + ori_cost < 0.05:
+        if dist_cost + ori_cost < 0.018 or self.place_forever:
             self.obs = 2
-            self.ee_goal = ee_state.clone()
-            self.ee_goal[2] += 0.2
+            if self.ee_goal_once <1:
+                self.ee_goal = ee_state.clone()
+                self.ee_goal[2] += 0.2
+            self.ee_goal_once += 1
+            self.place_forever = True
             self.ai_agent_task[0].set_preferences(np.array([[1.], [0], [0], [0]]))
-        elif reach_cost < 0.008: 
+            # print('end hh', self.end_goal[:3])
+            # print(torch.linalg.norm(self.end_goal[:3]-ee_state[:3]))
+            if torch.linalg.norm(self.end_goal[:3]-ee_state[:3]) < 0.06:
+                self.obs = 3
+        elif reach_cost < 0.01 or self.pick_always: # not too picky
             self.obs = 1
+            self.pick_always = True
             self.ai_agent_task[0].set_preferences(np.array([[1], [0], [0], [0]]))
-        elif cube_height_diff < 0.01: # reach
+        elif cube_height_diff < 0.01 and not self.pick_always: # reach
             self.obs = 0
             self.ai_agent_task[0].set_preferences(np.array([[0], [1], [0], [0]]))
 
@@ -164,15 +177,21 @@ class PLANNER_AIF_PANDA_REAL(PLANNER_SIMPLE):
             curr_action = 'pick'
         elif self.obs == 2:
             curr_action = 'place'
-
+        elif self.obs == 3:
+            curr_action = 'idle'
+        
         self.task = curr_action
         if curr_action == 'reach':
             self.curr_goal = torch.zeros(7, device='cuda:0')
         elif curr_action == 'pick':
             self.curr_goal = cube_goal.clone()
-            self.curr_goal[2] += 0.0125
+            self.curr_goal[2] += 0.072
+            self.end_goal = self.curr_goal.clone()
+            self.end_goal[2] += 0.1
         elif curr_action == "place":
             # self.ai_agent_task[0].set_preferences(np.array([[1], [0], [0]]))
+            self.curr_goal = self.ee_goal
+        elif curr_action == "idle":
             self.curr_goal = self.ee_goal
     
     def check_task_success(self, ee_state):

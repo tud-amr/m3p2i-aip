@@ -17,7 +17,7 @@ ai_agent_task = [ai_agent.AiAgent(mdp_isCubeAtReal)]
 # ai_agent_task[0].set_preferences(np.array([[0.], [1], [0], [0]]))
 
 # Loop for the execution of the task, ideally this will be given by the tick of a BT
-for i in range(20):
+for i in range(30):
     # Set the observation from the current readings, the logic of the observations need to be specified for the task. 
     # When an observation is unavailable set it to 'null'
     '''
@@ -29,15 +29,21 @@ for i in range(20):
         ai_agent_task[0].set_preferences(np.array([[0.], [1], [0], [0]]))
         obs = [0] # cube_at_table -> reach
     elif i < 10:
-        ai_agent_task[0].set_preferences(np.array([[0], [1], [0], [0]]))
+        ai_agent_task[0].set_preferences(np.array([[1], [0], [0], [0]]))
         obs = [1] # cube_closeto_gripper -> pick
-    if i < 15:     
-        ai_agent_task[0].set_preferences(np.array([[0.], [1], [0], [0]]))
-        obs = [0] # cube_at_table -> reach
-    # elif i < 15:
+    # if i < 15:     
     #     ai_agent_task[0].set_preferences(np.array([[1.], [0], [0], [0]]))
-    #     obs = [2] # cube_at_preplace -> place
-    elif i < 20:
+    #     obs = [0] # cube_at_table -> reach
+    # elif i < 20:
+    #     ai_agent_task[0].set_preferences(np.array([[0], [1], [0], [0]]))
+        # obs = [1] # cube_closeto_gripper -> pick
+    # if i < 25:     
+    #     ai_agent_task[0].set_preferences(np.array([[0.], [1], [0], [0]]))
+    #     obs = [0] # cube_at_table -> reach
+    elif i < 15:
+        ai_agent_task[0].set_preferences(np.array([[1.], [0], [0], [0]]))
+        obs = [2] # cube_at_preplace -> place
+    elif i < 30:
         ai_agent_task[0].set_preferences(np.array([[0.], [0], [0], [1]]))
         obs = [3] # cube_at_goal -> idle
 

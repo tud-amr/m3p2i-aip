@@ -83,7 +83,7 @@ class FUSION_MPPI(mppi.MPPI):
         elif self.env_type == 'lab':
             self.obs_list = torch.arange(4, device="cuda:0") 
         elif self.env_type == 'cube':
-            self.obs_list = torch.tensor(12, device="cuda:0") 
+            self.obs_list = torch.tensor([12, 15], device="cuda:0") 
             self.allow_dyn_obs = False
         elif self.env_type == 'albert_arena':
             self.obs_list = torch.tensor(0, device="cuda:0") 
@@ -114,7 +114,7 @@ class FUSION_MPPI(mppi.MPPI):
             self.dyn_obs_vel = states_dict["dyn_obs_vel"]
             self.cube_state = states_dict["cube_state"]
             self.ee_state = states_dict["ee_state"]
-            # self.cube_goal_state = states_dict["cube_goal_state"]
+            self.cube_goal_state_low = states_dict["cube_goal_state"]
             self.ee_l_state = states_dict["ee_l_state"]
             self.ee_r_state = states_dict["ee_r_state"]
             self.flag = False
@@ -237,18 +237,21 @@ class FUSION_MPPI(mppi.MPPI):
         # print('high', torch.max(reach_cost))
         ori_cost = self.get_pick_tilt_cost(hybrid)
 
-        return 20 * reach_cost + ori_cost
+        return 20 * reach_cost + 6 * ori_cost
 
     def get_panda_pick_cost(self, hybrid):
+        reach_cost = torch.linalg.norm(self.ee_state[:,:3] - self.cube_state[:,:3], axis = 1) 
         goal_cost = torch.linalg.norm(self.cube_goal_state[:3] - self.cube_state[:,:3], axis = 1) #+ 2*torch.abs(self.block_goal[2] - block_state[:,2])
         # Compute the orientation cost
+        # print(self.cube_goal_state)
         cube_quaternion = self.cube_state[:, 3:7]
+        ee_quaternion = self.ee_l_state[:, 3:7]
         goal_quatenion = self.cube_goal_state[3:7].repeat(self.num_envs).view(self.num_envs, 4)
         # To make the cube fit the goal's orientation well
-        ori_cube2goal = skill_utils.get_general_ori_cube2goal(cube_quaternion, goal_quatenion) 
+        ori_cube2goal = skill_utils.get_general_ori_cube2goal(ee_quaternion, goal_quatenion) 
         ori_cost = 3 * ori_cube2goal
 
-        return  20 * goal_cost + ori_cost
+        return  20 * reach_cost + 20 * goal_cost + 5 * ori_cost
 
         # Compute the tilt value between ee and cube
         tilt_cost = self.get_pick_tilt_cost(hybrid)
@@ -284,7 +287,13 @@ class FUSION_MPPI(mppi.MPPI):
         gripper_dist = torch.linalg.norm(self.ee_l_state[:, :3] - self.ee_r_state[:, :3], axis=1)
         gripper_cost = 1 - gripper_dist
         self.ee_state = (self.ee_l_state + self.ee_r_state) / 2
-        reach_cost = torch.linalg.norm(self.ee_state[:,:7] - self.ee_goal[:7], axis=1)
+        # end_goal = torch.tensor([0.5, 0, 0.3, 0, 0, 0, -1], device='cuda:0')
+        end_goal = self.cube_goal_state[:3].clone()
+        end_goal[2] += 0.1
+        # print('end heyy', end_goal[:3])
+        reach_cost = torch.linalg.norm(self.ee_state[:,:3] - end_goal, axis=1)
+        # self.cube_goal_state_low[:, 2] += 0.06
+        # goal_cost = torch.linalg.norm(self.cube_goal_state_low[:, :3] - self.cube_state[:,:3], axis = 1)
         goal_cost = torch.linalg.norm(self.cube_goal_state[:3] - self.cube_state[:,:3], axis = 1)
         # If gripper is not fully open, no reach cost
         # reach_cost[gripper_dist <= 0.078] = 0
@@ -294,7 +303,7 @@ class FUSION_MPPI(mppi.MPPI):
             vel_cost = torch.linalg.norm(self.robot_vel, axis=1)
             return 10 * gripper_cost + 10 * vel_cost
         elif self.robot == 'panda':
-            return reach_cost
+            return goal_cost + 3 * reach_cost
     
     def get_albert_cost(self):
         # nav_cost = 10 * torch.clamp(torch.linalg.norm(self.robot_pos - self.nav_goal, axis=1)-0.05, min=0, max=1999)
@@ -343,7 +352,12 @@ class FUSION_MPPI(mppi.MPPI):
 
         # Consider collision costs from obstacle list
         coll_cost = torch.sum(torch.index_select(net_cf_xy, 1, self.obs_list), 1) # [num_envs]
-        w_c = 0.5
+        if self.task == 'reach':
+            w_c = 0.5
+        elif self.task == 'pick':
+            w_c = 0.03
+        else:
+            w_c = 0
         # Binary check for collisions.
         # coll_cost[coll_cost>0.1] = 1
         # coll_cost[coll_cost<=0.1] = 0
