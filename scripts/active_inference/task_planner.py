@@ -141,11 +141,11 @@ class PLANNER_AIF_PANDA_REAL(PLANNER_SIMPLE):
         reach_cost = torch.linalg.norm(ee_state[:3] - cube_state[:3])
         dist_cost = torch.linalg.norm(self.curr_goal[:3] - cube_state[:3]) # self.curr_goal !!
         ori_cost = skill_utils.get_general_ori_cube2goal(self.curr_goal[3:].view(-1,4), cube_state[3:].view(-1,4))
-        # print('cost hh', reach_cost)
+        print('cost reach hh', reach_cost)
         # print()
         print('dis', dist_cost)
         print('ori', ori_cost[0])
-        if dist_cost + ori_cost < 0.018 or self.place_forever:
+        if (dist_cost < 0.015 and ori_cost < 0.01) or self.place_forever:
             self.obs = 2
             if self.ee_goal_once <1:
                 self.ee_goal = ee_state.clone()
@@ -175,17 +175,17 @@ class PLANNER_AIF_PANDA_REAL(PLANNER_SIMPLE):
             curr_action = 'reach'
         elif self.obs == 1:
             curr_action = 'pick'
-        elif self.obs == 2:
+        else:
             curr_action = 'place'
-        elif self.obs == 3:
-            curr_action = 'idle'
+        # elif self.obs == 3:
+        #     curr_action = 'idle'
         
         self.task = curr_action
         if curr_action == 'reach':
             self.curr_goal = torch.zeros(7, device='cuda:0')
         elif curr_action == 'pick':
             self.curr_goal = cube_goal.clone()
-            self.curr_goal[2] += 0.072
+            self.curr_goal[2] += 0.09
             self.end_goal = self.curr_goal.clone()
             self.end_goal[2] += 0.1
         elif curr_action == "place":

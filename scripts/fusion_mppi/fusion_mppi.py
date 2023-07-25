@@ -74,7 +74,8 @@ class FUSION_MPPI(mppi.MPPI):
         self.align_weight = {"heijn":1, "point_robot":0.5, "boxer":1}
         self.align_offset = {"heijn":0.1, "point_robot":0.05}
         self.goal_quaternion = torch.tensor([0, 0, 0, 1], device="cuda:0").repeat(self.num_envs).view(self.num_envs, 4)
-        self.old_reach_cost = 0.3
+        self.old_reach_cost = 1
+        self.old_goal_cost = 1
 
         # Store obstacle list
         self.allow_dyn_obs = True
@@ -83,7 +84,7 @@ class FUSION_MPPI(mppi.MPPI):
         elif self.env_type == 'lab':
             self.obs_list = torch.arange(4, device="cuda:0") 
         elif self.env_type == 'cube':
-            self.obs_list = torch.tensor([12, 15], device="cuda:0") 
+            self.obs_list = torch.tensor([12, 14, 15], device="cuda:0") 
             self.allow_dyn_obs = False
         elif self.env_type == 'albert_arena':
             self.obs_list = torch.tensor(0, device="cuda:0") 
@@ -237,34 +238,27 @@ class FUSION_MPPI(mppi.MPPI):
         # print('high', torch.max(reach_cost))
         ori_cost = self.get_pick_tilt_cost(hybrid)
 
-        return 20 * reach_cost + 6 * ori_cost
+        # return 20 * reach_cost + 6 * ori_cost
+
+        return 50 * torch.pow(new_reach_cost, 2) + 6 * ori_cost
 
     def get_panda_pick_cost(self, hybrid):
         reach_cost = torch.linalg.norm(self.ee_state[:,:3] - self.cube_state[:,:3], axis = 1) 
         goal_cost = torch.linalg.norm(self.cube_goal_state[:3] - self.cube_state[:,:3], axis = 1) #+ 2*torch.abs(self.block_goal[2] - block_state[:,2])
+        new_goal_cost = goal_cost / self.old_goal_cost
+        self.old_goal_cost = goal_cost.clone()
         # Compute the orientation cost
         # print(self.cube_goal_state)
         cube_quaternion = self.cube_state[:, 3:7]
-        ee_quaternion = self.ee_l_state[:, 3:7]
+        ee_quaternion = self.ee_l_state[:, 3:7] #!!
         goal_quatenion = self.cube_goal_state[3:7].repeat(self.num_envs).view(self.num_envs, 4)
         # To make the cube fit the goal's orientation well
         ori_cube2goal = skill_utils.get_general_ori_cube2goal(ee_quaternion, goal_quatenion) 
         ori_cost = 3 * ori_cube2goal
 
-        return  20 * reach_cost + 20 * goal_cost + 5 * ori_cost
+        return 20 * goal_cost + 5 * ori_cost
+        # return  100 * torch.pow(new_goal_cost, 2) + 10 * torch.pow(ori_cost,2)
 
-        # Compute the tilt value between ee and cube
-        tilt_cost = self.get_pick_tilt_cost(hybrid)
-        tilt_cost[reach_cost<=0.05] = 0
-        weight_goal = {True:15, False:5}
-        total_cost = 0.2 * manip_cost + 10 * reach_cost + weight_goal[self.multi_modal] * goal_cost + ori_cost + gripper_cost + tilt_cost
-
-        # if self.robot == 'albert':
-        #     vel_cost = torch.linalg.norm(self.robot_vel, axis=1)
-        #     vel_cost[goal_cost > 0.25] = 0
-        #     print(vel_cost)
-        #     total_cost += 5 * vel_cost
-        return  total_cost #+ align_cost multiply 10*reach_cost when using mppi_mode == storm
 
     def get_pick_tilt_cost(self, hybrid):
         # This measures the cost of the tilt angle between the end effector and the cube
@@ -286,7 +280,7 @@ class FUSION_MPPI(mppi.MPPI):
     def get_panda_place_cost(self):
         gripper_dist = torch.linalg.norm(self.ee_l_state[:, :3] - self.ee_r_state[:, :3], axis=1)
         gripper_cost = 1 - gripper_dist
-        self.ee_state = (self.ee_l_state + self.ee_r_state) / 2
+        self.ee_state = (self.ee_l_state + self.ee_r_state) / 2 # ?
         # end_goal = torch.tensor([0.5, 0, 0.3, 0, 0, 0, -1], device='cuda:0')
         end_goal = self.cube_goal_state[:3].clone()
         end_goal[2] += 0.1
@@ -346,16 +340,16 @@ class FUSION_MPPI(mppi.MPPI):
         net_cf = gymtorch.wrap_tensor(_net_cf) # [total_num_bodies, 3]
         _net_cf = self.gym.refresh_net_contact_force_tensor(self.sim)
 
-        # Take only forces in x,y in modulus for each environment.
-        net_cf_xy = torch.sum(torch.abs(net_cf[:, :3]),1) # [total_num_bodies]
-        net_cf_xy = net_cf_xy.reshape([self.num_envs, self.bodies_per_env])
+        # Takec forces in x,y,z in modulus for each environment.
+        net_cf_xyz = torch.sum(torch.abs(net_cf[:, :3]),1) # [total_num_bodies]
+        net_cf_xyz = net_cf_xyz.reshape([self.num_envs, self.bodies_per_env])
 
         # Consider collision costs from obstacle list
-        coll_cost = torch.sum(torch.index_select(net_cf_xy, 1, self.obs_list), 1) # [num_envs]
+        coll_cost = torch.sum(torch.index_select(net_cf_xyz, 1, self.obs_list), 1) # [num_envs]
         if self.task == 'reach':
             w_c = 0.5
         elif self.task == 'pick':
-            w_c = 0.03
+            w_c = 0.5
         else:
             w_c = 0
         # Binary check for collisions.

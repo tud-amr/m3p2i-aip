@@ -241,6 +241,8 @@ class MPPI():
         self.beta_1 = 1
         self.beta_2 = 1
 
+        self.pick_counter = 0
+
         # Filtering
         self.sgf_window = 9
         self.sgf_order = 2
@@ -373,6 +375,7 @@ class MPPI():
         ee_states = []
 
         self.old_reach_cost = 1
+        self.old_goal_cost = 1
 
         for t in range(T):
             u = self.u_scale * perturbed_actions[:, t]
@@ -511,7 +514,10 @@ class MPPI():
                 self.perturbed_action[:, :, :7] = 0
                 self.perturbed_action[:, :, 8] = 0.05
             elif self.task == 'pick':
-                self.perturbed_action[:, :, 8] = -0.05 
+                self.perturbed_action[:, :, 8] = -0.05
+                # self.pick_counter += 1
+                # if self.pick_counter >=30:
+                #     self.perturbed_action[:, :, 8] = -0.05
                 # -0.05 can grasp the cube in static hand, but may be faster than the ral picking so there is a delay
             elif self.task == 'idle':
                 self.perturbed_action[:, :, :] = 0 # why number error??

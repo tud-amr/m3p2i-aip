@@ -131,6 +131,7 @@ class IsaacgymMppiRos:
         self.cubeB_index = 3
         self.magicwand_index = 4
         self.flag = True
+        self.grasp_flag = True
         
         self.close_client = actionlib.SimpleActionClient('franka_gripper/move', MoveAction)
         self.open_client = actionlib.SimpleActionClient('franka_gripper/grasp', GraspAction)
@@ -178,7 +179,9 @@ class IsaacgymMppiRos:
             self.magicwand_state = self.get_state_cb("/MagicWand")
             self.root_states = self.root_states.reshape([params.num_envs, self.actors_per_env, 13])
             self.root_states[:, self.cubeA_index, :7] = self.cubeA_state
+            self.root_states[:, self.cubeA_index, 7:] = 0
             self.root_states[:, self.cubeB_index, :7] = self.cubeB_state
+            self.root_states[:, self.cubeB_index, 7:] = 0 
             self.root_states[:, self.magicwand_index, :7] = self.magicwand_state
             self.root_states[:, self.magicwand_index, 7:] = 0
             self.root_states = self.root_states.reshape([params.num_envs * self.actors_per_env, 13])
@@ -191,7 +194,7 @@ class IsaacgymMppiRos:
             # print('sim A', self.cube_state[0,:])
             # print('B', self.cubeB_state)
             # print('ee real', self.ee_state_real)
-            # print('ee sim', self.ee_state[0, :])
+            # print('ee sim', self.ee_state[:3, :7])
             # print('gripper', gripper_dist) # not very precise, 4.5-5 cm
             # print('sim', torch.linalg.norm(self.ee_state[0, :3] - self.cube_state[0, :3]))
             # print('real', torch.linalg.norm(self.ee_state_real[:3] - self.cubeA_state[:3]))
@@ -199,8 +202,17 @@ class IsaacgymMppiRos:
 
             cubeA_quat = self.cubeA_state[3:7].view(1, 4)
             cubeB_quat = self.cubeB_state[3:7].view(1, 4)
+            ee_sim_quat = self.ee_state[0, 3:7].view(1, 4)
+            ee_real_quat = self.ee_state_real[3:7].view(1, 4)
+            ee_l_state = self.ee_l_state[0, 3:7].view(1, 4)
             ori_cost = skill_utils.get_general_ori_cube2goal(cubeA_quat, cubeB_quat)
+            ori_cost2 = skill_utils.get_general_ori_cube2goal(cubeA_quat, ee_sim_quat)
+            ori_cost3 = skill_utils.get_general_ori_cube2goal(cubeA_quat, ee_real_quat)
+            ori_cost4 = skill_utils.get_general_ori_cube2goal(ee_l_state, ee_real_quat)
             # print('ori', ori_cost)
+            # print('ori sim to cube', ori_cost2)
+            # print('ori real to cube', ori_cost3)
+            # print('l to real', ori_cost4)
 
             # Step the simulation
             sim_init.step(self.gym, self.sim) # !!
@@ -225,14 +237,15 @@ class IsaacgymMppiRos:
 
                 # Send the command of gripper
                 # >0.18 for the no collision cost
-                if action[7] >= 0.1 and self.flag: #!!!
+                # self.task_planner.task == 'pick'
+                if self.task_planner.task == 'pick' and self.grasp_flag: #!!!
                     grasp_goal = MoveGoal()
                     grasp_goal.width = 0.0
                     grasp_goal.speed = 0.1
                     # print(grasp_goal)
                     self.close_client.send_goal(grasp_goal)
-                    # self.flag = False
-                elif action[7] <= -0.1:
+                    self.grasp_flag = False
+                elif self.task_planner.task in ['place']:
                     # print('llllll')
                     open_goal = GraspGoal()
                     open_goal.width = 0.38

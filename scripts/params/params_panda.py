@@ -17,7 +17,7 @@ u_min = -0.2 * torch.ones(9, device="cuda:0", dtype=torch.float32)
 u_min[7:] = -0.5
 step_dependent_dynamics = True
 terminal_state_cost = None
-sample_null_action = False
+sample_null_action = True
 use_priors = False
 u_per_command = 8
 filter_u = False
