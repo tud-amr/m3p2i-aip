@@ -42,7 +42,7 @@ class MDPIsHolding:
     def __init__(self):
         self.state_name = 'isHolding'                            # This is the general name the class refers to
         self.state_names = ['holding_obj', 'not_holding_obj']                 # These are the names a certain battery state can have
-        self.action_names = ['idle', 'pick', 'place']    # These are the names of the actions for internal needs
+        self.action_names = ['idle', 'pick', 'place_somewhere']    # These are the names of the actions for internal needs
 
         self.V = np.array([0, 1, 2])  # Allowable policies, it indicates policies of depth 1
         self.B = np.zeros((2, 2, 3))  # Allowable actions initiation
@@ -51,7 +51,7 @@ class MDPIsHolding:
         self.B[:, :, 0] = np.eye(2)  # Idle action
         self.B[:, :, 1] = np.array([[1, 1],  # Pick action
                                     [0, 0]])
-        self.B[:, :, 2] = np.array([[0, 0],  # place action
+        self.B[:, :, 2] = np.array([[0, 0],  # place_somewhere action
                                     [1, 1]])
         # Preconditions of the actions above
         self.preconditions = [['none'], ['not_holding_obj', 'reachable', 'visible'], ['none']] # [Idle precondition], [pick preconditions], [place precondition]  
@@ -148,19 +148,19 @@ class MDPIsVisible:
 class MDPIsPlacedAt:
     def __init__(self):
         self.state_name = 'isInBasket'                                                  # This is the general name the class refers to
-        self.state_names = ['placed_in_basket', 'not_placed_in_basket']                 # These are the names a certain battery state can have
-        self.action_names = ['idle', 'place_in_basket']    # These are the names of the actions for internal needs
+        self.state_names = ['reach_pre_place', 'not_reach_pre_place']                 # These are the names a certain battery state can have
+        self.action_names = ['idle', 'place']    # These are the names of the actions for internal needs
 
         self.V = np.array([0, 1])       # Allowable policies, it indicates policies of depth 1
         self.B = np.zeros((2, 2, 2))    # Allowable actions initiation (idle and place_in_basket)
         # Transition matrices
         # ----------------------------------------------------------
         self.B[:, :, 0] = np.eye(2)             # Idle action
-        self.B[:, :, 1] = np.array([[1, 1],     # Action Place_in_basket
+        self.B[:, :, 1] = np.array([[1, 1],     # Action Place
                                     [0, 0]])
         # Preconditions of the actions above
         # ----------------------------------------------------------
-        self.preconditions = [['none'], ['holding_obj']]    # [idle precondition], [place_in_backet_obj]                  
+        self.preconditions = [['none'], ['holding_obj', 'reach_pre_place']]    # [idle precondition], [place_in_backet_obj]                  
 
 
         # Likelihood matrix matrices

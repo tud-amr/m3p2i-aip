@@ -24,7 +24,6 @@ for i in range(20):
     # Set preference for a particular state to be achieved. Follow indexing in ai_agent_task [isAt, isHolding, isReachable, isPlacedAt, isVisible]
     ai_agent_task[3].set_preferences(np.array([[1.], [0.]]))
     #ai_agent_task[1].set_preferences(np.array([[2.], [0.]]))
-    ai_agent_task[3]._mdp.D = (np.array([[0], [1]]))
     ai_agent_task[1]._mdp.D = (np.array([[0], [1]]))
 
     # Get the parameters of the object to be holding to define a suitable observation
@@ -33,22 +32,27 @@ for i in range(20):
     # Set the observation from the current readings, (TODO) the logic of the observations need to be specified for the task and the parameters passed by the BT
     # in terms of products. When an observation is unavailable set it to 'null'
     if i < 5:
-        # not_reachable, is_visable
-        obs = ['null', 1, 1, 1, 0]
+        # should reach
+        is_holding = False
+        is_reachable = False
+        close_to_pre_place = False
     elif i < 10:
-        #obs = ['null', 1, 'null', 1, 'null']
-        # is_reachable, is_visable
-        obs = ['null', 1, 0, 1, 0]
+        # should pick
+        is_holding = False
+        is_reachable = True
+        close_to_pre_place = False
     elif i< 15:
-        # is_holding, is_visible
-        obs = ['null', 0, 1, 1, 0]
+        # should pick
+        is_holding = True
+        is_reachable = True
+        close_to_pre_place = False
     elif i < 20:
-        # is_reachable, is_placed, is_visable
-        obs = ['null', 1, 0, 0, 0]
-    # if i>= 10 and i < 15:
-    #     obs = ['null', 1, 0, 1, 0]    
-    # if i>= 15 and i < 20:
-    #     obs = ['null', 0, 0, 1, 0]  
+        # should place
+        is_holding = True
+        is_reachable = True
+        close_to_pre_place = True
+    # Translate to integer observations, do not worry about the negatives, 0 means true
+    obs = ['null', int(not is_holding), int(not is_reachable), int(not close_to_pre_place), 0]
     outcome, curr_acti = adaptive_action_selection.adapt_act_sel(ai_agent_task, obs)
     print(i, curr_acti)
     # print(ai_agent_task[3]._mdp.D)
