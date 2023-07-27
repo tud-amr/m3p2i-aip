@@ -7,52 +7,50 @@ import sys
 sys.path.append('../')
 from active_inference import ai_agent, state_action_templates, adaptive_action_selection
 
-## Initialization
-# ----------------- 
-# Define the required mdp structures from the templates
-mdp_isAt = state_action_templates.MDPIsAt() 
+mdp_isAtPlaceLoc = state_action_templates.MDPIsAtPlaceLoc() 
 mdp_isHolding = state_action_templates.MDPIsHolding() 
+mdp_isPlacedOn = state_action_templates.MDPIsPlacedOn() 
 mdp_isReachable = state_action_templates.MDPIsReachable() 
-mdp_isPlacedAt = state_action_templates.MDPIsPlacedAt() 
-mdp_isVisible = state_action_templates.MDPIsVisible() 
 
-# Agent with following states [isAt, isHolding, isReachable, isPlacedAt, isVisible]
-ai_agent_task = [ai_agent.AiAgent(mdp_isAt), ai_agent.AiAgent(mdp_isHolding), ai_agent.AiAgent(mdp_isReachable), ai_agent.AiAgent(mdp_isPlacedAt), ai_agent.AiAgent(mdp_isVisible)]
+# Agent with following states [isAtPlaceLoc, isHolding, isReachable, isPlacedOn], see templates
+ai_agent_task = [ai_agent.AiAgent(mdp_isAtPlaceLoc), ai_agent.AiAgent(mdp_isHolding), ai_agent.AiAgent(mdp_isReachable), ai_agent.AiAgent(mdp_isPlacedOn)]
+# Define the task for an agent by setting the preferences
 ai_agent_task[3].set_preferences(np.array([[1.], [0.]]))
+
 # Loop for the execution of the task, ideally this will be given by the tick of a BT
-for i in range(35):
-    if i < 5:
-        # should reach
-        is_holding = False
-        is_reachable = False
-        close_to_pre_place = False
-    elif i < 10:
-        # should pick
-        is_holding = False
-        is_reachable = True
-        close_to_pre_place = False
-    elif i< 15:
-        # should pick
-        is_holding = True
-        is_reachable = True
-        close_to_pre_place = False
-    elif i < 20:
-        # should place
-        is_holding = True
-        is_reachable = True
-        close_to_pre_place = True
-    elif i < 25:
-        # should reach
-        is_holding = False
-        is_reachable = False
-        close_to_pre_place = False
-    elif i < 30:
-        # should pick
-        is_holding = False
-        is_reachable = True
-        close_to_pre_place = False
-    # Translate to integer observations, do not worry about the negatives, 0 means true
-    obs = ['null', int(not is_holding), int(not is_reachable), int(not close_to_pre_place), 0]
+for i in range(32):
+    # Set the observation from the current readings, the logic of the observations need to be specified for the task. 
+    # When an observation is unavailable set it to 'null'
+    
+    # Test
+    if i < 3:
+        obs = [1, 1, 1, 1]         # not at place location, not picked, not, reachable, not placed
+    if i >= 3 and i < 5:
+        obs = [1, 1, 0, 1]         # not at place location, not picked, reachable, not placed
+    if i>= 5 and i < 8:        
+        obs = [1, 0, 0, 1]         # not at place location, picked, reachable, not placed
+    if i>= 8 and i < 10:   # simulate losing it while carrying    
+        obs = [1, 1, 1, 1]         # not at place location, not picked, not,reachable, not placed
+    if i>= 10 and i < 12:   
+        obs = [1, 1, 0, 1]         # not at place location, not picked, reachable, not placed
+    if i>= 12 and i < 14:   
+        obs = [1, 0, 0, 1]         # not at place location, picked, reachable, not placed
+    if i>= 14 and i < 15:   
+        obs = [0, 0, 0, 1]         # at place location, picked, not placed
+    if i>= 15 and i < 20:
+        obs = [0, 0, 0, 0]         # success
+    if i>= 20 and i < 23:   # simulate losing it after placing correctly
+        obs = [1, 1, 1, 1]         # not at place location, not picked, not reachable, not placed
+    if i>= 23 and i < 25:        
+        obs = [1, 1, 0, 1]         # not at place location, not picked, reachable not placed
+    if i>= 25 and i < 28:   
+        obs = [1, 0, 0, 1]         # not at place location, picked, reachable, not placed
+    if i>= 28 and i < 30:
+        obs = [0, 0, 0, 1]         # not at place location, picked, reachable, not placed
+    if i>= 30 and i < 32:
+        obs = [0, 0, 0, 0]         # success
+
     outcome, curr_acti = adaptive_action_selection.adapt_act_sel(ai_agent_task, obs)
-    print(i, curr_acti)
-    # print(ai_agent_task[3]._mdp.D)
+   
+    # print('Status:', outcome)
+    print('Current action(s):', curr_acti)
