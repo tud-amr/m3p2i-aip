@@ -157,7 +157,7 @@ class PLANNER_AIF_PANDA_REAL(PLANNER_SIMPLE):
             # print(torch.linalg.norm(self.end_goal[:3]-ee_state[:3]))
             if torch.linalg.norm(self.end_goal[:3]-ee_state[:3]) < 0.06:
                 self.obs = 3
-        elif reach_cost < 0.01 or self.pick_always: # not too picky
+        elif reach_cost < 0.012 or self.pick_always: # not too picky
             self.obs = 1
             self.pick_always = True
             self.ai_agent_task[0].set_preferences(np.array([[1], [0], [0], [0]]))
@@ -185,7 +185,7 @@ class PLANNER_AIF_PANDA_REAL(PLANNER_SIMPLE):
             self.curr_goal = torch.zeros(7, device='cuda:0')
         elif curr_action == 'pick':
             self.curr_goal = cube_goal.clone()
-            self.curr_goal[2] += 0.09
+            self.curr_goal[2] += 0.085
             self.end_goal = self.curr_goal.clone()
             self.end_goal[2] += 0.1
         elif curr_action == "place":

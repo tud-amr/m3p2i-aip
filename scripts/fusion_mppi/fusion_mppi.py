@@ -84,7 +84,7 @@ class FUSION_MPPI(mppi.MPPI):
         elif self.env_type == 'lab':
             self.obs_list = torch.arange(4, device="cuda:0") 
         elif self.env_type == 'cube':
-            self.obs_list = torch.tensor([12, 14, 15], device="cuda:0") 
+            self.obs_list = torch.tensor([12, 14, 15, 16], device="cuda:0") 
             self.allow_dyn_obs = False
         elif self.env_type == 'albert_arena':
             self.obs_list = torch.tensor(0, device="cuda:0") 
@@ -240,7 +240,7 @@ class FUSION_MPPI(mppi.MPPI):
 
         # return 20 * reach_cost + 6 * ori_cost
 
-        return 50 * torch.pow(new_reach_cost, 2) + 6 * ori_cost
+        return 50 * torch.pow(new_reach_cost, 2) + 50 * ori_cost
 
     def get_panda_pick_cost(self, hybrid):
         reach_cost = torch.linalg.norm(self.ee_state[:,:3] - self.cube_state[:,:3], axis = 1) 
@@ -344,12 +344,14 @@ class FUSION_MPPI(mppi.MPPI):
         net_cf_xyz = torch.sum(torch.abs(net_cf[:, :3]),1) # [total_num_bodies]
         net_cf_xyz = net_cf_xyz.reshape([self.num_envs, self.bodies_per_env])
 
+        # print('wand', net_cf_xyz[:, 15])
+
         # Consider collision costs from obstacle list
         coll_cost = torch.sum(torch.index_select(net_cf_xyz, 1, self.obs_list), 1) # [num_envs]
         if self.task == 'reach':
-            w_c = 0.5
+            w_c = 1
         elif self.task == 'pick':
-            w_c = 0.5
+            w_c = 1
         else:
             w_c = 0
         # Binary check for collisions.
