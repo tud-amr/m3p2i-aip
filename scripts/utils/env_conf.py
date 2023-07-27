@@ -279,7 +279,7 @@ def add_panda_arena(gym, sim, env, robot_asset, i):
     # Create cubeA asset
     cubeA_opts = gymapi.AssetOptions()
     cubeA_size = 0.062
-    cubeA_opts.density = 0.1
+    cubeA_opts.density = 500
     cubeA_opts.disable_gravity = True
     cubeA_asset = gym.create_box(sim, *([cubeA_size] * 3), cubeA_opts)
     cubeA_color = gymapi.Vec3(0, 0, 1) # blue
@@ -294,7 +294,16 @@ def add_panda_arena(gym, sim, env, robot_asset, i):
     wand_pos = [0.35, 0.0, 1]
     wand_opts = gymapi.AssetOptions()
     wand_opts.disable_gravity = True
+    wand_opts.density = 50000
     wand_asset = gym.create_box(sim, *[0.27, 0.27, 0.02], wand_opts)
+
+    # Create shelf asset
+    shelf_pos = [0.452, -0.452, 0.53]
+    shelf_opts = gymapi.AssetOptions()
+    # shelf_opts.disable_gravity = True
+    shelf_opts.fix_base_link = True
+    shelf_opts.density = 50000
+    shelf_asset = gym.create_box(sim, *[0.2, 0.3, 0.9], wand_opts)
 
     # Define start pose for panda
     panda_start_pose = gymapi.Transform()
@@ -322,6 +331,11 @@ def add_panda_arena(gym, sim, env, robot_asset, i):
     wand_start_pose.p = gymapi.Vec3(*wand_pos)
     wand_start_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
 
+    # Define start pose for shelf
+    shelf_start_pose = gymapi.Transform()
+    shelf_start_pose.p = gymapi.Vec3(*shelf_pos)
+    shelf_start_pose.r = gymapi.Quat(0.0, 0.0, -0.4, -0.9)
+
     # Create panda robot
     panda_actor = gym.create_actor(env, robot_asset, panda_start_pose, "panda", i, 0, 0)
 
@@ -336,6 +350,9 @@ def add_panda_arena(gym, sim, env, robot_asset, i):
 
     # Create obstacle
     wand_creater = gym.create_actor(env, wand_asset, wand_start_pose, "wand",i, 1, 0)
+
+    # Create Shelf
+    shelf_creater = gym.create_actor(env, shelf_asset, shelf_start_pose, "shelf",i, 1, 0)
 
     cubeA_rbid = gym.get_actor_rigid_body_index(env, cubeA_id, 0, gymapi.DOMAIN_SIM) # 13
     cubeB_rbid = gym.get_actor_rigid_body_index(env, cubeB_id, 0, gymapi.DOMAIN_SIM) # 14
