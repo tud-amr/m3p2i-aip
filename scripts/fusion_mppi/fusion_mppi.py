@@ -122,16 +122,16 @@ class FUSION_MPPI(mppi.MPPI):
     
     def update_task(self, task, goal):
         self.task = task
-        if self.task in ['navigation', 'go_recharge']:
-            self.nav_goal = goal
-        elif self.task in ['push', 'pull', 'hybrid']:
-            self.block_goal = goal
-        elif self.task == 'pick':
+
+        # # Pick once
+        # if self.task == 'pick':
+        #     self.cube_goal_state = goal
+        # elif self.task == 'place':
+        #     self.ee_goal = goal
+        
+        # Reactive pick
+        if self.task == 'move_to_place':
             self.cube_goal_state = goal
-        elif self.task == 'place':
-            self.ee_goal = goal
-        # if self.robot == 'albert':
-        #     self.cube_goal_state = torch.tensor([0.5, 0.2, 0.7, 0, 0, 0, 1], device='cuda:0')
     
     def update_params(self, params, weight_prefer_pull):
         self.params = params
@@ -367,27 +367,24 @@ class FUSION_MPPI(mppi.MPPI):
 
     @mppi.handle_batch_input
     def _running_cost(self, state, u, t):
-        # if self.robot == 'albert':
-        #     return self.get_albert_cost()
-        if self.task == 'navigation' or self.task == 'go_recharge':
-            task_cost = self.get_navigation_cost()
-        elif self.task == 'push':
-            task_cost = self.get_push_cost()
-        elif self.task == 'pull':
-            task_cost = 10 * self.get_pull_cost(False)
-        elif self.task == 'push_not_goal':
-            task_cost = self.get_push_not_goal_cost()
-        elif self.task == 'hybrid':
-            return torch.cat((self.get_push_cost()[:self.half_K], self.get_pull_cost(True)[self.half_K:]), dim=0)
-            # print('push cost', task_cost[:10])
-            # print('pull cost', task_cost[self.num_envs-10:])
-        elif self.task == 'reach':
+        # # Pick onece
+        # if self.task == 'reach':
+        #     task_cost = self.get_panda_reach_cost(self.multi_modal)
+        # elif self.task == 'pick':
+        #     task_cost = self.get_panda_pick_cost(self.multi_modal)
+        # elif self.task == 'place':
+        #     return self.get_panda_place_cost()
+        # else:
+        #     task_cost = 0
+        
+        # Reactive pick
+        if self.task == 'reach':
             task_cost = self.get_panda_reach_cost(self.multi_modal)
         elif self.task == 'pick':
+            task_cost =  0
+        elif self.task == 'move_to_place':
             task_cost = self.get_panda_pick_cost(self.multi_modal)
-        elif self.task == 'place':
-            return self.get_panda_place_cost()
-        else:
+        elif self.task in ['place', 'idle_success']:
             task_cost = 0
 
         total_cost = task_cost + self.get_motion_cost(t)

@@ -314,25 +314,27 @@ class MPPI():
 
             cost_total = self._compute_total_cost_batch_halton()
             action = torch.clone(self.mean_action) # !!
-            optimal_gripper_vel = action[0, 7]
-            # print('optimal', optimal_gripper_vel)
-            # action[:, 7:] = -0.1
-            if optimal_gripper_vel > 0:
-                action[:, 7:] = -0.1
-            elif optimal_gripper_vel < 0:
-                action[:, 7:] = 0.1
+
+            # Pick once
+            # optimal_gripper_vel = action[0, 7]
+            # # print('optimal', optimal_gripper_vel)
+            # # action[:, 7:] = -0.1
+            # if optimal_gripper_vel > 0:
+            #     action[:, 7:] = -0.1
+            # elif optimal_gripper_vel < 0:
+            #     action[:, 7:] = 0.1
             # print('ee', self.ee_state[0, :])
             # print('cube', self.cube_state[0, :])
             # print('cube goal', self.cube_goal_state[0, :])
         
-        # Compute top n trajs
-        self.top_values, self.top_idx = torch.topk(self.weights, 20)
-        if self.ee_states != 'None':
-            self.top_trajs = torch.index_select(self.ee_states, 0, self.top_idx)
-        else:
-            self.top_trajs = torch.index_select(self.states, 0, self.top_idx)
-            pos_idx = torch.tensor([0, 2], device="cuda:0", dtype=torch.int32)
-            self.top_trajs = torch.index_select(self.top_trajs, 2, pos_idx)
+        # # Compute top n trajs
+        # self.top_values, self.top_idx = torch.topk(self.weights, 20)
+        # if self.ee_states != 'None':
+        #     self.top_trajs = torch.index_select(self.ee_states, 0, self.top_idx)
+        # else:
+        #     self.top_trajs = torch.index_select(self.states, 0, self.top_idx)
+        #     pos_idx = torch.tensor([0, 2], device="cuda:0", dtype=torch.int32)
+        #     self.top_trajs = torch.index_select(self.top_trajs, 2, pos_idx)
 
         # Smoothing with Savitzky-Golay filter
         if self.filter_u:
@@ -508,34 +510,53 @@ class MPPI():
         if self.robot == 'panda':
             if self.params.allow_viewer:
                 self.perturbed_action[:, :, :7] = 0
+
+            # # Pick once
+            # if self.task in ['reach']:
+            #     self.perturbed_action[:, :, 8] = 0
+            # elif self.task in ['place']:
+            #     self.perturbed_action[:, :, :7] = 0
+            #     self.perturbed_action[:, :, 8] = 0.05
+            # elif self.task == 'pick':
+            #     self.perturbed_action[:, :, 8] = -0.05
+            #     # self.pick_counter += 1
+            #     # if self.pick_counter >=30:
+            #     #     self.perturbed_action[:, :, 8] = -0.05
+            #     # -0.05 can grasp the cube in static hand, but may be faster than the ral picking so there is a delay
+            # elif self.task == 'idle':
+            #     self.perturbed_action[:, :, :] = 0 # why number error??
+            #     # self.perturbed_action[:, :, 8] = 0.05
+
+            # Reactive_pick
             if self.task in ['reach']:
-                self.perturbed_action[:, :, 8] = 0
+                self.perturbed_action[:, :, 8] = 0.05
             elif self.task in ['place']:
                 self.perturbed_action[:, :, :7] = 0
                 self.perturbed_action[:, :, 8] = 0.05
             elif self.task == 'pick':
+                self.perturbed_action[:, :, :7] = 0
                 self.perturbed_action[:, :, 8] = -0.05
-                # self.pick_counter += 1
-                # if self.pick_counter >=30:
-                #     self.perturbed_action[:, :, 8] = -0.05
-                # -0.05 can grasp the cube in static hand, but may be faster than the ral picking so there is a delay
-            elif self.task == 'idle':
-                self.perturbed_action[:, :, :] = 0 # why number error??
-                # self.perturbed_action[:, :, 8] = 0.05
+            elif self.task == 'move_to_place':
+                self.perturbed_action[:, :, 8] = -0.05
+            elif self.task == 'idle_success':
+                self.perturbed_action[:, :, :] = 0
             self.perturbed_action[:, :, 7] = self.perturbed_action[:, :, 8]
-            # self.perturbed_action[:, :, 7] = -0.1 # close
-            # self.perturbed_action[:, :, 8] = -0.1
         elif self.robot == 'albert':
             self.perturbed_action[:, :, 9:11] = 0 # front wheels
 
-        self.cost_total, self.states, self.actions, self.ee_states = self._compute_rollout_costs(self.perturbed_action)
+        if self.task in ['pick', 'place', 'idle_success']:
+            u = self.perturbed_action[:, 0].clone()
+            state, u = self._dynamics(0, u, 0)
+            self.cost_total = 0
+        else:
+            self.cost_total, self.states, self.actions, self.ee_states = self._compute_rollout_costs(self.perturbed_action)
 
-        self.actions /= self.u_scale
+        # self.actions /= self.u_scale
 
-        action_cost = self.get_action_cost()
+        # action_cost = self.get_action_cost()
 
         # Action perturbation cost
-        perturbation_cost = torch.sum(self.mean_action * action_cost, dim=(1, 2))
+        # perturbation_cost = torch.sum(self.mean_action * action_cost, dim=(1, 2))
         # if not self.multi_modal:
         #     self.cost_total += perturbation_cost
         return self.cost_total
