@@ -130,6 +130,7 @@ class IsaacgymMppiRos:
         self.magicwand_index = 4
         self.flag = True
         self.grasp_flag = True
+        self.open_flag = True
         
         self.close_client = actionlib.SimpleActionClient('franka_gripper/move', MoveAction)
         self.open_client = actionlib.SimpleActionClient('franka_gripper/grasp', GraspAction)
@@ -147,7 +148,7 @@ class IsaacgymMppiRos:
                                       gripper_dist)
 
         # Update task and goal in the motion planner
-        print('task:', self.task_planner.task, 'goal:', self.task_planner.curr_goal)
+        # print('task:', self.task_planner.task, 'goal:', self.task_planner.curr_goal)
         self.motion_planner.update_task(self.task_planner.task, self.task_planner.curr_goal)
 
         # Update params in the motion planner
@@ -239,20 +240,24 @@ class IsaacgymMppiRos:
                 # Send the command of gripper
                 # >0.18 for the no collision cost
                 # self.task_planner.task == 'pick'
-                if self.task_planner.task in ['pick', 'move_to_place'] and self.grasp_flag: #!!!
+                if self.task_planner.task in ['pick'] and self.grasp_flag: #!!!
+                    print('ccccccclose')
                     grasp_goal = MoveGoal()
                     grasp_goal.width = 0.0
                     grasp_goal.speed = 0.1
                     # print(grasp_goal)
                     self.close_client.send_goal(grasp_goal)
                     self.grasp_flag = False # Set to false when pick once
-                elif self.task_planner.task in ['place', 'idle_success']:
-                    # print('llllll')
+                    self.open_flag = True
+                elif self.task_planner.task in ['', 'place', 'idle_success'] and self.open_flag:
+                    print('oooooooooopen')
                     open_goal = GraspGoal()
                     open_goal.width = 0.38
                     open_goal.speed = 0.1
                     open_goal.force = 0.1
                     self.open_client.send_goal(open_goal)
+                    self.grasp_flag = True
+                    self.open_flag = False
 
             self.rate.sleep()
 

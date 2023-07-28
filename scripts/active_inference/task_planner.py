@@ -150,19 +150,20 @@ class PLANNER_AIF_PANDA_REACTIVE(PLANNER_SIMPLE):
         print('gripper dis', gripper_dist)
         # print('pre place dis', pre_place_dist_cost)
         # print('pre place ori', pre_place_ori_cost[0])
-        # print('final dis', final_dist_cost)
-        # print('final ori', final_ori_cost[0])
+        print('final dis', final_dist_cost)
+        print('final ori', final_ori_cost[0])
 
         # Get observatios, 0 means True, 1 means False
-        is_reachable = 0 if reach_cost < 0.012 else 1
-        is_holding = 0 if gripper_dist < 0.065 and gripper_dist > 0.058 else 1
+        is_holding = 0 if gripper_dist < 0.065 and gripper_dist > 0.058 and reach_cost < 0.024 else 1 #!!
         is_close_to_pre_place = 0 if pre_place_dist_cost < 0.01 and pre_place_ori_cost < 0.01 else 1
-        self.is_success = 0 if cube_height_diff < 0.064 and cube_height_diff > 0.058 and gripper_dist > 0.068 else 1 # and final_dist_cost < 0.01
-        # print('cube height', cube_height_diff)
-        print('is_close_to_pre', is_close_to_pre_place)
-        print('is_holding', is_holding)
-        print('is_reachable', is_reachable)
-        print('is_success', self.is_success)
+        self.is_success = 0 if cube_height_diff < 0.065 and final_dist_cost < 0.018 and final_ori_cost < 0.01 else 1 # and final_dist_cost < 0.01
+        is_reachable = 0 if not is_holding or not is_close_to_pre_place or not self.is_success or reach_cost < 0.012 else 1
+        print('cube height', cube_height_diff)
+        dic = {'is_close_to_pre':is_close_to_pre_place, 
+               'is_holding':is_holding, 
+               'is_reachable':is_reachable,
+               'is_success':self.is_success}
+        print(dic)
 
         self.obs = [is_close_to_pre_place, 
                     is_holding, 
