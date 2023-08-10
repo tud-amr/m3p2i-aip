@@ -213,6 +213,11 @@ def get_general_ori_ee2cube(ee_quaternion, cube_quaternion, tilt_value = 0):
         cost_zaxis = torch.min(torch.stack([1 - cos_theta1,
                                             1 - cos_theta2,
                                             1 - cos_theta3]), dim=0)[0]
+    elif tilt_value == 'table':
+        # Make the ee_zaxis perpendicular to the table
+        num_envs = cube_xaxis.size()[0]
+        table_zaxis = torch.tensor([0, 0, -1], device='cuda:0').repeat(num_envs).view(num_envs, 3)
+        cost_zaxis = 1 - torch.sum(torch.mul(ee_zaxis, table_zaxis), dim=1)
     else:
         # Select the cube axis that is most close to the table xaxis
         stacked_axis = torch.stack([cube_xaxis, cube_yaxis, cube_zaxis])

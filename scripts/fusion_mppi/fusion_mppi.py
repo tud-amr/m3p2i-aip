@@ -253,10 +253,13 @@ class FUSION_MPPI(mppi.MPPI):
         ee_quaternion = self.ee_l_state[:, 3:7] #!!
         goal_quatenion = self.cube_goal_state[3:7].repeat(self.num_envs).view(self.num_envs, 4)
         # To make the cube fit the goal's orientation well
-        ori_cube2goal = skill_utils.get_general_ori_cube2goal(ee_quaternion, goal_quatenion) 
+        if not hybrid:
+            ori_cube2goal = skill_utils.get_general_ori_cube2goal(ee_quaternion, goal_quatenion) 
+        else:
+            ori_cube2goal = skill_utils.get_general_ori_ee2cube(ee_quaternion, goal_quatenion, 'table')
         ori_cost = 3 * ori_cube2goal
 
-        return 20 * goal_cost + 5 * ori_cost
+        return 40 * goal_cost + 4 * ori_cost
         # return  100 * torch.pow(new_goal_cost, 2) + 10 * torch.pow(ori_cost,2)
 
 
@@ -272,7 +275,7 @@ class FUSION_MPPI(mppi.MPPI):
             cost_1 = skill_utils.get_general_ori_ee2cube(ee_quaternion[:self.half_K], 
                                                          cube_quaternion[:self.half_K], tilt_value=0) # 0.2
             cost_2 = skill_utils.get_general_ori_ee2cube(ee_quaternion[self.half_K:], 
-                                                         cube_quaternion[self.half_K:], tilt_value=0.7) #0.9
+                                                         cube_quaternion[self.half_K:], tilt_value=0.9) #0.9
             ori_ee2cube =  torch.cat((cost_1, cost_2), dim=0)
 
         return 3 * ori_ee2cube
@@ -346,11 +349,12 @@ class FUSION_MPPI(mppi.MPPI):
 
         # print('wand', net_cf_xyz[:, 15])
 
+        if self.task == 'move_to_place' and self.multi_modal:
+            net_cf_xyz[:, 16] *= 5
+
         # Consider collision costs from obstacle list
         coll_cost = torch.sum(torch.index_select(net_cf_xyz, 1, self.obs_list), 1) # [num_envs]
-        if self.task == 'reach':
-            w_c = 1
-        elif self.task == 'pick':
+        if self.task in ['reach', 'pick', 'move_to_place']:
             w_c = 1
         else:
             w_c = 0

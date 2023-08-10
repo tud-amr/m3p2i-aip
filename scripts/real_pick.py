@@ -122,12 +122,13 @@ class IsaacgymMppiRos:
         self.motion_planner.set_mode(
             mppi_mode = 'halton-spline', # 'halton-spline', 'simple'
             sample_method = 'halton',    # 'halton', 'random'
-            multi_modal = False           # True, False
+            multi_modal = True           # True, False
         )
         self.prefer_pull = -1
         self.cubeA_index = 2
         self.cubeB_index = 3
         self.magicwand_index = 4
+        self.shelf_index = 5
         self.flag = True
         self.grasp_flag = True
         self.open_flag = True
@@ -185,6 +186,9 @@ class IsaacgymMppiRos:
             self.root_states[:, self.cubeB_index, 7:] = 0 
             self.root_states[:, self.magicwand_index, :7] = self.magicwand_state
             self.root_states[:, self.magicwand_index, 7:] = 0
+            shelf_state = torch.tensor([0.452, -0.452, 0.54, 0.0, 0.0, -0.4, -0.9], device='cuda:0')
+            self.root_states[:, self.shelf_index, :7] = shelf_state
+            self.root_states[:, self.shelf_index, 7:] = 0
             self.root_states = self.root_states.reshape([params.num_envs * self.actors_per_env, 13])
             self.gym.set_actor_root_state_tensor(self.sim, gymtorch.unwrap_tensor(self.root_states))
             self.gym.refresh_actor_root_state_tensor(self.sim)

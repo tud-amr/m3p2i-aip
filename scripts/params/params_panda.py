@@ -25,7 +25,7 @@ filter_u = False
 # Parameters in the sim file
 sim_allow_viewer = True
 sim_num_envs = 1 
-dt = 0.01
+dt = 0.015
 block_index = "None"
 kp_suction = 400
 

@@ -143,18 +143,21 @@ class PLANNER_AIF_PANDA_REACTIVE(PLANNER_SIMPLE):
         self.pre_place_goal = cube_goal.clone()
         self.pre_place_goal[2] += 0.085
         pre_place_dist_cost = torch.linalg.norm(self.pre_place_goal[:3] - cube_state[:3])
-        pre_place_ori_cost = skill_utils.get_general_ori_cube2goal(self.pre_place_goal[3:].view(-1,4), cube_state[3:].view(-1,4))
+        # uni-modal
+        # pre_place_ori_cost = skill_utils.get_general_ori_cube2goal(self.pre_place_goal[3:].view(-1,4), cube_state[3:].view(-1,4))
+        # multi-modal
+        pre_place_ori_cost = skill_utils.get_general_ori_cube2goal(ee_state[3:].view(-1, 4), self.pre_place_goal[3:].view(-1,4))
         final_dist_cost = torch.linalg.norm(cube_goal[:2] - cube_state[:2])
         final_ori_cost = skill_utils.get_general_ori_cube2goal(cube_goal[3:].view(-1,4), cube_state[3:].view(-1,4))
         print('reach cost', reach_cost)
         print('gripper dis', gripper_dist)
-        # print('pre place dis', pre_place_dist_cost)
-        # print('pre place ori', pre_place_ori_cost[0])
-        print('final dis', final_dist_cost)
-        print('final ori', final_ori_cost[0])
+        print('pre place dis', pre_place_dist_cost)
+        print('pre place ori', pre_place_ori_cost[0])
+        # print('final dis', final_dist_cost)
+        # print('final ori', final_ori_cost[0])
 
         # Get observatios, 0 means True, 1 means False
-        is_holding = 0 if gripper_dist < 0.065 and gripper_dist > 0.058 and reach_cost < 0.024 else 1 #!!
+        is_holding = 0 if gripper_dist < 0.065 and gripper_dist > 0.058 and reach_cost < 0.03 else 1 #!!
         is_close_to_pre_place = 0 if pre_place_dist_cost < 0.01 and pre_place_ori_cost < 0.01 else 1
         self.is_success = 0 if cube_height_diff < 0.065 and final_dist_cost < 0.018 and final_ori_cost < 0.01 else 1 # and final_dist_cost < 0.01
         is_reachable = 0 if not is_holding or not is_close_to_pre_place or not self.is_success or reach_cost < 0.012 else 1

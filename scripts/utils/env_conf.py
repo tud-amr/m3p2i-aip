@@ -298,12 +298,12 @@ def add_panda_arena(gym, sim, env, robot_asset, i):
     wand_asset = gym.create_box(sim, *[0.27, 0.27, 0.02], wand_opts)
 
     # Create shelf asset
-    shelf_pos = [0.452, -0.452, 0.53]
+    shelf_pos = [0.452, -0.452, 0.55]
     shelf_opts = gymapi.AssetOptions()
-    # shelf_opts.disable_gravity = True
-    shelf_opts.fix_base_link = True
+    shelf_opts.disable_gravity = False
+    shelf_opts.fix_base_link = False
     shelf_opts.density = 50000
-    shelf_asset = gym.create_box(sim, *[0.2, 0.3, 0.9], wand_opts)
+    shelf_asset = gym.create_box(sim, *[0.2, 0.3, 0.8], wand_opts)
 
     # Define start pose for panda
     panda_start_pose = gymapi.Transform()
