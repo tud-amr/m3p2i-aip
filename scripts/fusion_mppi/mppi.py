@@ -661,7 +661,7 @@ class MPPI():
 
         return delta
 
-    def update_infinite_beta(self, costs, beta):
+    def update_infinite_beta(self, costs, beta, eta_u_bound, eta_l_bound):
         found = False
         # Makes sure beta is properly tuned before computing the weights
         while not found:
@@ -669,9 +669,7 @@ class MPPI():
             exp_ = torch.exp((-1.0/beta) * costs)
             eta = torch.sum(exp_)       # tells how many significant samples we have, more or less
 
-            # Update beta to make eta converge within the bounds 
-            eta_u_bound = 10
-            eta_l_bound = 3
+            # Update beta to make eta converge within the bounds
             beta_lm = 0.9
             beta_um = 1.2
             if eta > eta_u_bound:
@@ -695,9 +693,9 @@ class MPPI():
         total_costs = traj_costs - torch.min(traj_costs)
         # print('1', total_costs_1)
         # print('2', total_costs_2)
-        eta_1, exp_1 = self.update_infinite_beta(total_costs_1, self.beta_1)
-        eta_2, exp_2 = self.update_infinite_beta(total_costs_2, self.beta_2)
-        eta, exp_ = self.update_infinite_beta(total_costs, self.beta)
+        eta_1, exp_1 = self.update_infinite_beta(total_costs_1, self.beta_1, 10, 3)
+        eta_2, exp_2 = self.update_infinite_beta(total_costs_2, self.beta_2, 10, 3)
+        eta, exp_ = self.update_infinite_beta(total_costs, self.beta, 10, 3)
         # exp_ = torch.exp((-1.0/self.beta) * total_costs)
         # eta = torch.sum(exp_)
 

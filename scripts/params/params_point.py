@@ -3,10 +3,10 @@ import torch
 # Paramters in the reactive_tamp file
 allow_viewer = False
 task = "reactive"                   # "simple", "patrolling", "reactive"
-num_envs = 100
+num_envs = 200
 nx = 4
-# noise_sigma = torch.tensor([[1, 0], [0, 1]], device="cuda:0", dtype=torch.float32) # for case 2 push
-noise_sigma = torch.tensor([[3, 0], [0, 3]], device="cuda:0", dtype=torch.float32) # for case 2 pull, hybrid two corners
+# noise_sigma = torch.tensor([[2, 0], [0, 2]], device="cuda:0", dtype=torch.float32) # 2 seems better for two corner
+noise_sigma = torch.tensor([[3, 0], [0, 3]], device="cuda:0", dtype=torch.float32) # 3 seems better for one corner
 horizon = 15 # 12
 lambda_ = 0.8
 device = "cuda:0" 

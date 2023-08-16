@@ -6,7 +6,7 @@ from pathlib import Path
 import utils.path_utils as path_utils
 
 box1_pose = gymapi.Transform()
-box1_pose.p = gymapi.Vec3(1, -2, 0)
+box1_pose.p = gymapi.Vec3(1, 2, 0)
 
 box2_pose = gymapi.Transform()
 box2_pose.p = gymapi.Vec3(-1, 1, 0)         # for push, navigation
@@ -231,7 +231,7 @@ def add_obstacles(sim, gym, env, environment_type, index):
         if not test_cornor:
             # goal_region1 = add_box(sim, gym, env, 1, 1, 0.01, goal1_pose, color_vec_box1, True, "goal_region1", -2) # No collisions with goal region
             # goal_region2 = add_box(sim, gym, env, 1, 1, 0.01, goal2_pose, color_vec_box2, True, "goal_region2", -2) # No collisions with goal region
-            goal_region3 = add_box(sim, gym, env, 1, 1, 0.01, goal3_pose, color_vec_corner, True, "goal_region3", -2) # No collisions with goal region
+            # goal_region3 = add_box(sim, gym, env, 1, 1, 0.01, goal3_pose, color_vec_corner, True, "goal_region3", -2) # No collisions with goal region
 
             recharge_region = add_box(sim, gym, env, 0.45, 0.45, 0.01, recharge_pose, color_vec_corner, True, "goal_region", -2) # No collisions with recharge region
         # add movable squar box

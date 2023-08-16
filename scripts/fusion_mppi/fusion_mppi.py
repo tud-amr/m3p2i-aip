@@ -171,7 +171,7 @@ class FUSION_MPPI(mppi.MPPI):
         #     align_cost += torch.abs(self.robot_to_goal_dist - self.block_to_goal_dist - self.align_offset[self.robot])
         ori_cost = skill_utils.get_general_ori_cube2goal(self.block_quat, self.goal_quaternion)
  
-        return 3 * self.dist_cost + align_cost #+ 10 * ori_cost# [num_envs] 31
+        return 5 * self.dist_cost + align_cost #+ 10 * ori_cost# [num_envs] 31
     
     def get_pull_cost(self, hybrid):
         pos_dir = self.block_pos - self.robot_pos
