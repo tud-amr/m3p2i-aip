@@ -171,7 +171,7 @@ class FUSION_MPPI(mppi.MPPI):
         #     align_cost += torch.abs(self.robot_to_goal_dist - self.block_to_goal_dist - self.align_offset[self.robot])
         ori_cost = skill_utils.get_general_ori_cube2goal(self.block_quat, self.goal_quaternion)
  
-        return 3 * self.dist_cost + 3 * align_cost #+ 10 * ori_cost# [num_envs]
+        return 3 * self.dist_cost + align_cost #+ 10 * ori_cost# [num_envs] 31
     
     def get_pull_cost(self, hybrid):
         pos_dir = self.block_pos - self.robot_pos
@@ -203,7 +203,7 @@ class FUSION_MPPI(mppi.MPPI):
 
         ori_cost = skill_utils.get_general_ori_cube2goal(self.block_quat, self.goal_quaternion)
 
-        return 3 * self.dist_cost + vel_cost + 3 * align_cost #+ 10 * ori_cost # [num_envs]
+        return 3 * self.dist_cost + vel_cost + align_cost #+ 10 * ori_cost # [num_envs] 311
 
     def get_push_not_goal_cost(self):
         non_goal_cost = torch.clamp((1/torch.linalg.norm(self.block_not_goal - self.block_pos,axis = 1)), min=0, max=10)
@@ -369,7 +369,7 @@ class FUSION_MPPI(mppi.MPPI):
         elif self.task == 'push':
             task_cost = self.get_push_cost()
         elif self.task == 'pull':
-            task_cost = 10 * self.get_pull_cost(False)
+            task_cost = self.get_pull_cost(False) # 10
         elif self.task == 'push_not_goal':
             task_cost = self.get_push_not_goal_cost()
         elif self.task == 'hybrid':

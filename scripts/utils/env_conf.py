@@ -9,7 +9,7 @@ box1_pose = gymapi.Transform()
 box1_pose.p = gymapi.Vec3(1, -2, 0)
 
 box2_pose = gymapi.Transform()
-box2_pose.p = gymapi.Vec3(-2.2, 1, 0)         # for push, navigation
+box2_pose.p = gymapi.Vec3(-1, 1, 0)         # for push, navigation
 # box2_pose.p = gymapi.Vec3(2, -2, 0)       # for reactive push
 # box2_pose.p = gymapi.Vec3(3.75, -3.75, 0) # at corner, pull first
 

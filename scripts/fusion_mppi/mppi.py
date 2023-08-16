@@ -240,6 +240,7 @@ class MPPI():
         self.beta = 1 # param storm
         self.beta_1 = 1
         self.beta_2 = 1
+        self.beta = 1
 
         # Filtering
         self.sgf_window = 9
@@ -398,7 +399,7 @@ class MPPI():
         
         if self.mppi_mode == 'halton-spline':
             if self.multi_modal:
-                self.noise = self._update_multi_modal_distribution(cost_horizon, actions)
+                self.noise = self._update_multi_modal_distribution_new(cost_horizon, actions)
             else:
                 self.noise = self._update_distribution(cost_horizon, actions)
         return cost_total, states, actions, ee_states
@@ -659,7 +660,28 @@ class MPPI():
         delta = actions - self.mean_action.unsqueeze(0)
 
         return delta
-    
+
+    def update_infinite_beta(self, costs, beta):
+        found = False
+        # Makes sure beta is properly tuned before computing the weights
+        while not found:
+        # Normalization of the weights
+            exp_ = torch.exp((-1.0/beta) * costs)
+            eta = torch.sum(exp_)       # tells how many significant samples we have, more or less
+
+            # Update beta to make eta converge within the bounds 
+            eta_u_bound = 10
+            eta_l_bound = 3
+            beta_lm = 0.9
+            beta_um = 1.2
+            if eta > eta_u_bound:
+                beta = beta * beta_lm
+            elif eta < eta_l_bound:
+                beta = beta * beta_um
+            else:
+                found = True
+        return eta, exp_
+
     def _multi_modal_exp_util_new(self, costs):
         """
            Calculate weights using exponential utility given cost
@@ -673,32 +695,16 @@ class MPPI():
         total_costs = traj_costs - torch.min(traj_costs)
         # print('1', total_costs_1)
         # print('2', total_costs_2)
-        # Normalization of the weights
-        exp_1 = torch.exp((-1.0/self.beta_1) * total_costs_1)
-        exp_2 = torch.exp((-1.0/self.beta_2) * total_costs_2)
-        exp_ = torch.exp((-1.0/self.beta) * total_costs)
-        eta_1 = torch.sum(exp_1)
-        eta_2 = torch.sum(exp_2)
-        eta = torch.sum(exp_)
-        print('eta1', eta_1)
-        print('eta2', eta_2)
-        print('eta', eta)
-        # Update beta to make eta converge within the bounds 
-        if self.env_type == 'cube': # grady's thesis
-            self.beta_1 = self.update_beta(self.beta_1, eta_1, eta_u_bound=25, eta_l_bound=5)
-            self.beta_2 = self.update_beta(self.beta_2, eta_2, eta_u_bound=25, eta_l_bound=5)
-        elif self.env_type == 'normal':
-            # two corner
-            self.beta_1 = self.update_beta(self.beta_1, eta_1, 10, 3) 
-            self.beta_2 = self.update_beta(self.beta_2, eta_2, 10, 3)
-            # # one corner
-            # self.beta_1 = self.update_beta(self.beta_1, eta_1, 10, 3) 
-            # self.beta_2 = self.update_beta(self.beta_2, eta_2, 10, 3)
+        eta_1, exp_1 = self.update_infinite_beta(total_costs_1, self.beta_1)
+        eta_2, exp_2 = self.update_infinite_beta(total_costs_2, self.beta_2)
+        eta, exp_ = self.update_infinite_beta(total_costs, self.beta)
+        # exp_ = torch.exp((-1.0/self.beta) * total_costs)
+        # eta = torch.sum(exp_)
 
         self.weights_1 = 1 / eta_1 * exp_1 
         self.weights_2 = 1 / eta_2 * exp_2
         self.weights = 1 / eta * exp_ 
-        # print('weights', self.weights)
+        # print('weights', self.weights.size())
     
     def update_beta(self, beta, eta, eta_u_bound, eta_l_bound):
         beta_lm = 0.9

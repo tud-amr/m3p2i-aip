@@ -6,17 +6,17 @@ task = "reactive"                   # "simple", "patrolling", "reactive"
 num_envs = 100
 nx = 4
 # noise_sigma = torch.tensor([[1, 0], [0, 1]], device="cuda:0", dtype=torch.float32) # for case 2 push
-noise_sigma = torch.tensor([[1.5, 0], [0, 1.5]], device="cuda:0", dtype=torch.float32) # for case 2 pull, hybrid two corners
+noise_sigma = torch.tensor([[3, 0], [0, 3]], device="cuda:0", dtype=torch.float32) # for case 2 pull, hybrid two corners
 horizon = 15 # 12
 lambda_ = 0.8
 device = "cuda:0" 
 u_max = torch.tensor([2, 2], device="cuda:0", dtype=torch.float32)
-u_min = torch.tensor([-2, -2], device="cuda:0", dtype=torch.float32)
+u_min = torch.tensor([-2, -2], device="cuda:0", dtype=torch.float32) # 3 hybrid one corner becomes push
 step_dependent_dynamics = True
 terminal_state_cost = None
 sample_null_action = True
 use_priors = False
-u_per_command = 12
+u_per_command = 15
 filter_u = True
 
 # Parameters in the sim file

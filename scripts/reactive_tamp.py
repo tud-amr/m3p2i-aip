@@ -45,6 +45,8 @@ class REACTIVE_TAMP:
 
         # Choose the task planner
         self.task = params.task
+        simple_task = "hybrid"
+        simple_multimodal = True if simple_task == "hybrid" else False
         if self.task == "patrolling":
             self.task_planner = task_planner.PLANNER_PATROLLING(goals = [[-3, -3], [3, -3], [3, 3], [-3, 3]])
         elif self.task == "reactive":
@@ -56,7 +58,7 @@ class REACTIVE_TAMP:
             # start plotting battery level
             plot_class.start_dash_server()
         elif self.task == "simple":
-            self.task_planner = task_planner.PLANNER_SIMPLE("navigation", [0.8, 0])  # "hybrid", [-3.75, -3.75]
+            self.task_planner = task_planner.PLANNER_SIMPLE(simple_task, [-3.75, -3.75])  # "hybrid", [-3.75, -3.75]
         elif self.task == "pick":
             self.task_planner = task_planner.PLANNER_PICK("pick", self.cube_goal_state_new)
         elif self.task == "reactive_pick":
@@ -90,7 +92,7 @@ class REACTIVE_TAMP:
         self.motion_planner.set_mode(
             mppi_mode = 'halton-spline', # 'halton-spline', 'simple'
             sample_method = 'halton',    # 'halton', 'random'
-            multi_modal = False           # True, False
+            multi_modal = simple_multimodal  # True, False
         )
         self.prefer_pull = -1
         
@@ -123,10 +125,10 @@ class REACTIVE_TAMP:
 
         # # Check task succeeds or not
         task_success = False
-        # if self.task not in ['pick', 'reactive_pick']:
-        #     task_success = self.task_planner.check_task_success(robot_pos, self.block_state[0, :])
-        # else:
-        #     task_success = self.task_planner.check_task_success((self.ee_l_state[0, :7]+self.ee_r_state[0, :7])/2)
+        if self.task not in ['pick', 'reactive_pick']:
+            task_success = self.task_planner.check_task_success(robot_pos, self.block_state[0, :])
+        else:
+            task_success = self.task_planner.check_task_success((self.ee_l_state[0, :7]+self.ee_r_state[0, :7])/2)
         task_success = task_success and not stay_still
         # self.save_data(task_success)
         return task_success
