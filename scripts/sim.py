@@ -63,7 +63,7 @@ class SIM():
         self.prefer_pull = []
         self.dyn_obs_id = 5
         self.dyn_obs_coll = 0
-        self.allow_save_data = True
+        self.allow_save_data = False
         self.elapsed_time = 0
         # Set server address
         self.server_address = './uds_socket'
@@ -119,7 +119,7 @@ class SIM():
                                  self.dyn_obs_coll, self.task_time])
         concatenate_array = np.concatenate((save_time, save_robot_pos, save_robot_vel, 
                                             save_block_state, self.curr_goal, save_metrics))
-        file_path = path_utils.get_plot_path() +'/point_new/corner1_hybrid.npy'
+        file_path = path_utils.get_plot_path() +'/point_new/corner2_hybrid.npy'
         with NpyAppendArray(file_path) as npaa:
             npaa.append(np.array([concatenate_array]))
         data = np.load(file_path, mmap_mode="r")
