@@ -171,7 +171,7 @@ class FUSION_MPPI(mppi.MPPI):
         #     align_cost += torch.abs(self.robot_to_goal_dist - self.block_to_goal_dist - self.align_offset[self.robot])
         ori_cost = skill_utils.get_general_ori_cube2goal(self.block_quat, self.goal_quaternion)
  
-        return 5 * self.dist_cost + align_cost #+ 10 * ori_cost# [num_envs] 31
+        return 3 * self.dist_cost + 1 * align_cost #+ 10 * ori_cost# [num_envs] 31
     
     def get_pull_cost(self, hybrid):
         pos_dir = self.block_pos - self.robot_pos
@@ -199,11 +199,11 @@ class FUSION_MPPI(mppi.MPPI):
         # Add the cost when the robot is close to the block and moves towards the block
         vel_cost = torch.zeros(self.num_envs, device="cuda:0")
         robot_block_close = self.robot_to_block_dist <= 0.5
-        vel_cost[flag_towards_block*robot_block_close] = 0.5
+        vel_cost[flag_towards_block*robot_block_close] = 0.6
 
         ori_cost = skill_utils.get_general_ori_cube2goal(self.block_quat, self.goal_quaternion)
 
-        return 3 * self.dist_cost + vel_cost + align_cost #+ 10 * ori_cost # [num_envs] 311
+        return 3 * self.dist_cost + vel_cost + 5 * align_cost #+ 10 * ori_cost # [num_envs] 315 
 
     def get_push_not_goal_cost(self):
         non_goal_cost = torch.clamp((1/torch.linalg.norm(self.block_not_goal - self.block_pos,axis = 1)), min=0, max=10)

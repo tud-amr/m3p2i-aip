@@ -5,13 +5,13 @@ allow_viewer = False
 task = "reactive"                   # "simple", "patrolling", "reactive"
 num_envs = 200
 nx = 4
-# noise_sigma = torch.tensor([[2, 0], [0, 2]], device="cuda:0", dtype=torch.float32) # 2 seems better for two corner
-noise_sigma = torch.tensor([[3, 0], [0, 3]], device="cuda:0", dtype=torch.float32) # 3 seems better for one corner
+noise_sigma = torch.tensor([[2, 0], [0, 2]], device="cuda:0", dtype=torch.float32) # 2 seems better for two corner
+# noise_sigma = torch.tensor([[3, 0], [0, 3]], device="cuda:0", dtype=torch.float32) # 3 seems better for one corner
 horizon = 15 # 12
 lambda_ = 0.8
 device = "cuda:0" 
-u_max = torch.tensor([2, 2], device="cuda:0", dtype=torch.float32)
-u_min = torch.tensor([-2, -2], device="cuda:0", dtype=torch.float32) # 3 hybrid one corner becomes push
+u_max = torch.tensor([2.5, 2.5], device="cuda:0", dtype=torch.float32) # 2.5
+u_min = torch.tensor([-2.5, -2.5], device="cuda:0", dtype=torch.float32) # 3 hybrid one corner becomes push
 step_dependent_dynamics = True
 terminal_state_cost = None
 sample_null_action = True

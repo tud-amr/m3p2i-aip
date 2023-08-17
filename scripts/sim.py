@@ -119,10 +119,11 @@ class SIM():
                                  self.dyn_obs_coll, self.task_time])
         concatenate_array = np.concatenate((save_time, save_robot_pos, save_robot_vel, 
                                             save_block_state, self.curr_goal, save_metrics))
-        file_path = path_utils.get_plot_path() +'/point/case4_halton_push_corner2.npy'
+        file_path = path_utils.get_plot_path() +'/point_new/corner1_hybrid.npy'
         with NpyAppendArray(file_path) as npaa:
             npaa.append(np.array([concatenate_array]))
         data = np.load(file_path, mmap_mode="r")
+        print(np.shape(data))
         print(data[-1, :])
         print(time.asctime(time.localtime(data[-1, 0])))
 
@@ -165,11 +166,12 @@ class SIM():
                         print(int(self.elapsed_time))
                 if task_success or self.elapsed_time >= 40:
                     if self.environment_type != 'cube':
-                        # self.plot()
                         pass
-                        # if self.allow_save_data:
-                        #     self.save_data()
-                    # self.destroy()
+                        if self.allow_save_data:
+                            self.plot()
+                            self.save_data()
+                            self.destroy()
+                    print('time', self.elapsed_time)
 
                 # Clear lines at the beginning
                 self.gym.clear_lines(self.viewer)

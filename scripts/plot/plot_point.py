@@ -9,9 +9,9 @@ import plotly.graph_objects as go
 
 file_path_1 = path_utils.get_plot_path() +'/point/case2_halton_push_coll.npy'
 file_path_2 = path_utils.get_plot_path() +'/point/case2_halton_pull_coll.npy'
-file_path_3 = path_utils.get_plot_path() +'/point/case3_halton_push_corner1.npy'
-file_path_4 = path_utils.get_plot_path() +'/point/case3_halton_pull_corner1.npy'
-file_path_5 = path_utils.get_plot_path() +'/point/case3_halton_hybrid_corner1.npy'
+file_path_3 = path_utils.get_plot_path() +'/point_new/corner1_push.npy'
+file_path_4 = path_utils.get_plot_path() +'/point_new/corner1_pull.npy'
+file_path_5 = path_utils.get_plot_path() +'/point_new/corner1_hybrid.npy'
 file_path_6 = path_utils.get_plot_path() +'/point/case4_halton_hybrid_corner2.npy'
 file_path_7 = path_utils.get_plot_path() +'/point/case4_halton_pull_corner2.npy'
 file_path_8 = path_utils.get_plot_path() +'/point/case4_halton_push_corner2.npy'
@@ -71,16 +71,16 @@ push_c2_pos_cost, push_c2_quat_cost = compute_cost(push_data_c2, 20)
 push_c2_task_time = push_data_c2[:, 18]
 
 # Compute mean and std
-print('---------Case 2 push---------')
-compute_mean_std(push_pos_cost, 'pos')
-compute_mean_std(push_quat_cost, 'quat')
-compute_mean_std(push_dyn_obs_coll, 'obs collision')
-compute_mean_std(push_task_time, 'task time')
-print('---------Case 2 pull---------')
-compute_mean_std(pull_pos_cost, 'pos')
-compute_mean_std(pull_quat_cost, 'quat')
-compute_mean_std(pull_dyn_obs_coll, 'obs collision')
-compute_mean_std(pull_task_time, 'task time')
+# print('---------Case 2 push---------')
+# compute_mean_std(push_pos_cost, 'pos')
+# compute_mean_std(push_quat_cost, 'quat')
+# compute_mean_std(push_dyn_obs_coll, 'obs collision')
+# compute_mean_std(push_task_time, 'task time')
+# print('---------Case 2 pull---------')
+# compute_mean_std(pull_pos_cost, 'pos')
+# compute_mean_std(pull_quat_cost, 'quat')
+# compute_mean_std(pull_dyn_obs_coll, 'obs collision')
+# compute_mean_std(pull_task_time, 'task time')
 print('---------Case 3 push---------')
 compute_mean_std(push_c1_pos_cost, 'pos')
 compute_mean_std(push_c1_quat_cost, 'quat')
@@ -93,35 +93,35 @@ print('---------Case 3 hybrid---------')
 compute_mean_std(hybrid_c1_pos_cost, 'pos')
 compute_mean_std(hybrid_c1_quat_cost, 'quat')
 compute_mean_std(hybrid_c1_task_time, 'task time')
-print('---------Case 4 push---------')
-compute_mean_std(push_c2_pos_cost, 'pos')
-compute_mean_std(push_c2_quat_cost, 'quat')
-compute_mean_std(push_c2_task_time, 'task time')
-print('---------Case 4 pull---------')
-compute_mean_std(pull_c2_pos_cost, 'pos')
-compute_mean_std(pull_c2_quat_cost, 'quat')
-compute_mean_std(pull_c2_task_time, 'task time')
-print('---------Case 4 hybrid---------')
-compute_mean_std(hybrid_c2_pos_cost, 'pos')
-compute_mean_std(hybrid_c2_quat_cost, 'quat')
-compute_mean_std(hybrid_c2_task_time, 'task time')
+# print('---------Case 4 push---------')
+# compute_mean_std(push_c2_pos_cost, 'pos')
+# compute_mean_std(push_c2_quat_cost, 'quat')
+# compute_mean_std(push_c2_task_time, 'task time')
+# print('---------Case 4 pull---------')
+# compute_mean_std(pull_c2_pos_cost, 'pos')
+# compute_mean_std(pull_c2_quat_cost, 'quat')
+# compute_mean_std(pull_c2_task_time, 'task time')
+# print('---------Case 4 hybrid---------')
+# compute_mean_std(hybrid_c2_pos_cost, 'pos')
+# compute_mean_std(hybrid_c2_quat_cost, 'quat')
+# compute_mean_std(hybrid_c2_task_time, 'task time')
 
-# Box plot
-fig = go.Figure()
-label_x = ['pos_error']*60+['ori_error']*60+['collisions']*60+['task time']*60
-fig.add_trace(go.Box(y=np.concatenate((push_pos_cost, push_quat_cost, push_dyn_obs_coll, push_task_time)), x=label_x, name="push", marker_color='#FF4136'))
-fig.add_trace(go.Box(y=np.concatenate((pull_pos_cost, pull_quat_cost, pull_dyn_obs_coll, pull_task_time)), x=label_x, name="pull", marker_color='#FF851B'))
+# # Box plot
+# fig = go.Figure()
+# label_x = ['pos_error']*60+['ori_error']*60+['collisions']*60+['task time']*60
+# fig.add_trace(go.Box(y=np.concatenate((push_pos_cost, push_quat_cost, push_dyn_obs_coll, push_task_time)), x=label_x, name="push", marker_color='#FF4136'))
+# fig.add_trace(go.Box(y=np.concatenate((pull_pos_cost, pull_quat_cost, pull_dyn_obs_coll, pull_task_time)), x=label_x, name="pull", marker_color='#FF851B'))
 
-fig.update_layout(
-    title = 'Results of Normal Case',
-    title_x=0.5,
-    yaxis_title='Logarithmic scale',
-    boxmode='group', # group together boxes of the different traces for each value of x
-    boxgroupgap=0.3, # update
-    boxgap=0
-)
-fig.update_yaxes(type="log")
-fig.show() 
+# fig.update_layout(
+#     title = 'Results of Normal Case',
+#     title_x=0.5,
+#     yaxis_title='Logarithmic scale',
+#     boxmode='group', # group together boxes of the different traces for each value of x
+#     boxgroupgap=0.3, # update
+#     boxgap=0
+# )
+# fig.update_yaxes(type="log")
+# fig.show() 
 
 # Box plot
 fig = go.Figure()
@@ -141,19 +141,19 @@ fig.update_layout(
 fig.update_yaxes(type="log")
 fig.show() 
 
-# Box plot
-fig = go.Figure()
-fig.add_trace(go.Box(y=np.concatenate((push_c2_pos_cost, push_c2_quat_cost, push_c2_task_time)), x=label_x, name="push", marker_color='#FF4136'))
-fig.add_trace(go.Box(y=np.concatenate((pull_c2_pos_cost, pull_c2_quat_cost, pull_c2_task_time)), x=label_x, name="pull", marker_color='#FF851B'))
-fig.add_trace(go.Box(y=np.concatenate((hybrid_c2_pos_cost, hybrid_c2_quat_cost, hybrid_c2_task_time)), x=label_x, name="hybrid", marker_color='#3D9970'))
+# # Box plot
+# fig = go.Figure()
+# fig.add_trace(go.Box(y=np.concatenate((push_c2_pos_cost, push_c2_quat_cost, push_c2_task_time)), x=label_x, name="push", marker_color='#FF4136'))
+# fig.add_trace(go.Box(y=np.concatenate((pull_c2_pos_cost, pull_c2_quat_cost, pull_c2_task_time)), x=label_x, name="pull", marker_color='#FF851B'))
+# fig.add_trace(go.Box(y=np.concatenate((hybrid_c2_pos_cost, hybrid_c2_quat_cost, hybrid_c2_task_time)), x=label_x, name="hybrid", marker_color='#3D9970'))
 
-fig.update_layout(
-    title = 'Results of Two Corners Case',
-    title_x=0.5,
-    yaxis_title='Logarithmic scale',
-    boxmode='group', # group together boxes of the different traces for each value of x
-    boxgroupgap=0.3, # update
-    boxgap=0
-)
-fig.update_yaxes(type="log")
-fig.show() 
+# fig.update_layout(
+#     title = 'Results of Two Corners Case',
+#     title_x=0.5,
+#     yaxis_title='Logarithmic scale',
+#     boxmode='group', # group together boxes of the different traces for each value of x
+#     boxgroupgap=0.3, # update
+#     boxgap=0
+# )
+# fig.update_yaxes(type="log")
+# fig.show() 
