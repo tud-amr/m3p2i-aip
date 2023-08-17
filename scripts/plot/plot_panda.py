@@ -9,15 +9,17 @@ import plotly.graph_objects as go
 
 file_path_1 = path_utils.get_plot_path() +'/panda/normal_pick.npy'
 file_path_2 = path_utils.get_plot_path() +'/panda/reactive_pick.npy'
-file_path_3 = path_utils.get_plot_path() +'/panda/normal_rl_pick.npy'
-file_path_4 = path_utils.get_plot_path() +'/panda/reactive_rl_pick.npy'
+file_path_3 = path_utils.get_plot_path() +'/panda/normal_rl_pick_2000_64.npy'
+file_path_4 = path_utils.get_plot_path() +'/panda/reactive_rl_pick_2000_64.npy'
 tamp_normal_data = np.load(file_path_1, mmap_mode="r")
 tamp_reactive_data = np.load(file_path_2, mmap_mode="r")
 rl_normal_data = np.load(file_path_3, mmap_mode="r")
+rl_normal_data = rl_normal_data[:50, :]
 rl_reactive_data = np.load(file_path_4, mmap_mode="r")
+rl_reactive_data = rl_reactive_data[:50, :]
 
-print(tamp_normal_data.size)
-print(tamp_reactive_data.size)
+print(np.shape(rl_normal_data))
+print(rl_reactive_data.size)
 # print(data[-1, 0])
 # print(time.asctime(time.localtime(data[-1, 0])))
 
