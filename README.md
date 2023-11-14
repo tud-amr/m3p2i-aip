@@ -1,4 +1,4 @@
-# Reactive TAMP and controller fusion
+# Multi-Modal MPPI and Active Inference for Reactive Task and Motion Planning
 
 Repositiry for reactive task and motion planning making use of active inference and behavior trees for symbolic planning, and MPPI for motion planning. Rollouts are evaluated in Isaac Gym, a parallelizable physics simulator.
 
@@ -6,6 +6,9 @@ There are also a number of examples to get familiar with Isaac Gym with our robo
 
 ## Status
 Under development
+
+## Project website 
+https://sites.google.com/view/m3p2i-aip 
 
 ### Requirements
 - Python 3.6, <3.10
