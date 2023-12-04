@@ -5,7 +5,7 @@ Repositiry for reactive task and motion planning making use of active inference 
 There are also a number of examples to get familiar with Isaac Gym with our robots. 
 
 ## Status
-Under development
+This is the saved branch for Corrado's commits
 
 ### Requirements
 - Python 3.6, <3.10
