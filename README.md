@@ -1,8 +1,6 @@
 # Multi-Modal MPPI and Active Inference for Reactive Task and Motion Planning
 
-Repository for reactive task and motion planning making use of active inference and behavior trees for symbolic planning, and MPPI for motion planning. Rollouts are evaluated in Isaac Gym, a parallelizable physics simulator.
-
-There are also several examples to get familiar with Isaac Gym with our robots. 
+Repository for reactive task and motion planning making use of active inference for symbolic planning, and a new multi-modal MPPI for motion planning. Rollouts are evaluated in IsaacGym, a parallelizable physics simulator.
 
 ## Status
 Under development
