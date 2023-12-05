@@ -1,8 +1,8 @@
 # Multi-Modal MPPI and Active Inference for Reactive Task and Motion Planning
 
-Repositiry for reactive task and motion planning making use of active inference and behavior trees for symbolic planning, and MPPI for motion planning. Rollouts are evaluated in Isaac Gym, a parallelizable physics simulator.
+Repository for reactive task and motion planning making use of active inference and behavior trees for symbolic planning, and MPPI for motion planning. Rollouts are evaluated in Isaac Gym, a parallelizable physics simulator.
 
-There are also a number of examples to get familiar with Isaac Gym with our robots. 
+There are also several examples to get familiar with Isaac Gym with our robots. 
 
 ## Status
 Under development
@@ -10,35 +10,34 @@ Under development
 ## Project website 
 https://sites.google.com/view/m3p2i-aip 
 
-### Requirements
-- Python 3.6, <3.10
-- IsaacGym 
-- Nvidia graphics card
-
-This package has been tested in Ubuntu 2020.
-
-### Dependencies
-Some examples in the folder */scripts* use the classes and methods of the package [decision_making](https://gitlab.tudelft.nl/airlab-delft/ng-staging/controller_fusion/decision_making). Please refer to [decision_making](https://gitlab.tudelft.nl/airlab-delft/ng-staging/controller_fusion/decision_making) for installation instruction if you wish to use those.
-
-Some other examples use [Optimization Fabrics](https://github.com/maxspahn/fabrics), currently working version is "0.4.1". Please follow installation intructions in the linked repository. 
-
-## How to use this repo
-Just clone the repo in a location in you computer. 
-
-*Skip this passage if you installed IsaacGym at system level*. If you have a Conda environment for IsaacGym, activate the environment
+## Installation
+First, clone the repo on your computer. 
+```
+git clone https://github.com/tud-airlab/m3p2i-aip.git
+```
+This project requires the source code of IsaacGym. Download it from https://developer.nvidia.com/isaac-gym and we suggest installing it in a conda environment. Move into `m3p2i-aip` and activate the environment
 
 ````bash
-cd <you_isaac_gym_folder>
+cd <m3p2i_aip_folder>
 conda acivate <env_name>
 ````
+You also need the following packages:
+- dash
+- pandas
+- npy_append_array
+- matplotlib
+
+You need an NVIDIA graphics card to use the GPU pipeline (default). This package has been tested in Ubuntu 2020.
+
+## Test and run
 
 Then you are ready to test a script:
 
 ````bash
-cd <path/to/your/isaac_gym_folder>/scripts/examples
+cd <m3p2i_aip_folder>/scripts/examples
 python3 example_key.py
 ````
-With this script you can drive the robot around with ASDW keys. 
+With this script, you can drive the robot around with ASDW keys. 
 
 If you want to test the MPPI, you will need two instances of Isaac Gym, one for the rollouts, and one for the "real system". Run the commands below in two terminals from the */scripts* folder: 
 ````
