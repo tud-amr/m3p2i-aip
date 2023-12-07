@@ -6,7 +6,7 @@
 Repository for reactive task and motion planning making use of active inference for symbolic planning, and a new multi-modal MPPI for motion planning. Rollouts are evaluated in IsaacGym, a parallelizable physics simulator.
 
 <p align="center">
-    <img src="./assets/images/m3p2i_1corner.gif" alt="001" width=300 /> <img src="./assets/images/m3p2i_pick_with_obs.gif" alt="002" width=300 />
+    <img src="./assets/images/m3p2i_1corner.gif" alt="001" width=370 /> &nbsp; <img src="./assets/images/m3p2i_pick_with_obs.gif" alt="002" width=370 />
 </p>
 
 ## Status
