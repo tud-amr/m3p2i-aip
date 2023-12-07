@@ -1,12 +1,12 @@
-# Multi-Modal MPPI and Active Inference for Reactive Task and Motion Planning
+<p align="center">
+    <h1 align="center">Multi-Modal MPPI and Active Inference for Reactive Task and Motion Planning</h1>
+    <h3 align="center"><a href="https://arxiv.org/abs/2312.02328">Paper</a> | <a href="https://sites.google.com/view/m3p2i-aip">Website</a> | <a href="https://www.youtube.com/watch?v=y2CTgv6hxVI&t=2s">Videos</a> </h3>
+</p>
 
 Repository for reactive task and motion planning making use of active inference for symbolic planning, and a new multi-modal MPPI for motion planning. Rollouts are evaluated in IsaacGym, a parallelizable physics simulator.
 
 ## Status
 Under development
-
-## Project website 
-https://sites.google.com/view/m3p2i-aip 
 
 ## Installation
 First, clone the repo on your computer. 
