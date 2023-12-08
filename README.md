@@ -31,15 +31,15 @@ You also need the following packages:
 
 You need an NVIDIA graphics card to use the GPU pipeline (default). This package has been tested in Ubuntu 2020.
 
-## Test and run
-
-Then you are ready to test a script:
+Then you are ready to test an example file:
 
 ````bash
-cd <m3p2i_aip_folder>/scripts/examples
+cd <m3p2i_aip_folder>/examples
 python3 example_key.py
 ````
 With this script, you can drive the robot around with ASDW keys. 
+
+## Run the scripts
 
 If you want to test the MPPI, you will need two instances of Isaac Gym, one for the rollouts, and one for the "real system". Run the commands below in two terminals from the */scripts* folder: 
 ````

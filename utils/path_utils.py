@@ -11,9 +11,8 @@ def get_package_path():
     list = str(curr_path).split('/')
     package_path = ''
     for i in list:
-        if i != "scripts":
-            package_path += i + "/"
-        else:
+        package_path += i + "/"
+        if i == "m3p2i-aip":
             break
     return package_path
 
@@ -28,8 +27,8 @@ def get_scripts_path():
     return path
 
 def get_params_path():
-    scripts_path = get_scripts_path()
-    path = os.path.join(scripts_path,'params')
+    package_path = get_package_path()
+    path = os.path.join(package_path,'params')
     return path
 
 def get_plot_path():
