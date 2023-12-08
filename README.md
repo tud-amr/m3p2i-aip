@@ -23,21 +23,18 @@ This project requires the source code of IsaacGym. Download it from https://deve
 cd <m3p2i_aip_folder>
 conda acivate <env_name>
 ````
-You also need the following packages:
+You need an NVIDIA graphics card to use the GPU pipeline (default). You also need the following packages:
 - dash
 - pandas
 - npy_append_array
 - matplotlib
 
-You need an NVIDIA graphics card to use the GPU pipeline (default). This package has been tested in Ubuntu 2020.
-
-Then you are ready to test an example file:
+Then you are ready to test an example file, where you can drive the robot around with ASDW keys.
 
 ````bash
 cd <m3p2i_aip_folder>/examples
 python3 example_key.py
 ````
-With this script, you can drive the robot around with ASDW keys. 
 
 ## Run the scripts
 
