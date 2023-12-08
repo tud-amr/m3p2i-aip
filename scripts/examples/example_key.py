@@ -13,8 +13,8 @@ class Params:
         self.allow_viewer = True
         self.num_envs = 1
         self.spacing = 10.0
-        self.robot = "albert"          # "point_robot", "boxer", "husky", "albert", "panda", and "heijn"
-        self.environment_type = "albert_arena"    # "normal", "battery"
+        self.robot = "point_robot"          # "point_robot", "boxer", "husky", "albert", "panda", and "heijn"
+        self.environment_type = "normal"    # "normal", "battery", "albert_arena"
         self.control_type = "vel_control"   # "vel_control", "pos_control", "force_control"
 
 
@@ -73,33 +73,12 @@ while viewer is None or not gym.query_viewer_has_closed(viewer):
     if params.suction_active:
         # Simulation of a magnetic/suction effect to attach to the box
         suction_force, _, _ = skill_utils.calculate_suction(block_pos, robot_pos, params.num_envs, params.kp_suction, params.block_index, bodies_per_env)
-        # print('suc', suction_force)
         # Apply suction/magnetic force
         gym.apply_rigid_body_force_tensors(sim, gymtorch.unwrap_tensor(torch.reshape(suction_force, (params.num_envs*bodies_per_env, 3))), None, gymapi.ENV_SPACE)
 
     # Respond to keyboard
     sim_init.keyboard_control(gym, sim, viewer, params.robot, num_dofs, params.num_envs, dof_states, params.control_type)
-
-    # if int(i%10) ==0:
-        # print('rob', robot_states)
-        # print('rob pos', robot_pos)
-        # print('rob vel', robot_vel)
-        # print('cube', cube_state)
-        # print('goal', cube_goal_state)
-        # print('hand', hand_state)
-        # print('l', ee_l_state)
-        # print('r', ee_r_state)
     i += 1
-    # quarternion = ee_l_state[:, 3:7]
-    # rot_ee = skill_utils.quaternion_rotation_matrix(quarternion)
-    # zaxis_ee = rot_ee[:, :, 2]
-    # print('ee z axis', zaxis_ee)
-    # quarternion_cube = cube_state[:, 3:7]
-    # rot_cube = skill_utils.quaternion_rotation_matrix(quarternion_cube)
-    # zaxis_cube = rot_cube[:, :, 2]
-    # print('cube z axis', zaxis_cube)
-    # cos_theta = torch.sum(torch.mul(zaxis_ee, zaxis_cube), dim=1)
-    # print('cos', cos_theta)
 
     # Step rendering
     sim_init.step_rendering(gym, sim, viewer)

@@ -98,7 +98,7 @@ mppi = fusion_mppi.FUSION_MPPI(
     filter_u=False
     )
 
-mppi.update_params(params)
+mppi.update_params(params, weight_prefer_pull=0)
 mppi.update_gym(gym, sim)
 
 # Time logging

@@ -5,7 +5,7 @@
 import numpy as np
 import sys
 sys.path.append('../')
-from active_inference import ai_agent, isaac_state_action_templates, adaptive_action_selection, isaac_int_req_templates
+from active_inference import ai_agent, isaac_state_action_templates, adaptive_action_selection
 
 ## Initialization
 # ----------------- 
