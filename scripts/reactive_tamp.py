@@ -2,17 +2,19 @@ from isaacgym import gymapi
 from isaacgym import gymutil
 from isaacgym import gymtorch
 import torch
-from fusion_mppi import mppi, fusion_mppi
-from active_inference import task_planner
+import sys
+sys.path.append('../')
+from planners.fusion_mppi import mppi, fusion_mppi
+from planners.active_inference import task_planner
+from planners.plot import plot_class
 from utils import env_conf, sim_init, data_transfer, path_utils
-from npy_append_array import NpyAppendArray
 from params import params_utils
 import time
 import copy
 import socket, io
 import numpy as np
+from npy_append_array import NpyAppendArray
 torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
-from plot import plot_class
 
 
 class REACTIVE_TAMP:

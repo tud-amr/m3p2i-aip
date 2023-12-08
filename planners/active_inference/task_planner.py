@@ -1,12 +1,8 @@
 import torch
 import numpy as np
 from utils import env_conf
-from active_inference import ai_agent, adaptive_action_selection
-from active_inference import isaac_int_req_templates, isaac_state_action_templates
-import sys
-import time
-import os
-sys.path.append('../')
+from planners.active_inference import ai_agent, adaptive_action_selection
+from planners.active_inference import isaac_int_req_templates, isaac_state_action_templates
 from utils import path_utils, skill_utils
 
 class PLANNER_SIMPLE:

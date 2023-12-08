@@ -2,7 +2,8 @@ from isaacgym import gymapi
 from isaacgym import gymutil
 from isaacgym import gymtorch
 import torch
-from fusion_mppi import mppi
+import sys
+sys.path.append('../')
 from utils import env_conf, sim_init, data_transfer, skill_utils, path_utils
 from params import params_utils
 from npy_append_array import NpyAppendArray

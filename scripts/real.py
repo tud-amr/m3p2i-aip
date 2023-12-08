@@ -2,7 +2,9 @@ from isaacgym import gymapi
 from isaacgym import gymutil
 from isaacgym import gymtorch
 import torch
-from fusion_mppi import mppi, fusion_mppi
+import sys
+sys.path.append('../')
+from planners.fusion_mppi import mppi, fusion_mppi
 from utils import env_conf, sim_init, data_transfer
 import time
 import copy
