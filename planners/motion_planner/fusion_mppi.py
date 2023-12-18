@@ -1,4 +1,4 @@
-import planners.fusion_mppi.mppi as mppi
+import planners.motion_planner.mppi as mppi
 import torch, math
 from isaacgym import gymtorch, gymapi, torch_utils
 from utils import sim_init, skill_utils

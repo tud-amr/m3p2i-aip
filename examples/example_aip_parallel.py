@@ -5,7 +5,7 @@
 import numpy as np
 import sys
 sys.path.append('../')
-from scripts.active_inference import ai_agent, isaac_state_action_templates, parallel_action_selection
+from planners.task_planner import ai_agent, isaac_state_action_templates, parallel_action_selection
 import time
 
 ## Initialization

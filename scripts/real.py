@@ -4,7 +4,7 @@ from isaacgym import gymtorch
 import torch
 import sys
 sys.path.append('../')
-from planners.fusion_mppi import mppi, fusion_mppi
+from planners.motion_planner import mppi, fusion_mppi
 from utils import env_conf, sim_init, data_transfer
 import time
 import copy

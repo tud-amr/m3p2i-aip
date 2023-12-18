@@ -4,8 +4,8 @@ from isaacgym import gymtorch
 import torch
 import sys
 sys.path.append('../')
-from planners.fusion_mppi import mppi, fusion_mppi
-from planners.active_inference import task_planner
+from planners.motion_planner import mppi, fusion_mppi
+from planners.task_planner import task_planner
 from planners.plot import plot_class
 from utils import env_conf, sim_init, data_transfer, path_utils
 from params import params_utils

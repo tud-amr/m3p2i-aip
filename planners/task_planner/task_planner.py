@@ -1,8 +1,8 @@
 import torch
 import numpy as np
 from utils import env_conf
-from planners.active_inference import ai_agent, adaptive_action_selection
-from planners.active_inference import isaac_int_req_templates, isaac_state_action_templates
+from planners.task_planner import ai_agent, adaptive_action_selection
+from planners.task_planner import isaac_int_req_templates, isaac_state_action_templates
 from utils import path_utils, skill_utils
 
 class PLANNER_SIMPLE:

@@ -4,7 +4,7 @@ from isaacgym import gymtorch
 import torch
 import sys
 sys.path.append('../')
-from planners.fusion_mppi import fusion_mppi
+from planners.motion_planner import fusion_mppi
 from utils import env_conf, sim_init
 import time
 torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
