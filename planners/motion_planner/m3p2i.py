@@ -3,7 +3,7 @@ import torch, math
 from isaacgym import gymtorch, gymapi, torch_utils
 from utils import sim_init, skill_utils
 
-class FUSION_MPPI(mppi.MPPI):
+class M3P2I(mppi.MPPI):
     def __init__(self, params, dynamics, running_cost, nx, noise_sigma, num_samples=100, horizon=15, device="cpu", 
                     terminal_state_cost=None, 
                     lambda_=1, 
@@ -21,7 +21,7 @@ class FUSION_MPPI(mppi.MPPI):
                     sample_null_action=False, 
                     use_priors=False,
                     use_vacuum = False,
-                    robot_type='point_robot',
+                    robot='point_robot',
                     noise_abs_cost=False,
                     actors_per_env=None, 
                     env_type="normal",
@@ -44,7 +44,7 @@ class FUSION_MPPI(mppi.MPPI):
                     sample_null_action, 
                     use_priors,
                     use_vacuum,
-                    robot_type,
+                    robot,
                     noise_abs_cost,
                     actors_per_env,
                     env_type, 
@@ -53,7 +53,7 @@ class FUSION_MPPI(mppi.MPPI):
         self.gym = None
         self.sim = None
         self.num_envs = num_samples
-        self.robot = robot_type
+        self.robot = robot
         self.kp_suction = 400
         self.suction_active = use_vacuum
         self.bodies_per_env = bodies_per_env

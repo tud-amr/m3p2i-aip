@@ -148,6 +148,7 @@ class MPPI():
         self.delta = None
         self.sample_null_action = sample_null_action
         self.u_per_command = u_per_command
+        self.robot = robot
         # Dimensions of state nx and control nu
         self.nx = nx
         self.nu = 1 if len(noise_sigma.shape) == 0 else noise_sigma.shape[0]
@@ -374,7 +375,7 @@ class MPPI():
 
             state, u = self._dynamics(state, u, t)
             c = self._running_cost(state, u, t) # every time stes you get nsamples cost, we need that as output for the discount factor
-            # Update action if there were changes in fusion mppi due for instance to suction constraints
+            # Update action if there were changes in M3P2I due for instance to suction constraints
             self.perturbed_action[:,t] = u
             cost_samples += c
             cost_horizon[:, t] = c 

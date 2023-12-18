@@ -4,7 +4,7 @@ from isaacgym import gymtorch
 import torch
 import sys
 sys.path.append('../')
-from planners.motion_planner import mppi, fusion_mppi
+from planners.motion_planner import mppi, m3p2i
 from utils import env_conf, sim_init, data_transfer
 import time
 import copy
@@ -97,7 +97,7 @@ class IsaacgymMppiRos:
         self.num_actors = states_dict["num_actors"]
 
         # Creater mppi object
-        self.mppi = fusion_mppi.FUSION_MPPI(
+        self.mppi = m3p2i.M3P2I(
             params = self.params,
             dynamics=None, 
             running_cost=None, 
@@ -114,7 +114,7 @@ class IsaacgymMppiRos:
             sample_null_action=True,
             use_priors=False,
             use_vacuum = False,
-            robot_type = self.params.robot,
+            robot = self.params.robot,
             u_per_command=20,
             actors_per_env=self.actors_per_env,
             env_type=self.params.environment_type,

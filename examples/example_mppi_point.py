@@ -4,7 +4,7 @@ from isaacgym import gymtorch
 import torch
 import sys
 sys.path.append('../')
-from planners.motion_planner import fusion_mppi
+from planners.motion_planner import mppi, m3p2i
 from utils import env_conf, sim_init
 import time
 torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
@@ -80,7 +80,7 @@ def terminal_state_cost(states, actions):
     # Actions: same but for control input
     return torch.zeros(params.num_envs, device="cuda:0")
 
-mppi = fusion_mppi.FUSION_MPPI(
+mppi = m3p2i.M3P2I(
     params = params, 
     dynamics=mppi_dynamics, 
     running_cost=running_cost, 
@@ -94,7 +94,7 @@ mppi = fusion_mppi.FUSION_MPPI(
     u_min=torch.tensor([-3.0, -3.0]),
     step_dependent_dynamics=True,
     terminal_state_cost=terminal_state_cost,
-    robot_type=params.robot,
+    robot=params.robot,
     filter_u=False
     )
 

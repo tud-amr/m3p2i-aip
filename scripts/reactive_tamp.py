@@ -4,7 +4,7 @@ from isaacgym import gymtorch
 import torch
 import sys
 sys.path.append('../')
-from planners.motion_planner import mppi, fusion_mppi
+from planners.motion_planner import mppi, m3p2i
 from planners.task_planner import task_planner
 from planners.plot import plot_class
 from utils import env_conf, sim_init, data_transfer, path_utils
@@ -67,7 +67,7 @@ class REACTIVE_TAMP:
             self.task_planner = task_planner.PLANNER_AIF_PANDA()
 
         # Choose the motion planner
-        self.motion_planner = fusion_mppi.FUSION_MPPI(
+        self.motion_planner = m3p2i.M3P2I(
                             params = self.params,
                             dynamics = None, 
                             running_cost = None, 
@@ -84,7 +84,7 @@ class REACTIVE_TAMP:
                             sample_null_action = params.sample_null_action,
                             use_priors = params.use_priors,
                             use_vacuum = params.suction_active,
-                            robot_type = self.robot,
+                            robot = self.robot,
                             u_per_command = params.u_per_command,
                             actors_per_env = self.actors_per_env,
                             env_type = self.environment_type,

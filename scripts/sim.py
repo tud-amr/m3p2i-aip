@@ -43,7 +43,7 @@ class SIM():
             self.dyn_obs_pos = states_dict["dyn_obs_pos"]
             self.dyn_obs_pos_seq = self.dyn_obs_pos.clone()
 
-        # Helper variables, same as in fusion_mppi
+        # Helper variables, same as in m3p2i
         self.suction_active = params.suction_active
         self.block_index = params.block_index
         self.kp_suction = params.kp_suction
