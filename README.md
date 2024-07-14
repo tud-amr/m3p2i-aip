@@ -6,33 +6,36 @@
 Repository for reactive task and motion planning making use of active inference for symbolic planning, and a new multi-modal MPPI for motion planning. Rollouts are evaluated in IsaacGym, a parallelizable physics simulator.
 
 <p align="center">
-    <img src="./assets/images/m3p2i_1corner.gif" alt="001" width=370 /> &nbsp; <img src="./assets/images/m3p2i_pick_with_obs.gif" alt="002" width=370 />
+    <img src="./src/m3p2i_aip/assets/images/m3p2i_1corner.gif" alt="001" width=370 /> &nbsp; <img src="./src/m3p2i_aip/assets/images/m3p2i_pick_with_obs.gif" alt="002" width=370 />
 </p>
 
-## Status
-Under development
 
 ## Installation
-First, clone the repo on your computer. 
-```
-git clone https://github.com/tud-airlab/m3p2i-aip.git
-```
-This project requires the source code of IsaacGym. Download it from https://developer.nvidia.com/isaac-gym and we suggest installing it in a conda environment. Move into `m3p2i-aip` and activate the environment
-
+First, clone the repo in your folder and create the conda environment. 
 ````bash
-cd <m3p2i_aip_folder>
-conda acivate <env_name>
+cd <project_folder>
+git clone https://github.com/tud-amr/m3p2i-aip.git
+
+conda create -n m3p2i-aip python=3.8
+conda activate m3p2i-aip
 ````
-You need an NVIDIA graphics card to use the GPU pipeline (default). You also need the following packages:
-- dash
-- pandas
-- npy_append_array
-- matplotlib
 
-Then you are ready to test an example file, where you can drive the robot around with ASDW keys.
+This project requires the source code of IsaacGym. Download it from https://developer.nvidia.com/isaac-gym, unzip and paste it in the `thirdparty` folder. Move to IsaacGym and install the package.
+````bash
+cd <project_folder>/m3p2i-aip/thirdparty/IsaacGym_Preview_4_Package/isaacgym/python
+pip install -e. 
+````
+
+Then install the current package by:
+````bash
+cd <project_folder>/m3p2i-aip
+pip install -e. 
+````
+
+Now you are ready to test an example file, where you can drive the robot around with ASDW keys.
 
 ````bash
-cd <m3p2i_aip_folder>/examples
+cd <project_folder>/m3p2i-aip/examples
 python3 example_key.py
 ````
 
@@ -48,6 +51,3 @@ python3 sim.py --robot $(robot_type) --task $(task_type)
 ````
 
 You can specify `robot_type` as `point`, `boxer`, `heijn` or `panda`, and specify `task_type` as `simple`, `patrolling`, `reactive`, `pick` or `reactive_pick`. You can also try experiments with the arguments passed to the MPPI, such as sampling around prior controllers or null actions, as well as time horizon and number of samples, which can be modified in the */params* folder. 
-
-## Troubleshooting
-If you have an Nvidia card and after running the simulation you get a black screen, you might need to force the use of the GPU card through ``export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json``. Run this command from the same folder as the script to be launched
