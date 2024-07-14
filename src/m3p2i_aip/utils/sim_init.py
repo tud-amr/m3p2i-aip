@@ -3,9 +3,9 @@ from isaacgym import gymutil
 from isaacgym import gymtorch
 import torch
 import numpy as np
-import utils.env_conf as env_conf
+import m3p2i_aip.utils.env_conf as env_conf
 import numpy as np
-import utils.path_utils as path_utils
+import m3p2i_aip.utils.path_utils as path_utils
 import os
 
 # Parse arguments

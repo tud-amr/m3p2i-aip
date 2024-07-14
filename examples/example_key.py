@@ -3,9 +3,7 @@ from isaacgym import gymutil
 from isaacgym import gymtorch
 import torch
 import numpy as np
-import sys
-sys.path.append('../')
-from utils import sim_init, skill_utils
+from m3p2i_aip.utils import sim_init, skill_utils
 
 class Params:
     def __init__(self) -> None:

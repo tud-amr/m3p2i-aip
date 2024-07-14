@@ -1,5 +1,5 @@
 import argparse
-from params import params_point, params_boxer, params_heijn, params_panda, params_albert
+from m3p2i_aip.params import params_point, params_boxer, params_heijn, params_panda, params_albert
 
 def load_params():
     # Read arguments from the command line

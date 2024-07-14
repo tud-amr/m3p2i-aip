@@ -2,13 +2,11 @@ from isaacgym import gymapi
 from isaacgym import gymutil
 from isaacgym import gymtorch
 import torch
-import sys
-sys.path.append('../')
-from planners.motion_planner import mppi, m3p2i
-from planners.task_planner import task_planner
-from planners.plot import plot_class
-from utils import env_conf, sim_init, data_transfer, path_utils
-from params import params_utils
+from m3p2i_aip.planners.motion_planner import mppi, m3p2i
+from m3p2i_aip.planners.task_planner import task_planner
+from m3p2i_aip.planners.plot import plot_class
+from m3p2i_aip.utils import env_conf, sim_init, data_transfer, path_utils
+from m3p2i_aip.params import params_utils
 import time
 import copy
 import socket, io

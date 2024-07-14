@@ -2,7 +2,7 @@ import torch
 import logging
 from isaacgym import gymtorch
 from torch.distributions.multivariate_normal import MultivariateNormal
-from utils.mppi_utils import generate_gaussian_halton_samples, scale_ctrl, cost_to_go
+from m3p2i_aip.utils.mppi_utils import generate_gaussian_halton_samples, scale_ctrl, cost_to_go
 import functools
 import numpy as np
 from scipy import signal

@@ -3,7 +3,7 @@ import math
 import torch
 import numpy as np
 from pathlib import Path
-import utils.path_utils as path_utils
+import m3p2i_aip.utils.path_utils as path_utils
 
 box1_pose = gymapi.Transform()
 box1_pose.p = gymapi.Vec3(0, 3.5, 0)
@@ -11,7 +11,7 @@ box1_pose.p = gymapi.Vec3(0, 3.5, 0)
 box2_pose = gymapi.Transform()
 # box2_pose.p = gymapi.Vec3(-1, 1, 0)         # for [-1, 1], [-1.5, 1], [-1, 2]
 # box2_pose.p = gymapi.Vec3(2, -2, 0)       # for reactive push
-box2_pose.p = gymapi.Vec3(3.7, -3.7, 0) # at corner [3.7, -3.7], [3.7, 3.7], [-3.7, 3.7]
+box2_pose.p = gymapi.Vec3(3.7, 3.7, 0) # at corner [3.7, -3.7], [3.7, 3.7], [-3.7, 3.7]
 
 box3_pose = gymapi.Transform()
 box3_pose.p = gymapi.Vec3(3, 0, 0)

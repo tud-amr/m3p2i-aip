@@ -3,9 +3,7 @@
 # Simple example to create an AI agent which selects parallel actions to satisfy task needs
 
 import numpy as np
-import sys
-sys.path.append('../')
-from planners.task_planner import ai_agent, isaac_state_action_templates, parallel_action_selection
+from m3p2i_aip.planners.task_planner import ai_agent, isaac_state_action_templates, parallel_action_selection
 import time
 
 ## Initialization

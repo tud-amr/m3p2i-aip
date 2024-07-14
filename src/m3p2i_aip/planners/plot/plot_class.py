@@ -1,10 +1,8 @@
 from dash import Dash, dcc, html, Input, Output
 import plotly.express as px
 import pandas as pd
-import sys
 import numpy as np
-sys.path.append('../')
-from utils import path_utils
+from m3p2i_aip.utils import path_utils
 import multiprocessing
 import time
 import plotly.graph_objects as go

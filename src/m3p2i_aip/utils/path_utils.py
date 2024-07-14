@@ -18,7 +18,7 @@ def get_package_path():
 
 def get_assets_path():
     package_path = get_package_path()
-    path = os.path.join(package_path,'assets')
+    path = os.path.join(package_path,'src/m3p2i_aip/assets')
     return path
 
 def get_scripts_path():
@@ -28,12 +28,12 @@ def get_scripts_path():
 
 def get_params_path():
     package_path = get_package_path()
-    path = os.path.join(package_path,'params')
+    path = os.path.join(package_path,'src/m3p2i_aip/params')
     return path
 
 def get_plot_path():
     scripts_path = get_scripts_path()
-    path = os.path.join(scripts_path,'plot')
+    path = os.path.join(scripts_path,'src/m3p2i_aip/plot')
     return path
 
 def load_yaml(file_path):

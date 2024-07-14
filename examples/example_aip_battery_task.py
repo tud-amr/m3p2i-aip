@@ -3,9 +3,7 @@
 # Simple example to create an AI agent which selects actions to satisfy a task
 
 import numpy as np
-import sys
-sys.path.append('../')
-from planners.task_planner import ai_agent, isaac_state_action_templates, adaptive_action_selection, isaac_int_req_templates
+from m3p2i_aip.planners.task_planner import ai_agent, isaac_state_action_templates, adaptive_action_selection, isaac_int_req_templates
 
 ## Initialization
 # ----------------- 

@@ -1,6 +1,5 @@
 import os, sys, time
-sys.path.append('../')
-from utils import path_utils
+from m3p2i_aip.utils import path_utils
 from npy_append_array import NpyAppendArray
 import numpy as np
 import torch

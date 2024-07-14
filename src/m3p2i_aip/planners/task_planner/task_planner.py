@@ -1,9 +1,8 @@
 import torch
 import numpy as np
-from utils import env_conf
-from planners.task_planner import ai_agent, adaptive_action_selection
-from planners.task_planner import isaac_int_req_templates, isaac_state_action_templates
-from utils import path_utils, skill_utils
+from m3p2i_aip.utils import env_conf, path_utils, skill_utils
+from m3p2i_aip.planners.task_planner import ai_agent, adaptive_action_selection
+from m3p2i_aip.planners.task_planner import isaac_int_req_templates, isaac_state_action_templates
 
 class PLANNER_SIMPLE:
     def __init__(self, task, goal) -> None:

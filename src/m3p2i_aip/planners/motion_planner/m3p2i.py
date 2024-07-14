@@ -1,7 +1,7 @@
-import planners.motion_planner.mppi as mppi
+import m3p2i_aip.planners.motion_planner.mppi as mppi
 import torch, math
 from isaacgym import gymtorch, gymapi, torch_utils
-from utils import sim_init, skill_utils
+from m3p2i_aip.utils import sim_init, skill_utils
 
 class M3P2I(mppi.MPPI):
     def __init__(self, params, dynamics, running_cost, nx, noise_sigma, num_samples=100, horizon=15, device="cpu", 
