@@ -1,14 +1,9 @@
-from isaacgym import gymapi
-from isaacgym import gymutil
-from isaacgym import gymtorch
-import torch
-from m3p2i_aip.utils import env_conf, sim_init, data_transfer, skill_utils, path_utils
-from m3p2i_aip.params import params_utils
+from isaacgym import gymapi, gymtorch
 from npy_append_array import NpyAppendArray
-import time, numpy as np
-import socket
+import torch, time, numpy as np, socket
+from m3p2i_aip.params import params_utils
+from m3p2i_aip.utils import sim_init, data_transfer, skill_utils, path_utils
 torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
-import matplotlib.pyplot as plt
 
 class SIM():
     def __init__(self, params) -> None:
@@ -161,16 +156,12 @@ class SIM():
                 task_success = int(freq_data[6])
                 if len(self.sim_time) > 0:
                     self.elapsed_time = self.sim_time[-1]-self.sim_time[0]
-                    if int(self.elapsed_time) % 5 == 0:
-                        print(int(self.elapsed_time))
+                    if int(self.elapsed_time*100) % 20 == 0:
+                        print("Time:", format(self.elapsed_time, '.1f'))
                 if task_success or self.elapsed_time >= 40:
-                    if self.environment_type != 'cube':
-                        pass
-                        if self.allow_save_data:
-                            self.plot()
-                            self.save_data()
-                            self.destroy()
-                    print('time', self.elapsed_time)
+                    if self.environment_type != 'cube' and self.allow_save_data:
+                        self.save_data()
+                        self.destroy()
 
                 # Clear lines at the beginning
                 self.gym.clear_lines(self.viewer)
@@ -194,11 +185,6 @@ class SIM():
                 # Apply forward kikematics and optimal action
                 # print(actions[0])
                 self.action = skill_utils.apply_fk(self.robot, actions[0])
-                # self.action = torch.zeros(13, device="cuda:0")
-                # self.action[9] = 50
-                # self.action[10] = 50
-                # self.action[11] = 50
-                # self.action[12] = 50
                 # print('optimal', self.action)
                 self.gym.set_dof_velocity_target_tensor(self.sim, gymtorch.unwrap_tensor(self.action))
 
@@ -245,145 +231,6 @@ class SIM():
                     sim_init.step_rendering(self.gym, self.sim, self.viewer, sync_frame_time=False)
                 t_prev = t_now
                 self.next_fps_report, self.frame_count, self.t1 = sim_init.time_logging(self.gym, self.sim, self.next_fps_report, self.frame_count, self.t1, self.num_envs, freq_data)
-
-    def plot(self):
-        # Saving and plotting
-        self.sim_time-= self.sim_time[0]
-        self.sim_time = np.append(0, self.sim_time)
-        ctrl_input = self.action_seq.reshape(len(self.sim_time), self.dofs_per_robot).cpu().numpy()
-        robot_pos_array = self.robot_pos_seq.cpu().numpy()
-        block_pos_array = self.block_pos_seq.cpu().numpy()
-        robot_to_block = robot_pos_array - block_pos_array
-        block_to_goal = self.curr_goal - block_pos_array
-        robot_to_goal = robot_pos_array - self.curr_goal
-        robot_to_block_dist = np.linalg.norm(robot_to_block, axis=1)
-        block_to_goal_dist = np.linalg.norm(block_to_goal, axis=1) 
-        robot_to_goal_dist = np.linalg.norm(robot_to_goal, axis=1)
-        cos_theta = np.sum(robot_to_block*block_to_goal, 1)/(robot_to_block_dist*block_to_goal_dist)
-        self.suction_exist.insert(0, False)
-        self.suction_not_exist.insert(0, True)
-        self.prefer_pull.insert(0, -1)
-        robot_block_close = robot_to_block_dist <= 0.5
-        robot_block_not_close = robot_to_block_dist > 0.5
-        if self.curr_planner_task in ['navigation', 'go_recharge']:
-            draw_block = False
-        elif self.curr_planner_task in ['push', 'pull', 'hybrid']:
-            draw_block = True
-            dyn_obs_pos_array = self.dyn_obs_pos_seq.cpu().numpy()
-            rob_to_dyn_obs = robot_pos_array - dyn_obs_pos_array
-            rob_to_dyn_obs_dist = np.linalg.norm(rob_to_dyn_obs, axis=1)
-            block_to_dyn_obs = block_pos_array - dyn_obs_pos_array
-            block_to_dyn_obs_dist = np.linalg.norm(block_to_dyn_obs, axis=1)
-
-        if not self.allow_save_data:
-            # Draw the control inputs
-            fig1, axs1 = plt.subplots(self.dofs_per_robot)
-            fig1.suptitle('Control Inputs')
-            plot_colors = ['hotpink','darkviolet','mediumblue', 'red']
-            if self.robot in ['point_robot', 'heijn']:
-                label = ['x_vel', 'y_vel', 'theta_vel']
-            elif self.robot == 'boxer':
-                label = ['r_vel', 'l_vel']
-            for j in range(self.dofs_per_robot):
-                axs1[j].plot(self.sim_time, ctrl_input[:,j], color=plot_colors[j], marker=".")
-                axs1[j].legend([label[j]])
-                axs1[j].set_ylabel('v [m/s]', rotation=0)
-            axs1[-1].set(xlabel = 'Time [s]')
-
-            # Draw the pos of robot and block
-            fig2, axs2 = plt.subplots(2)
-            fig2.suptitle('Position')
-            label_pos = ['x [m]', 'y [m]']
-            for i in range(2):
-                axs2[i].plot(self.sim_time, robot_pos_array[:, i], color=plot_colors[0], marker=".", label='robot')
-                if draw_block:
-                    axs2[i].plot(self.sim_time, block_pos_array[:, i], color=plot_colors[1], marker=".", label='block')
-                    axs2[i].plot(self.sim_time, dyn_obs_pos_array[:, i], color=plot_colors[2], marker=".", label='obstacle')
-                axs2[i].set_ylabel(label_pos[i], rotation=0)
-            axs2[-1].set(xlabel = 'Time [s]')
-            plt.legend()
-
-            # Draw the distance
-            if draw_block:
-                fig3, axs3 = plt.subplots(2)
-                fig3.suptitle('Distance')
-                label_dis = ['robot_to_block', 'block_to_goal', 'robot_to_obstacle', 'block_to_obstacle']
-                axs3[0].plot(self.sim_time, robot_to_block_dist, color=plot_colors[0], marker=".", label=label_dis[0])
-                axs3[0].set_ylabel('[m]', rotation=0)
-                axs3[0].plot(self.sim_time, block_to_goal_dist, color=plot_colors[1], marker=".", label=label_dis[1])
-                axs3[0].legend()
-                axs3[1].plot(self.sim_time, rob_to_dyn_obs_dist, color=plot_colors[2], marker=".", label=label_dis[2])
-                axs3[1].plot(self.sim_time, block_to_dyn_obs_dist, color=plot_colors[3], marker=".", label=label_dis[3])
-                axs3[1].set_ylabel('[m]', rotation=0)
-                plt.axhline(y = 0.4, color = 'g', linestyle = '-')
-                axs3[1].set_ylim(0, None)
-                axs3[1].set_xlabel('Time [s]')
-                axs3[1].legend()
-            else:
-                fig, ax = plt.subplots()
-                fig.suptitle('Distance')
-                ax.plot(self.sim_time, robot_to_goal_dist, color=plot_colors[0], marker=".")
-                ax.legend('robot_to_goal')
-                ax.set_ylabel('[m]', rotation=0)
-                ax.set_xlabel('Time [s]')
-
-            # Draw the trajectory
-            fig4, axs4 = plt.subplots()
-            fig4.suptitle('Trajectory')
-            for i in range(robot_pos_array.shape[0]):
-                circle_rob = plt.Circle((robot_pos_array[i, 0], robot_pos_array[i, 1]), 0.4, color='tomato', fill=False)
-                axs4.add_patch(circle_rob)
-                if draw_block:
-                    circle_blo = plt.Circle((block_pos_array[i, 0], block_pos_array[i, 1]), 0.2, color='deepskyblue', fill=False)
-                    axs4.add_patch(circle_blo)
-            axs4.plot(robot_pos_array[:, 0], robot_pos_array[:, 1], 'o', color='r', markersize=0.6, label='robot')
-            if draw_block:
-                axs4.plot(block_pos_array[:, 0], block_pos_array[:, 1], 'o', color='b', markersize=0.6, label='block')
-            axs4.plot(0, 0, "D", color='black', label='start')
-            axs4.plot(self.curr_goal[0], self.curr_goal[1], "X", color='green', label='goal')
-            axs4.set_xlabel('x [m]')
-            axs4.set_ylabel('y [m]', rotation=0)
-            axs4.axis('equal')
-            plt.legend()
-
-            # Draw the cos_theta
-            if draw_block:
-                fig5, axs5 = plt.subplots()
-                fig5.suptitle('Cos(theta)')
-                axs5.plot(self.sim_time, cos_theta, color='gray', marker=".", markersize=0.2)
-                axs5.scatter(self.sim_time[robot_block_close*self.suction_exist], cos_theta[robot_block_close*self.suction_exist], marker='*', color='r', label='suction')
-                axs5.scatter(self.sim_time[robot_block_close*self.suction_not_exist], cos_theta[robot_block_close*self.suction_not_exist], color='b', label='no suction')
-                axs5.scatter(self.sim_time[robot_block_not_close], cos_theta[robot_block_not_close], marker='v', color='lime', label='approaching')
-                axs5.set_xlabel('Time [s]')
-                plt.legend()
-            
-            # Check weights distribution
-            if self.curr_planner_task == 'hybrid':
-                fig6, axs6 = plt.subplots()
-                fig6.suptitle('Check weights distribution')
-                axs6.scatter(self.sim_time, self.suction_exist, color='r', label='suction')
-                axs6.scatter(self.sim_time, np.array(self.prefer_pull)-0.1, color='b', label='weight')
-                axs6.set_xlabel('Time [s]')
-                plt.legend()
-
-        # Calculate metrics
-        self.avg_sim_freq = len(self.sim_time)/self.sim_time[-1]
-        self.avg_task_freq = np.average(self.task_freq_array)
-        self.avg_mot_freq = np.average(self.motion_freq_array[np.nonzero(self.motion_freq_array)])
-        robot_path_array = robot_pos_array[1:, :] - robot_pos_array[:-1, :]
-        block_path_array = block_pos_array[1:, :] - block_pos_array[:-1, :]
-        self.robot_path_length = np.sum(np.linalg.norm(robot_path_array, axis=1))
-        self.block_path_length = np.sum(np.linalg.norm(block_path_array, axis=1))
-        task_start_time = self.sim_time[np.nonzero(self.motion_freq_array)[0][0]]
-        self.task_time = self.sim_time[-1]-task_start_time
-        print('Avg. simulation frequency', format(self.avg_sim_freq, '.2f'))
-        print('Avg. task planner frequency', format(self.avg_task_freq, '.2f'))
-        print('Avg. motion planner frequency', format(self.avg_mot_freq, '.2f'))
-        print('Robot path length', format(self.robot_path_length, '.2f'))
-        print('Block path length', format(self.block_path_length, '.2f'))
-        print('Dynamic obstacle collision times', self.dyn_obs_coll)
-        print('Task completion time', format(self.task_time, '.2f'))
-        plt.show()
 
     def destroy(self):
         # Destroy the simulation

@@ -1,6 +1,4 @@
-import io
-import torch
-import os
+import io, os, torch
 import numpy as np
 
 def torch_to_bytes(t: torch.Tensor) -> bytes:

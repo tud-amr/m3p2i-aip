@@ -1,8 +1,6 @@
-from isaacgym import gymapi
-from isaacgym import gymutil
-from isaacgym import gymtorch
 import torch
-import numpy as np
+from isaacgym import gymapi
+from isaacgym import gymtorch
 from m3p2i_aip.utils import sim_init, skill_utils
 
 class Params:

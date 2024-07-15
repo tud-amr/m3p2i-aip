@@ -1,10 +1,7 @@
-from isaacgym import gymapi
-from isaacgym import gymutil
-from isaacgym import gymtorch
 import torch
+from isaacgym import gymtorch
 from m3p2i_aip.planners.motion_planner import mppi, m3p2i
 from m3p2i_aip.utils import env_conf, sim_init
-import time
 torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 
 class Params:

@@ -1,14 +1,8 @@
-from isaacgym import gymapi
-from isaacgym import gymutil
 from isaacgym import gymtorch
-import torch
 from m3p2i_aip.planners.motion_planner import mppi, m3p2i
 from m3p2i_aip.utils import env_conf, sim_init, data_transfer
-import time
-import copy
-import rospy
+import torch, time, copy, rospy, numpy as np
 from tf.transformations import euler_from_quaternion
-import numpy as np
 from geometry_msgs.msg import PoseStamped, Twist, Quaternion
 from nav_msgs.msg import Odometry
 torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)

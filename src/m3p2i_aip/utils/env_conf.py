@@ -1,8 +1,5 @@
 from isaacgym import gymapi
-import math 
-import torch
-import numpy as np
-from pathlib import Path
+import math, torch, numpy as np
 import m3p2i_aip.utils.path_utils as path_utils
 
 box1_pose = gymapi.Transform()

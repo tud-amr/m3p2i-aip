@@ -1,12 +1,7 @@
-from isaacgym import gymapi
-from isaacgym import gymutil
-from isaacgym import gymtorch
-import torch
-import numpy as np
+from isaacgym import gymapi, gymtorch
+import torch, numpy as np, os
 import m3p2i_aip.utils.env_conf as env_conf
-import numpy as np
 import m3p2i_aip.utils.path_utils as path_utils
-import os
 
 # Parse arguments
 args = path_utils.load_yaml(os.path.join(path_utils.get_params_path(),'physx.yml')) # dictionary

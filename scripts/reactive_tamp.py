@@ -1,16 +1,10 @@
-from isaacgym import gymapi
-from isaacgym import gymutil
 from isaacgym import gymtorch
-import torch
 from m3p2i_aip.planners.motion_planner import mppi, m3p2i
 from m3p2i_aip.planners.task_planner import task_planner
 from m3p2i_aip.planners.plot import plot_class
-from m3p2i_aip.utils import env_conf, sim_init, data_transfer, path_utils
+from m3p2i_aip.utils import sim_init, data_transfer, path_utils
 from m3p2i_aip.params import params_utils
-import time
-import copy
-import socket, io
-import numpy as np
+import torch, time, copy, socket, numpy as np
 from npy_append_array import NpyAppendArray
 torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 
