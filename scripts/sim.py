@@ -152,7 +152,7 @@ class SIM():
                 # Receive freq data
                 s.sendall(b"freq data")
                 b = s.recv(1024)
-                freq_data = data_transfer.bytes_to_torch(b)
+                freq_data = data_transfer.bytes_to_numpy(b)
                 self.task_freq_array = np.append(self.task_freq_array, freq_data[0])
                 self.motion_freq_array = np.append(self.motion_freq_array, freq_data[1])
                 self.suction_active = int(freq_data[2])
