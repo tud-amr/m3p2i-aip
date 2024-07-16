@@ -1,19 +1,16 @@
-import os, sys, time
 from m3p2i_aip.utils import path_utils, skill_utils
-from npy_append_array import NpyAppendArray
 import numpy as np
-import matplotlib.pyplot as plt
 import torch
 import plotly.graph_objects as go
 
 file_path_1 = path_utils.get_plot_path() +'/point/case2_halton_push_coll.npy'
 file_path_2 = path_utils.get_plot_path() +'/point/case2_halton_pull_coll.npy'
-file_path_3 = path_utils.get_plot_path() +'/point_new/corner1_push.npy'
-file_path_4 = path_utils.get_plot_path() +'/point_new/corner1_pull.npy'
-file_path_5 = path_utils.get_plot_path() +'/point_new/corner1_hybrid.npy'
-file_path_6 = path_utils.get_plot_path() +'/point_new/corner2_push.npy'
-file_path_7 = path_utils.get_plot_path() +'/point_new/corner2_pull.npy'
-file_path_8 = path_utils.get_plot_path() +'/point_new/corner2_hybrid.npy'
+file_path_3 = path_utils.get_plot_path() +'/point/corner1_push.npy'
+file_path_4 = path_utils.get_plot_path() +'/point/corner1_pull.npy'
+file_path_5 = path_utils.get_plot_path() +'/point/corner1_hybrid.npy'
+file_path_6 = path_utils.get_plot_path() +'/point/corner2_push.npy'
+file_path_7 = path_utils.get_plot_path() +'/point/corner2_pull.npy'
+file_path_8 = path_utils.get_plot_path() +'/point/corner2_hybrid.npy'
 push_data = np.load(file_path_1, mmap_mode="r")
 pull_data = np.load(file_path_2, mmap_mode="r")
 push_data_c1 = np.load(file_path_3, mmap_mode="r")

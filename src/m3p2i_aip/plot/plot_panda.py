@@ -1,16 +1,12 @@
-import os, sys, time
-sys.path.append('../')
 from m3p2i_aip.utils import path_utils, skill_utils
-from npy_append_array import NpyAppendArray
 import numpy as np
-import matplotlib.pyplot as plt
 import torch
 import plotly.graph_objects as go
 
 file_path_1 = path_utils.get_plot_path() +'/panda/normal_pick.npy'
 file_path_2 = path_utils.get_plot_path() +'/panda/reactive_pick.npy'
-file_path_3 = path_utils.get_plot_path() +'/panda/normal_rl_pick_2000_64.npy'
-file_path_4 = path_utils.get_plot_path() +'/panda/reactive_rl_pick_2000_64.npy'
+file_path_3 = path_utils.get_plot_path() +'/panda/normal_rl_pick_1500_64.npy'
+file_path_4 = path_utils.get_plot_path() +'/panda/reactive_rl_pick_1500_64.npy'
 tamp_normal_data = np.load(file_path_1, mmap_mode="r")
 tamp_reactive_data = np.load(file_path_2, mmap_mode="r")
 rl_normal_data = np.load(file_path_3, mmap_mode="r")

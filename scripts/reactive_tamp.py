@@ -1,7 +1,7 @@
 from isaacgym import gymtorch
 from m3p2i_aip.planners.motion_planner import mppi, m3p2i
 from m3p2i_aip.planners.task_planner import task_planner
-from m3p2i_aip.planners.plot import plot_class
+from m3p2i_aip.plot import plot_class
 from m3p2i_aip.utils import sim_init, data_transfer, path_utils
 from m3p2i_aip.params import params_utils
 import torch, time, copy, socket, numpy as np
@@ -33,26 +33,11 @@ class REACTIVE_TAMP:
         self.cube_goal_state = states_dict["cube_goal_state"]
         self.ee_l_state = states_dict["ee_l_state"]
         self.ee_r_state = states_dict["ee_r_state"]
-        if self.environment_type in ['cube', 'albert_arena']:
-            self.cube_goal_state_new = self.cube_goal_state[0, :7].clone()
-            self.cube_goal_state_new[2] += 0.06
 
         # Choose the task planner
         self.task = params.task
-        if self.task == "patrolling":
-            self.task_planner = task_planner.PLANNER_PATROLLING(goals = [[-3, -3], [3, -3], [3, 3], [-3, 3]])
-        elif self.task == "reactive":
-            self.task_planner = task_planner.PLANNER_AIF(battery_factor=1)
-            # start plotting battery level
-            plot_class.start_dash_server()
-        elif self.task == "reactive_push":
-            self.task_planner = task_planner.PLANNER_AIF_PUSH(battery_factor=0.6)
-            # start plotting battery level
-            plot_class.start_dash_server()
-        elif self.task in ["push", "pull", "hybrid"]:
+        if self.task in ["push", "pull", "hybrid"]:
             self.task_planner = task_planner.PLANNER_SIMPLE(self.task, [-3.75, -3.75])  # "hybrid", [-3.75, -3.75]
-        elif self.task == "pick":
-            self.task_planner = task_planner.PLANNER_PICK("pick", self.cube_goal_state_new)
         elif self.task == "reactive_pick":
             self.task_planner = task_planner.PLANNER_AIF_PANDA()
 
@@ -95,9 +80,7 @@ class REACTIVE_TAMP:
     def tamp_interface(self, robot_pos, stay_still):
         # Update task and goal in the task planner
         start_time = time.monotonic()
-        if self.task == 'reactive_push':
-            self.task_planner.update_plan(robot_pos, self.block_state[0, :2], stay_still)
-        elif self.task not in ['pick', 'reactive_pick']:
+        if self.task not in ['pick', 'reactive_pick']:
             self.task_planner.update_plan(robot_pos, stay_still)
         else:
             self.task_planner.update_plan(self.cube_state[0, :7], 
@@ -122,7 +105,6 @@ class REACTIVE_TAMP:
         else:
             task_success = self.task_planner.check_task_success((self.ee_l_state[0, :7]+self.ee_r_state[0, :7])/2)
         task_success = task_success and not stay_still
-        # self.save_data(task_success)
         return task_success
 
     def reset(self, i, reset_flag):
@@ -130,22 +112,6 @@ class REACTIVE_TAMP:
             self.task_planner.reset_plan()
             i = 0
         return i
-    
-    def save_data(self, task_success):
-        if self.task_planner.task == 'pick':
-            self.save_success_once = True
-        if task_success and self.task in ['pick', 'reactive_pick'] and self.save_success_once:
-            file_path = path_utils.get_plot_path() +'/panda/reactive_pick.npy'
-            save_time = np.array([time.time()])
-            save_cube_state = self.cube_state[0, :7].cpu().detach().numpy()
-            save_goal_state = self.cube_goal_state[0, :7].cpu().detach().numpy()
-            concatenate_array = np.concatenate((save_time, save_cube_state, save_goal_state))
-            with NpyAppendArray(file_path) as npaa:
-                npaa.append(np.array([concatenate_array]))
-            data = np.load(file_path, mmap_mode="r")
-            print(data[-1, :])
-            print(time.asctime(time.localtime(data[-1, 0])))
-            self.save_success_once = False
 
     def run(self):
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:

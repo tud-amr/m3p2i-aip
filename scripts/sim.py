@@ -103,23 +103,6 @@ class SIM():
         self.gym.refresh_net_contact_force_tensor(self.sim)
         if torch.sum(torch.abs(net_cf[self.dyn_obs_id, :2])) > 0.001:
             self.dyn_obs_coll += 1
-    
-    def save_data(self):
-        save_time = np.array([time.time()])
-        save_robot_pos = self.robot_pos[0].cpu().detach().numpy()
-        save_robot_vel = self.robot_vel[0].cpu().detach().numpy()
-        save_block_state = self.block_state[0].cpu().detach().numpy()
-        save_metrics = np.array([self.avg_sim_freq, self.avg_task_freq, self.avg_mot_freq, 
-                                 self.dyn_obs_coll, self.task_time])
-        concatenate_array = np.concatenate((save_time, save_robot_pos, save_robot_vel, 
-                                            save_block_state, self.curr_goal, save_metrics))
-        file_path = path_utils.get_plot_path() +'/point_new/corner2_hybrid.npy'
-        with NpyAppendArray(file_path) as npaa:
-            npaa.append(np.array([concatenate_array]))
-        data = np.load(file_path, mmap_mode="r")
-        print(np.shape(data))
-        print(data[-1, :])
-        print(time.asctime(time.localtime(data[-1, 0])))
 
     def run(self):
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
@@ -159,9 +142,8 @@ class SIM():
                     if int(self.elapsed_time*100) % 20 == 0:
                         print("Time:", format(self.elapsed_time, '.1f'))
                 if task_success or self.elapsed_time >= 40:
-                    if self.environment_type != 'cube' and self.allow_save_data:
-                        self.save_data()
-                        self.destroy()
+                    pass
+                    # self.destroy()
 
                 # Clear lines at the beginning
                 self.gym.clear_lines(self.viewer)
@@ -181,11 +163,9 @@ class SIM():
                     self.suction_active = False
                     if dis < 0.6 and check > 0 and self.curr_planner_task in ['pull', 'hybrid']:
                         self.suction_active = True
-                # print(self.suction_active)
+
                 # Apply forward kikematics and optimal action
-                # print(actions[0])
                 self.action = skill_utils.apply_fk(self.robot, actions[0])
-                # print('optimal', self.action)
                 self.gym.set_dof_velocity_target_tensor(self.sim, gymtorch.unwrap_tensor(self.action))
 
                 if self.suction_active:  
