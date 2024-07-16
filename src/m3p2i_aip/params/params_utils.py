@@ -6,6 +6,7 @@ def load_params():
     parser = argparse.ArgumentParser(prog='Reactive TAMP', description='pass args')
     parser.add_argument('--robot', type=str, default='point', help='Robot to start')
     parser.add_argument('--task', type=str, default='simple', help='Task to start')
+    parser.add_argument('--multimodal', type=bool, default=False, help='Multi modal or not')
     args = parser.parse_args()
     print("The specified robot is a", args.robot, "robot")
     # Choose which parameter file to load
@@ -20,4 +21,5 @@ def load_params():
     elif args.robot == "albert":
         params = params_albert
     params.task = args.task
+    params.multimodal = args.multimodal
     return params

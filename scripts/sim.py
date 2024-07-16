@@ -214,7 +214,7 @@ class SIM():
                     ee_rot_matrix = skill_utils.quaternion_rotation_matrix(self.ee_l_state[:, 3:7])
                     ee_zaxis = ee_rot_matrix[:, :, 2]
                     # print('tilt value', format(ee_zaxis[0, 0].item(), '.2f'))
-                    print('tilt value', format(ee_zaxis[0, 2].item(), '.2f'))
+                    # print('tilt value', format(ee_zaxis[0, 2].item(), '.2f'))
 
                 # Step rendering and store data
                 self.sim_time = np.append(self.sim_time, t_prev)

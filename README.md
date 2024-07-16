@@ -41,16 +41,68 @@ python3 example_key.py
 
 ## Run the scripts
 
-If you want to test the MPPI, you will need two instances of Isaac Gym, one for the rollouts, and one for the "real system". Run the commands below in two terminals from the `scripts` folder: 
-````
+If you want to test the TAMP framework, you will need two instances of Isaac Gym, one for throwing the rollouts and deriving the optimal solution, and one for updating the "real system". Please run the commands below in two terminals from the `scripts` folder with activated python environment.
+
+Run this terminal first:
+````bash
+conda activate m3p2i-aip
 python3 reactive_tamp.py --robot $(robot_type) --task $(task_type)
 ````
 
-````
+Then run the second terminal:
+````bash
+conda activate m3p2i-aip
 python3 sim.py --robot $(robot_type) --task $(task_type)
 ````
 
-You can specify `robot_type` as `point`, `boxer`, `heijn` or `panda`, and specify `task_type` as `simple`, `patrolling`, `reactive`, `pick` or `reactive_pick`. You can also try experiments with the arguments passed to the MPPI, such as sampling around prior controllers or null actions, as well as time horizon and number of samples, which can be modified in the */params* folder. 
+Specifically, you can test the following:
+
+### Push only
+````bash
+python3 reactive_tamp.py --robot point --task push
+````
+
+````bash
+python3 sim.py --robot point --task push
+````
+
+### Pull only
+````bash
+python3 reactive_tamp.py --robot point --task pull
+````
+
+````bash
+python3 sim.py --robot point --task pull
+````
+
+### Multi-modal push pull
+````bash
+python3 reactive_tamp.py --robot point --task hybrid --multimodal True
+````
+
+````bash
+python3 sim.py --robot point --task hybrid --multimodal True
+````
+
+### Reactive pick
+You can play with the cube using ASDW keys.
+````bash 
+python3 reactive_tamp.py --robot panda --task reactive_pick
+````
+
+````bash 
+python3 sim.py --robot panda --task reactive_pick
+````
+
+### Multi-modal pick
+You can play with the cube using ASDW keys.
+````bash 
+python3 reactive_tamp.py --robot panda --task reactive_pick --multimodal True
+````
+
+````bash 
+python3 sim.py --robot panda --task reactive_pick --multimodal True
+````
 
 ## Cite
 

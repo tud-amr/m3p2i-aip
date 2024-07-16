@@ -29,8 +29,8 @@ class PLANNER_SIMPLE:
             pos_dist = torch.norm(block_state[:2] - self.curr_goal)
             goal_quat = torch.tensor([0, 0, 0, 1], device="cuda:0").view(1, 4)
             ori_dist = skill_utils.get_general_ori_cube2goal(block_state[3:7].view(1, 4), goal_quat)
-            print('pos', pos_dist)
-            print('ori', ori_dist)
+            # print('pos', pos_dist)
+            # print('ori', ori_dist)
             task_success = pos_dist <= 0.15 and ori_dist <= 0.1
         else:
             task_success = False

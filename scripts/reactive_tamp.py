@@ -39,8 +39,6 @@ class REACTIVE_TAMP:
 
         # Choose the task planner
         self.task = params.task
-        simple_task = "hybrid"
-        simple_multimodal = True if simple_task == "hybrid" else False
         if self.task == "patrolling":
             self.task_planner = task_planner.PLANNER_PATROLLING(goals = [[-3, -3], [3, -3], [3, 3], [-3, 3]])
         elif self.task == "reactive":
@@ -51,8 +49,8 @@ class REACTIVE_TAMP:
             self.task_planner = task_planner.PLANNER_AIF_PUSH(battery_factor=0.6)
             # start plotting battery level
             plot_class.start_dash_server()
-        elif self.task == "simple":
-            self.task_planner = task_planner.PLANNER_SIMPLE(simple_task, [-3.75, -3.75])  # "hybrid", [-3.75, -3.75]
+        elif self.task in ["push", "pull", "hybrid"]:
+            self.task_planner = task_planner.PLANNER_SIMPLE(self.task, [-3.75, -3.75])  # "hybrid", [-3.75, -3.75]
         elif self.task == "pick":
             self.task_planner = task_planner.PLANNER_PICK("pick", self.cube_goal_state_new)
         elif self.task == "reactive_pick":
@@ -86,7 +84,7 @@ class REACTIVE_TAMP:
         self.motion_planner.set_mode(
             mppi_mode = 'halton-spline', # 'halton-spline', 'simple'
             sample_method = 'halton',    # 'halton', 'random'
-            multi_modal = simple_multimodal  # True, False
+            multi_modal = params.multimodal  # True, False
         )
         self.prefer_pull = -1
         
