@@ -111,3 +111,56 @@ def cost_to_go(cost_seq, gamma_seq):
     cost_seq = torch.fliplr(torch.cumsum(torch.fliplr(cost_seq), axis=-1))  # cost to go (but scaled by [1 , gamma, gamma*2 and so on])
     cost_seq /= gamma_seq  # un-scale it to get true discounted cost to go
     return cost_seq
+
+def _ensure_non_zero(cost, beta, factor):
+    return torch.exp(-factor * (cost - beta))
+
+def is_tensor_like(x):
+    return torch.is_tensor(x) or type(x) is np.ndarray
+
+def bspline(c_arr, t_arr=None, n=100, degree=3):
+    sample_device = c_arr.device
+    sample_dtype = c_arr.dtype
+    cv = c_arr.cpu().numpy()
+
+    if(t_arr is None):
+        t_arr = np.linspace(0, cv.shape[0], cv.shape[0])
+    else:
+        t_arr = t_arr.cpu().numpy()
+    spl = si.splrep(t_arr, cv, k=degree, s=0.5)
+    xx = np.linspace(0, cv.shape[0], n)
+    samples = si.splev(xx, spl, ext=3)
+    samples = torch.as_tensor(samples, device=sample_device, dtype=sample_dtype)
+    return samples
+
+def handle_batch_input(func):
+    """For func that expect 2D input, handle input that have more than 2 dimensions by flattening them temporarily"""
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        # assume inputs that are tensor-like have compatible shapes and is represented by the first argument
+        batch_dims = []
+        for arg in args:
+            if is_tensor_like(arg) and len(arg.shape) > 2:
+                batch_dims = arg.shape[:-1]  # last dimension is type dependent; all previous ones are batches
+                break
+        # no batches; just return normally
+        if not batch_dims:
+            return func(*args, **kwargs)
+
+        # reduce all batch dimensions down to the first one
+        args = [v.view(-1, v.shape[-1]) if (is_tensor_like(v) and len(v.shape) > 2) else v for v in args]
+        ret = func(*args, **kwargs)
+        # restore original batch dimensions; keep variable dimension (nx)
+        if type(ret) is tuple:
+            ret = [v if (not is_tensor_like(v) or len(v.shape) == 0) else (
+                v.view(*batch_dims, v.shape[-1]) if len(v.shape) == 2 else v.view(*batch_dims)) for v in ret]
+        else:
+            if is_tensor_like(ret):
+                if len(ret.shape) == 2:
+                    ret = ret.view(*batch_dims, ret.shape[-1])
+                else:
+                    ret = ret.view(*batch_dims)
+        return ret
+
+    return wrapper

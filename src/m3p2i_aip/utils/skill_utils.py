@@ -1,4 +1,25 @@
-import torch
+import torch, numpy as np, scipy.interpolate as si
+
+def _ensure_non_zero(cost, beta, factor):
+    return torch.exp(-factor * (cost - beta))
+
+def is_tensor_like(x):
+    return torch.is_tensor(x) or type(x) is np.ndarray
+
+def bspline(c_arr, t_arr=None, n=100, degree=3):
+    sample_device = c_arr.device
+    sample_dtype = c_arr.dtype
+    cv = c_arr.cpu().numpy()
+
+    if(t_arr is None):
+        t_arr = np.linspace(0, cv.shape[0], cv.shape[0])
+    else:
+        t_arr = t_arr.cpu().numpy()
+    spl = si.splrep(t_arr, cv, k=degree, s=0.5)
+    xx = np.linspace(0, cv.shape[0], n)
+    samples = si.splev(xx, spl, ext=3)
+    samples = torch.as_tensor(samples, device=sample_device, dtype=sample_dtype)
+    return samples
 
 # Calculate the suction force
 def calculate_suction(block_pos, robot_pos, num_envs, kp_suction, block_index, bodies_per_env):

@@ -1,29 +1,9 @@
 from scipy import signal
 import torch, logging, functools, numpy as np, scipy.interpolate as si
 from torch.distributions.multivariate_normal import MultivariateNormal
+from m3p2i_aip.utils.skill_utils import _ensure_non_zero, is_tensor_like, bspline
 from m3p2i_aip.utils.mppi_utils import generate_gaussian_halton_samples, scale_ctrl, cost_to_go
 logger = logging.getLogger(__name__)
-
-def _ensure_non_zero(cost, beta, factor):
-    return torch.exp(-factor * (cost - beta))
-
-def is_tensor_like(x):
-    return torch.is_tensor(x) or type(x) is np.ndarray
-
-def bspline(c_arr, t_arr=None, n=100, degree=3):
-    sample_device = c_arr.device
-    sample_dtype = c_arr.dtype
-    cv = c_arr.cpu().numpy()
-
-    if(t_arr is None):
-        t_arr = np.linspace(0, cv.shape[0], cv.shape[0])
-    else:
-        t_arr = t_arr.cpu().numpy()
-    spl = si.splrep(t_arr, cv, k=degree, s=0.5)
-    xx = np.linspace(0, cv.shape[0], n)
-    samples = si.splev(xx, spl, ext=3)
-    samples = torch.as_tensor(samples, device=sample_device, dtype=sample_dtype)
-    return samples
 
 def handle_batch_input(func):
     """For func that expect 2D input, handle input that have more than 2 dimensions by flattening them temporarily"""
@@ -66,7 +46,7 @@ class MPPI():
     'Information Theoretic MPC for Model-Based Reinforcement Learning'  
     and 'STORM: An Integrated Framework for Fast Joint-Space Model-Predictive Control for Reactive Manipulation'
 
-    Code based off and https://github.com/NVlabs/storm
+    Code based off https://github.com/UM-ARM-Lab/pytorch_mppi and https://github.com/NVlabs/storm
 
     This mppi can run in two modes: 'simple' and a 'halton-spline':
         - simple:           random sampling at each MPPI iteration from normal distribution with simple mean update. To use this set 
@@ -102,7 +82,6 @@ class MPPI():
                  bodies_per_env=None,
                  filter_u=True):
         """
-        TODO: fix parameters description once fixed
         :param dynamics: function(state, action) -> next_state (K x nx) taking in batch state (K x nx) and action (K x nu)
         :param running_cost: function(state, action) -> cost (K) taking in batch state and action (same as dynamics)
         :param nx: state dimension
@@ -212,10 +191,6 @@ class MPPI():
         self.states = None
         self.actions = None
 
-        # Defaults
-        # self.knot_scale = 4
-        # self.degree = 2
-
         # Halton sampling 
         self.knot_scale = 4             # From mppi config storm
         self.seed_val = 0               # From mppi config storm
@@ -290,22 +265,14 @@ class MPPI():
 
             action = self.U[:self.u_per_command]
 
-            # Lambda update
-            # eta_max = 10
-            # eta_min = 1
-            # lambda_mult = 0.1
-            # if eta > eta_max*self.K:
-            #     self.lambda_ = (1+lambda_mult)*self.lambda_
-            # elif eta < eta_min*self.K:
-            #     self.lambda_ = (1-lambda_mult)*self.lambda_
-
         elif self.mppi_mode == 'halton-spline':
             # shift command 1 time step [T, nu]
             self.mean_action = self._shift_action(self.mean_action)
-            self.mean_action_1 = self._shift_action(self.mean_action_1)
-            self.mean_action_1 = self._shift_action(self.mean_action_1)
-            self.best_traj_1 = self._shift_action(self.best_traj_1)
-            self.best_traj_2 = self._shift_action(self.best_traj_2)
+            if self.multi_modal:
+                self.mean_action_1 = self._shift_action(self.mean_action_1)
+                self.mean_action_2 = self._shift_action(self.mean_action_2)
+                self.best_traj_1 = self._shift_action(self.best_traj_1)
+                self.best_traj_2 = self._shift_action(self.best_traj_2)
 
             cost_total = self._compute_total_cost_batch_halton()
             action = torch.clone(self.mean_action) # !!
@@ -466,7 +433,7 @@ class MPPI():
 
         # First time mean is zero then it is updated in the distribution
         if self.multi_modal:
-            act_seq_1 = self.mean_action_1 + scaled_delta[:self.half_K, :, :] # also time shift!!
+            act_seq_1 = self.mean_action_1 + scaled_delta[:self.half_K, :, :]
             act_seq_2 = self.mean_action_2 + scaled_delta[self.half_K:, :, :]
             act_seq = torch.cat((act_seq_1, act_seq_2), 0)
         else:
@@ -475,13 +442,7 @@ class MPPI():
         # Scales action within bounds. act_seq is the same as perturbed actions
         act_seq = scale_ctrl(act_seq, self.u_min, self.u_max, squash_fn=self.squash_fn)
         # print(act_seq.size())
-        # act_seq[self.nu, :, :] = self.best_traj # !!?
 
-        # New weight, pick yes
-        # New weight move no
-        # Old weight move two corner maybe yes, not sure, maybe tune the range of costheta
-        # Old weight move one corner yes, good 
-        # Old weight pick yes, good
         if self.multi_modal:
             act_seq[0, :, :] = self.best_traj_1
             act_seq[self.half_K, :, :] = self.best_traj_2
@@ -534,10 +495,9 @@ class MPPI():
 
     def get_samples(self, sample_shape, **kwargs): 
         """
-        Gets as input the desired number of samples and returns the actual samples. 
-
-        Depending on the method, the samples can be Halton or Random. Halton samples a 
-        number of knots, later interpolated with a spline
+            Gets as input the desired number of samples and returns the actual samples. 
+            Depending on the method, the samples can be Halton or Random. Halton samples a 
+            number of knots, later interpolated with a spline
         """
         if(self.sample_method=='halton'):   # !!
             self.knot_points = generate_gaussian_halton_samples(
@@ -578,7 +538,6 @@ class MPPI():
         new_mean = torch.sum(weighted_seq, dim=0)
 
         # Gradient update for the mean
-        # !!
         self.mean_action = (1.0 - self.step_size_mean) * self.mean_action +\
             self.step_size_mean * new_mean 
         # print(self.mean_action.size()) # [T, nu]
@@ -599,64 +558,10 @@ class MPPI():
 
         return delta
 
-    def _multi_modal_exp_util(self, costs):
-        """
-           Calculate weights using exponential utility given cost
-           Iuput: costs [K, T], costs within horizon
-        """
-        traj_costs = cost_to_go(costs, self.gamma_seq) # [K, T]
-        traj_costs = traj_costs[:,0] # [K] Costs for the next timestep
-
-        total_costs_1 = traj_costs[:self.half_K] - torch.min(traj_costs[:self.half_K])
-        total_costs_2 = traj_costs[self.half_K:] - torch.min(traj_costs[self.half_K:])
-        # print('1', total_costs_1)
-        # print('2', total_costs_2)
-        # Normalization of the weights
-        exp_1 = torch.exp((-1.0/self.beta_1) * total_costs_1)
-        exp_2 = torch.exp((-1.0/self.beta_2) * total_costs_2)
-        eta_1 = torch.sum(exp_1)
-        eta_2 = torch.sum(exp_2)
-        print('eta1', eta_1)
-        print('eta2', eta_2)
-        if self.env_type == 'normal':
-            # two corner
-            self.beta_1 = self.update_beta(self.beta_1, eta_1, 10, 1) 
-            self.beta_2 = self.update_beta(self.beta_2, eta_2, 10, 1)
-        self.weights_1 = 1 / eta_1 * exp_1 
-        self.weights_2 = 1 / eta_2 * exp_2
-        self.weights = torch.cat((self.weights_1, self.weights_2), 0)
-        self.total_costs = torch.cat((total_costs_1, total_costs_2), 0)
-    
-    def _update_multi_modal_distribution(self, costs, actions):
-        """
-            Update moments using sample trajectories.
-            So far only mean is updated, eventually one could also update the covariance
-        """
-
-        self._multi_modal_exp_util(costs)
-
-        # # Update best action
-        self.best_idx_1 = torch.argmax(self.weights_1)
-        self.best_idx_2 = torch.argmax(self.weights_2)
-        self.best_traj_1 = torch.index_select(actions, 0, self.best_idx_1).squeeze(0)
-        self.best_traj_2 = torch.index_select(actions, 0, self.best_idx_2+self.half_K).squeeze(0)
-        # print('1', self.best_idx_1)
-        # print('2', self.best_idx_2)
-       
-        weighted_seq = self.weights.view(-1, 1, 1) * actions # [K, T, nu]
-        self.mean_action_1 = torch.sum(weighted_seq[:self.half_K], dim=0)
-        self.mean_action_2 = torch.sum(weighted_seq[self.half_K:], dim=0)
-
-        # Gradient update for the mean
-        self.mean_action = (1.0 - self.step_size_mean) * self.mean_action +\
-            self.step_size_mean/2 * self.mean_action_1 + self.step_size_mean/2 * self.mean_action_2
-        # print(self.mean_action.size()) # [T, nu]
-       
-        delta = actions - self.mean_action.unsqueeze(0)
-
-        return delta
-
     def update_infinite_beta(self, costs, beta, eta_u_bound, eta_l_bound):
+        """
+            Update the inverse temperature on the fly
+        """
         found = False
         # Makes sure beta is properly tuned before computing the weights
         while not found:
@@ -698,15 +603,6 @@ class MPPI():
         self.weights_2 = 1 / eta_2 * exp_2
         self.weights = 1 / eta * exp_ 
         # print('weights', self.weights.size())
-    
-    def update_beta(self, beta, eta, eta_u_bound, eta_l_bound):
-        beta_lm = 0.9
-        beta_um = 1.2
-        if eta > eta_u_bound:
-            beta = beta * beta_lm
-        elif eta < eta_l_bound:
-            beta = beta * beta_um
-        return beta
     
     def _update_multi_modal_distribution_new(self, costs, actions):
         """
