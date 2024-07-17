@@ -122,3 +122,7 @@ If you find the code useful, please cite:
 * **Isaac-mppi**: an MPPI implementation that uses IsaacGym as a dynamic model ([paper](https://arxiv.org/abs/2307.09105), [website](https://sites.google.com/view/mppi-isaac/), [code](https://github.com/tud-airlab/mppi-isaac)).
 * **Biased-mppi**: an MPPI implementation whose sampling distribution is informed with ancillary controllers ([paper](https://ieeexplore.ieee.org/document/10520879), [website](https://autonomousrobots.nl/paper_websites/biased-mppi), [code](https://github.com/eliatrevisan/biased-mppi)).
 * **AIP**: an Active Inference planner for decision making ([paper](https://ieeexplore.ieee.org/document/10004745), [video](https://www.youtube.com/watch?v=dEjXu-sD1SI), [code](https://github.com/cpezzato/decision_making)).
+
+## Acknowledgment
+
+We thank the pioneers (Grady Williams, [pytorch_mppi](https://github.com/UM-ARM-Lab/pytorch_mppi), [storm](https://github.com/NVlabs/storm)) who have paved the way and the future newcomers who will propel MPPI forward! 
