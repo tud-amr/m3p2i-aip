@@ -58,29 +58,7 @@ class MPPI():
                             mppi_mode = 'halton-spline', sample_mode = 'random'
     """
 
-    def __init__(self, params, dynamics, running_cost, nx, noise_sigma, num_samples=100, horizon=15, device="cpu",
-                 terminal_state_cost=None,
-                 lambda_=1.,
-                 noise_mu=None,
-                 u_min=None,
-                 u_max=None,
-                 u_init=None,
-                 U_init=None,
-                 u_scale=1,
-                 u_per_command=1,
-                 step_dependent_dynamics=False,
-                 rollout_samples=1,
-                 rollout_var_cost=0,
-                 rollout_var_discount=0.95,
-                 sample_null_action=False,
-                 use_priors=False,
-                 use_vacuum=False,
-                 robot='point_robot',
-                 noise_abs_cost=False,
-                 actors_per_env=None,
-                 env_type='arena', 
-                 bodies_per_env=None,
-                 filter_u=True):
+    def __init__(self, params, dynamics=None, running_cost=None):
         """
         :param dynamics: function(state, action) -> next_state (K x nx) taking in batch state (K x nx) and action (K x nu)
         :param running_cost: function(state, action) -> cost (K) taking in batch state and action (same as dynamics)
@@ -105,30 +83,26 @@ class MPPI():
         :param use_priors: Wheher or not to use other prior controllers
         :param noise_abs_cost: Whether to use the absolute value of the action noise to avoid bias when all states have the same cost
         """
-
-        # Parameters for mppi and sampling mode
-        self.mppi_mode = 'simple'    # halton-spline, simple
-        self.sample_method = 'random'       # halton, random
-
         # Utility vars
-        self.num_envs = num_samples
-        self.K = num_samples 
-        self.half_K = int(num_samples/2)
-        self.T = horizon  
-        self.filter_u = filter_u
-        self.lambda_ = lambda_
-        self.tensor_args={'device':device, 'dtype':noise_sigma.dtype} 
+        self.num_envs = params.num_envs
+        self.K = params.num_envs 
+        self.half_K = int(self.K/2)
+        self.T = params.horizon  
+        self.filter_u = params.filter_u
+        self.lambda_ = 1.
+        noise_sigma = params.noise_sigma
+        self.tensor_args={'device':params.device, 'dtype':noise_sigma.dtype} 
         self.delta = None
-        self.sample_null_action = sample_null_action
-        self.u_per_command = u_per_command
-        self.robot = robot
+        self.sample_null_action = params.sample_null_action
+        self.u_per_command = params.u_per_command
+        self.robot = params.robot
+
         # Dimensions of state nx and control nu
-        self.nx = nx
+        self.nx = params.nx
         self.nu = 1 if len(noise_sigma.shape) == 0 else noise_sigma.shape[0]
 
         # Noise initialization
-        if noise_mu is None:
-            noise_mu = torch.zeros(self.nu, dtype=self.tensor_args['dtype'])
+        noise_mu = torch.zeros(self.nu, dtype=self.tensor_args['dtype'])
 
         # Handle 1D edge case
         if self.nu == 1:
@@ -138,25 +112,24 @@ class MPPI():
         self.noise_mu = noise_mu.to(self.tensor_args['device'])
         self.noise_sigma = noise_sigma.to(self.tensor_args['device'])
         self.noise_sigma_inv = torch.inverse(self.noise_sigma)
-        self.noise_abs_cost = noise_abs_cost
+        self.noise_abs_cost = False
 
         # Random noise dist
         self.noise_dist = MultivariateNormal(self.noise_mu, covariance_matrix=self.noise_sigma)
 
-        # Inpu initialization
-        if u_init is None:
-            u_init = torch.zeros_like(noise_mu)
-            self.mean_action = torch.zeros((self.T, self.nu), device=self.tensor_args['device'], dtype=self.tensor_args['dtype'])
-            self.best_traj = self.mean_action.clone()
-            self.best_traj_1 = self.mean_action.clone()
-            self.best_traj_2 = self.mean_action.clone()
-            self.mean_action_1 = torch.zeros((self.T, self.nu), device=self.tensor_args['device'], dtype=self.tensor_args['dtype'])
-            self.mean_action_2 = torch.zeros((self.T, self.nu), device=self.tensor_args['device'], dtype=self.tensor_args['dtype'])
+        # Input initialization
+        u_init = torch.zeros_like(noise_mu)
+        self.mean_action = torch.zeros((self.T, self.nu), device=self.tensor_args['device'], dtype=self.tensor_args['dtype'])
+        self.best_traj = self.mean_action.clone()
+        self.best_traj_1 = self.mean_action.clone()
+        self.best_traj_2 = self.mean_action.clone()
+        self.mean_action_1 = torch.zeros((self.T, self.nu), device=self.tensor_args['device'], dtype=self.tensor_args['dtype'])
+        self.mean_action_2 = torch.zeros((self.T, self.nu), device=self.tensor_args['device'], dtype=self.tensor_args['dtype'])
 
         # Bound actions
-        self.u_min = u_min
-        self.u_max = u_max
-        self.u_scale = u_scale
+        self.u_min = params.u_min
+        self.u_max = params.u_max
+        self.u_scale = 1
 
         if self.u_max is not None and self.u_min is None: # Make sure if any of them is specified, both are specified
             if not torch.is_tensor(self.u_max):
@@ -171,17 +144,14 @@ class MPPI():
             self.u_max = self.u_max.to(device=self.tensor_args['device'])
         
         # Control sequence (T x nu)
-        self.U = U_init
         self.u_init = u_init.to(self.tensor_args['device'])
-
-        if self.U is None:
-            self.U = self.noise_dist.sample((self.T,))
+        self.U = self.noise_dist.sample((self.T,))
 
         # Costs and dynamics initialization
-        self.step_dependency = step_dependent_dynamics
+        self.step_dependency = params.step_dependent_dynamics
         self.F = dynamics
         self.running_cost = running_cost
-        self.terminal_state_cost = terminal_state_cost
+        self.terminal_state_cost = params.terminal_state_cost
 
         # Sampled results from last command
         self.state = None
@@ -204,7 +174,7 @@ class MPPI():
         self.step_size_mean = 0.98      # From storm
 
         # Discount
-        self.gamma = rollout_var_discount 
+        self.gamma = 0.95 
         self.gamma_seq = torch.cumprod(torch.tensor([1.0] + [self.gamma] * (self.T - 1)),dim=0).reshape(1, self.T)
         self.gamma_seq = self.gamma_seq.to(**self.tensor_args)
         self.beta = 1 # param storm

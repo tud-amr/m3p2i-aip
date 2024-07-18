@@ -1,11 +1,9 @@
 from isaacgym import gymtorch
-from m3p2i_aip.planners.motion_planner import mppi, m3p2i
+from m3p2i_aip.planners.motion_planner import m3p2i
 from m3p2i_aip.planners.task_planner import task_planner
-from m3p2i_aip.plot import plot_class
-from m3p2i_aip.utils import sim_init, data_transfer, path_utils
+from m3p2i_aip.utils import sim_init, data_transfer
 from m3p2i_aip.params import params_utils
 import torch, time, copy, socket, numpy as np
-from npy_append_array import NpyAppendArray
 torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 
 
@@ -13,20 +11,13 @@ class REACTIVE_TAMP:
     def __init__(self, params) -> None:
         # Make the environment and simulation
         self.params = params
-        self.allow_viewer = params.allow_viewer
         self.num_envs = params.num_envs
-        self.spacing = params.spacing
-        self.dt = params.dt
-        self.robot = params.robot
-        self.mobile_robot = True if self.robot in ['point_robot', 'heijn', 'boxer'] else False
-        self.environment_type = params.environment_type
-        self.gym, self.sim, self.viewer, envs, _ = sim_init.make(self.allow_viewer, self.num_envs, self.spacing, self.robot, self.environment_type, dt=self.dt)
+        self.is_mobile_robot = True if params.robot in ['point_robot', 'heijn', 'boxer'] else False
+        self.gym, self.sim, self.viewer, envs, _ = sim_init.make(params.allow_viewer, self.num_envs, params.spacing, params.robot, params.environment_type, dt=params.dt)
 
         # Acquire states
         states_dict = sim_init.acquire_states(self.gym, self.sim, self.params)
         self.dofs_per_robot = states_dict["dofs_per_robot"]
-        self.actors_per_env = states_dict["actors_per_env"]
-        self.bodies_per_env = states_dict["bodies_per_env"]
         self.robot_pos = states_dict["robot_pos"]
         self.block_state = states_dict["block_state"]
         self.cube_state = states_dict["cube_state"]
@@ -35,42 +26,16 @@ class REACTIVE_TAMP:
         self.ee_r_state = states_dict["ee_r_state"]
 
         # Choose the task planner
-        self.task = params.task
-        if self.task in ["push", "pull", "hybrid"]:
-            self.task_planner = task_planner.PLANNER_SIMPLE(self.task, [-3.75, -3.75])  # "hybrid", [-3.75, -3.75]
-        elif self.task == "reactive_pick":
+        if self.is_mobile_robot:
+            self.task_planner = task_planner.PLANNER_SIMPLE(params.task, [-3.75, -3.75])
+        else:
             self.task_planner = task_planner.PLANNER_AIF_PANDA()
 
         # Choose the motion planner
-        self.motion_planner = m3p2i.M3P2I(
-                            params = self.params,
-                            dynamics = None, 
-                            running_cost = None, 
-                            nx = params.nx, 
-                            noise_sigma = params.noise_sigma,
-                            num_samples = self.num_envs, 
-                            horizon = params.horizon,
-                            lambda_ = params.lambda_, 
-                            device = params.device, 
-                            u_max = params.u_max,
-                            u_min = params.u_min,
-                            step_dependent_dynamics = params.step_dependent_dynamics,
-                            terminal_state_cost = params.terminal_state_cost,
-                            sample_null_action = params.sample_null_action,
-                            use_priors = params.use_priors,
-                            use_vacuum = params.suction_active,
-                            robot = self.robot,
-                            u_per_command = params.u_per_command,
-                            actors_per_env = self.actors_per_env,
-                            env_type = self.environment_type,
-                            bodies_per_env = self.bodies_per_env,
-                            filter_u = params.filter_u
-                            )
-        self.motion_planner.set_mode(
-            mppi_mode = 'halton-spline', # 'halton-spline', 'simple'
-            sample_method = 'halton',    # 'halton', 'random'
-            multi_modal = params.multimodal  # True, False
-        )
+        self.motion_planner = m3p2i.M3P2I(self.params)
+        self.motion_planner.set_mode(mppi_mode = 'halton-spline', # 'halton-spline', 'simple'
+                                     sample_method = 'halton',    # 'halton', 'random'
+                                     multi_modal = params.multimodal)
         self.prefer_pull = -1
         
         # Make sure the socket does not already exist
@@ -80,7 +45,7 @@ class REACTIVE_TAMP:
     def tamp_interface(self, robot_pos, stay_still):
         # Update task and goal in the task planner
         start_time = time.monotonic()
-        if self.task not in ['pick', 'reactive_pick']:
+        if self.is_mobile_robot:
             self.task_planner.update_plan(robot_pos, stay_still)
         else:
             self.task_planner.update_plan(self.cube_state[0, :7], 
@@ -98,9 +63,9 @@ class REACTIVE_TAMP:
         # Update params in the motion planner
         self.params = self.motion_planner.update_params(self.params, self.prefer_pull)
 
-        # # Check task succeeds or not
+        # Check task succeeds or not
         task_success = False
-        if self.task not in ['pick', 'reactive_pick']:
+        if self.is_mobile_robot:
             task_success = self.task_planner.check_task_success(robot_pos, self.block_state[0, :])
         else:
             task_success = self.task_planner.check_task_success((self.ee_l_state[0, :7]+self.ee_r_state[0, :7])/2)
@@ -128,7 +93,7 @@ class REACTIVE_TAMP:
                     res = conn.recv(1024)
                     reset_flag = data_transfer.bytes_to_numpy(res)
                     i = self.reset(i, reset_flag)
-                    conn.sendall(bytes(self.task, 'utf-8'))
+                    conn.sendall(bytes(params.task, 'utf-8'))
 
                     # Receive dof states
                     res = conn.recv(2**14)

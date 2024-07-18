@@ -1,21 +1,16 @@
 from isaacgym import gymapi, gymtorch
-from npy_append_array import NpyAppendArray
 import torch, time, numpy as np, socket
 from m3p2i_aip.params import params_utils
-from m3p2i_aip.utils import sim_init, data_transfer, skill_utils, path_utils
+from m3p2i_aip.utils import sim_init, data_transfer, skill_utils
 torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 
 class SIM():
     def __init__(self, params) -> None:
         # Make the environment and simulation
-        self.allow_viewer = params.sim_allow_viewer
         self.num_envs = params.sim_num_envs
-        self.spacing = params.spacing
-        self.robot = params.robot
-        self.mobile_robot = True if self.robot in ['point_robot', 'heijn', 'boxer'] else False
+        self.mobile_robot = True if params.robot in ['point_robot', 'heijn', 'boxer'] else False
         self.environment_type = params.environment_type
-        self.dt = params.dt
-        self.gym, self.sim, self.viewer, self.envs, _ = sim_init.make(self.allow_viewer, self.num_envs, self.spacing, self.robot, self.environment_type, dt = self.dt)
+        self.gym, self.sim, self.viewer, self.envs, _ = sim_init.make(params.sim_allow_viewer, self.num_envs, params.spacing, params.robot, self.environment_type, dt = params.dt)
 
         # Acquire states
         states_dict = sim_init.acquire_states(self.gym, self.sim, params, "sim")
@@ -165,7 +160,7 @@ class SIM():
                         self.suction_active = True
 
                 # Apply forward kikematics and optimal action
-                self.action = skill_utils.apply_fk(self.robot, actions[0])
+                self.action = skill_utils.apply_fk(params.robot, actions[0])
                 self.gym.set_dof_velocity_target_tensor(self.sim, gymtorch.unwrap_tensor(self.action))
 
                 if self.suction_active:  
@@ -205,7 +200,7 @@ class SIM():
                     self.dyn_obs_pos_seq = torch.cat((self.dyn_obs_pos_seq, self.dyn_obs_pos), 0)
                 t_now = time.monotonic()
                 # print('Whole freq', format(1/(t_now-t_prev), '.2f'))
-                if (t_now - t_prev) < self.dt:
+                if (t_now - t_prev) < params.dt:
                     sim_init.step_rendering(self.gym, self.sim, self.viewer, sync_frame_time=True)
                 else:
                     sim_init.step_rendering(self.gym, self.sim, self.viewer, sync_frame_time=False)

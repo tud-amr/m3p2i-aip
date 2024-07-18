@@ -4,62 +4,12 @@ from m3p2i_aip.utils import sim_init, skill_utils, mppi_utils
 import m3p2i_aip.planners.motion_planner.mppi as mppi
 
 class M3P2I(mppi.MPPI):
-    def __init__(self, params, dynamics, running_cost, nx, noise_sigma, num_samples=100, horizon=15, device="cpu", 
-                    terminal_state_cost=None, 
-                    lambda_=1, 
-                    noise_mu=None, 
-                    u_min=None, 
-                    u_max=None, 
-                    u_init=None, 
-                    U_init=None, 
-                    u_scale=1, 
-                    u_per_command=1, 
-                    step_dependent_dynamics=False, 
-                    rollout_samples=1, 
-                    rollout_var_cost=0, 
-                    rollout_var_discount=0.95, 
-                    sample_null_action=False, 
-                    use_priors=False,
-                    use_vacuum = False,
-                    robot='point_robot',
-                    noise_abs_cost=False,
-                    actors_per_env=None, 
-                    env_type="normal",
-                    bodies_per_env=None,
-                    filter_u=True):
-        super().__init__(params, dynamics, running_cost, nx, noise_sigma, num_samples, horizon, device, 
-                    terminal_state_cost, 
-                    lambda_, 
-                    noise_mu, 
-                    u_min, 
-                    u_max, 
-                    u_init, 
-                    U_init, 
-                    u_scale, 
-                    u_per_command, 
-                    step_dependent_dynamics, 
-                    rollout_samples, 
-                    rollout_var_cost, 
-                    rollout_var_discount, 
-                    sample_null_action, 
-                    use_priors,
-                    use_vacuum,
-                    robot,
-                    noise_abs_cost,
-                    actors_per_env,
-                    env_type, 
-                    bodies_per_env,
-                    filter_u)
-        self.gym = None
-        self.sim = None
-        self.num_envs = num_samples
-        self.robot = robot
+    def __init__(self, params, dynamics=None, running_cost=None):
+        super().__init__(params, dynamics, running_cost)
         self.kp_suction = 400
-        self.suction_active = use_vacuum
-        self.bodies_per_env = bodies_per_env
-        self.actors_per_env = actors_per_env
-        self.env_type = env_type
-        self.device = device
+        self.suction_active = params.suction_active
+        self.env_type = params.environment_type
+        self.device = params.device
         
         # Additional variables for the environment
         if self.env_type == "normal":
