@@ -91,26 +91,28 @@ class MPPI():
         self.filter_u = params.filter_u
         self.lambda_ = 1.
         noise_sigma = params.noise_sigma
-        self.tensor_args={'device':params.device, 'dtype':noise_sigma.dtype} 
         self.delta = None
         self.sample_null_action = params.sample_null_action
         self.u_per_command = params.u_per_command
         self.robot = params.robot
+        self.tensor_args = params.tensor_args
+        self.device = self.tensor_args['device']
+        self.dtype = self.tensor_args['dtype']
 
         # Dimensions of state nx and control nu
         self.nx = params.nx
         self.nu = 1 if len(noise_sigma.shape) == 0 else noise_sigma.shape[0]
 
         # Noise initialization
-        noise_mu = torch.zeros(self.nu, dtype=self.tensor_args['dtype'])
+        noise_mu = torch.zeros(self.nu, **self.tensor_args)
 
         # Handle 1D edge case
         if self.nu == 1:
             noise_mu = noise_mu.view(-1)
             noise_sigma = noise_sigma.view(-1, 1)
 
-        self.noise_mu = noise_mu.to(self.tensor_args['device'])
-        self.noise_sigma = noise_sigma.to(self.tensor_args['device'])
+        self.noise_mu = noise_mu.to(**self.tensor_args)
+        self.noise_sigma = noise_sigma.to(**self.tensor_args)
         self.noise_sigma_inv = torch.inverse(self.noise_sigma)
         self.noise_abs_cost = False
 
@@ -119,12 +121,12 @@ class MPPI():
 
         # Input initialization
         u_init = torch.zeros_like(noise_mu)
-        self.mean_action = torch.zeros((self.T, self.nu), device=self.tensor_args['device'], dtype=self.tensor_args['dtype'])
+        self.mean_action = torch.zeros((self.T, self.nu), **self.tensor_args)
         self.best_traj = self.mean_action.clone()
         self.best_traj_1 = self.mean_action.clone()
         self.best_traj_2 = self.mean_action.clone()
-        self.mean_action_1 = torch.zeros((self.T, self.nu), device=self.tensor_args['device'], dtype=self.tensor_args['dtype'])
-        self.mean_action_2 = torch.zeros((self.T, self.nu), device=self.tensor_args['device'], dtype=self.tensor_args['dtype'])
+        self.mean_action_1 = torch.zeros((self.T, self.nu), **self.tensor_args)
+        self.mean_action_2 = torch.zeros((self.T, self.nu), **self.tensor_args)
 
         # Bound actions
         self.u_min = params.u_min
@@ -140,11 +142,11 @@ class MPPI():
                 self.u_min = torch.tensor(self.u_min)
             self.u_max = -self.u_min
         if self.u_min is not None:
-            self.u_min = self.u_min.to(device=self.tensor_args['device'])
-            self.u_max = self.u_max.to(device=self.tensor_args['device'])
+            self.u_min = self.u_min.to(**self.tensor_args)
+            self.u_max = self.u_max.to(**self.tensor_args)
         
         # Control sequence (T x nu)
-        self.u_init = u_init.to(self.tensor_args['device'])
+        self.u_init = u_init.to(**self.tensor_args)
         self.U = self.noise_dist.sample((self.T,))
 
         # Costs and dynamics initialization
@@ -218,7 +220,7 @@ class MPPI():
         
         if not torch.is_tensor(state):
             state = torch.tensor(state)
-        self.state = state.to(dtype=self.tensor_args['dtype'], device=self.tensor_args['device'])
+        self.state = state.to(**self.tensor_args)
 
         if self.mppi_mode == 'simple':
             self.U = torch.roll(self.U, -1, dims=0)
@@ -253,14 +255,14 @@ class MPPI():
             self.top_trajs = torch.index_select(self.ee_states, 0, self.top_idx)
         else:
             self.top_trajs = torch.index_select(self.states, 0, self.top_idx)
-            pos_idx = torch.tensor([0, 2], device="cuda:0", dtype=torch.int32)
+            pos_idx = torch.tensor([0, 2], device=self.device, dtype=torch.int32)
             self.top_trajs = torch.index_select(self.top_trajs, 2, pos_idx)
 
         # Smoothing with Savitzky-Golay filter
         if self.filter_u:
             u_ = action.cpu().numpy()
             u_filtered = signal.savgol_filter(u_, self.sgf_window, self.sgf_order, deriv=0, delta=1.0, axis=0, mode='interp', cval=0.0)
-            if self.tensor_args['device'] == "cpu":
+            if self.device == "cpu":
                 action = torch.from_numpy(u_filtered).to('cpu')
             else:
                 action = torch.from_numpy(u_filtered).to('cuda')
@@ -282,8 +284,8 @@ class MPPI():
         K, T, nu = perturbed_actions.shape
         assert nu == self.nu
 
-        cost_total = torch.zeros(K, device=self.tensor_args['device'], dtype=self.tensor_args['dtype'])
-        cost_horizon = torch.zeros([K, T], device=self.tensor_args['device'], dtype=self.tensor_args['dtype'])
+        cost_total = torch.zeros(K, **self.tensor_args)
+        cost_horizon = torch.zeros([K, T], **self.tensor_args)
         cost_samples = cost_total
 
         # allow propagation of a sample of states (ex. to carry a distribution), or to start with a single state
@@ -475,8 +477,8 @@ class MPPI():
                 self.ndims,                 # n_knots * nu (knots per number of actions)
                 use_ghalton=True,
                 seed_val=self.seed_val,     # seed val is 0 
-                device=self.tensor_args['device'],
-                float_dtype=self.tensor_args['dtype'])
+                device=self.device,
+                float_dtype=self.dtype)
             
             # Sample splines from knot points:
             # iteratre over action dimension:

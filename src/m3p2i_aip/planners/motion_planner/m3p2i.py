@@ -9,34 +9,33 @@ class M3P2I(mppi.MPPI):
         self.kp_suction = 400
         self.suction_active = params.suction_active
         self.env_type = params.environment_type
-        self.device = params.device
         
         # Additional variables for the environment
         if self.env_type == "normal":
             self.block_index = 7   # Pushing purple blox, index according to simulation
         if self.env_type == "lab":
             self.block_index = 4  
-        self.block_goal = torch.tensor([0, 0], device="cuda:0")
-        self.block_not_goal = torch.tensor([-2, 1], device="cuda:0")
-        self.nav_goal = torch.tensor([3, 3], device="cuda:0")
+        self.block_goal = torch.tensor([0, 0], **self.tensor_args)
+        self.block_not_goal = torch.tensor([-2, 1], **self.tensor_args)
+        self.nav_goal = torch.tensor([3, 3], device=self.device)
         self.task = "navigation"  # "navigation", "push", "pull", "push_not_goal"
         self.align_weight = {"heijn":1, "point_robot":0.5, "boxer":1}
         self.align_offset = {"heijn":0.1, "point_robot":0.05}
-        self.goal_quaternion = torch.tensor([0, 0, 0, 1], device="cuda:0").repeat(self.num_envs).view(self.num_envs, 4)
+        self.goal_quaternion = torch.tensor([0, 0, 0, 1], device=self.device).repeat(self.num_envs).view(self.num_envs, 4)
 
         # Store obstacle list
         self.allow_dyn_obs = True
         if self.env_type == 'normal':   
-            self.obs_list = torch.arange(6, device="cuda:0")
+            self.obs_list = torch.arange(6, device=self.device)
         elif self.env_type == 'lab':
-            self.obs_list = torch.arange(4, device="cuda:0") 
+            self.obs_list = torch.arange(4, device=self.device) 
         elif self.env_type == 'cube':
-            self.obs_list = torch.tensor(16, device="cuda:0") 
+            self.obs_list = torch.tensor(16, device=self.device) 
             self.allow_dyn_obs = False
         elif self.env_type == 'albert_arena':
-            self.obs_list = torch.tensor(0, device="cuda:0") 
+            self.obs_list = torch.tensor(0, device=self.device) 
             self.allow_dyn_obs = False
-        # self.obs_list = torch.arange(self.bodies_per_env, device="cuda:0") # avoid all obstacles
+        # self.obs_list = torch.arange(self.bodies_per_env, device=self.device) # avoid all obstacles
 
     def update_gym(self, gym, sim, viewer=None):
         self.gym = gym
@@ -188,7 +187,7 @@ class M3P2I(mppi.MPPI):
 
         # Force the robot behind block and goal, align_cost is actually cos(theta)+1
         # align_cost = self.align_weight[self.robot] * (self.cos_theta + 1) * 5
-        align_cost = torch.zeros(self.num_envs, dtype=torch.float32, device="cuda:0")
+        align_cost = torch.zeros(self.num_envs, **self.tensor_args)
         align_cost[self.cos_theta>0] = self.cos_theta[self.cos_theta>0]
         # print('push align', align_cost[:10])
         # if self.robot != 'boxer':
@@ -216,12 +215,12 @@ class M3P2I(mppi.MPPI):
 
         # Force the robot to be in the middle between block and goal, align_cost is actually 1-cos(theta)
         # align_cost = (1 - self.cos_theta) * 5
-        align_cost = torch.zeros(self.num_envs, dtype=torch.float32, device="cuda:0")
+        align_cost = torch.zeros(self.num_envs, **self.tensor_args)
         align_cost[self.cos_theta<0] = -self.cos_theta[self.cos_theta<0]
         # print('pull align', align_cost[-10:])
 
         # Add the cost when the robot is close to the block and moves towards the block
-        vel_cost = torch.zeros(self.num_envs, device="cuda:0")
+        vel_cost = torch.zeros(self.num_envs, **self.tensor_args)
         robot_block_close = self.robot_to_block_dist <= 0.5
         vel_cost[flag_towards_block*robot_block_close] = 0.6
 
@@ -235,8 +234,8 @@ class M3P2I(mppi.MPPI):
 
     def _predict_dyn_obs(self, factor, t):
         # Obs boundary [-2.5, 1.5] <--> [-1.5, 2.5]
-        obs_lb = torch.tensor([-2.5, 1.5], dtype=torch.float32, device="cuda:0")
-        obs_ub = torch.tensor([-1.5, 2.5], dtype=torch.float32, device="cuda:0")
+        obs_lb = torch.tensor([-2.5, 1.5], **self.tensor_args)
+        obs_ub = torch.tensor([-1.5, 2.5], **self.tensor_args)
         self.dyn_obs_vel = torch.clamp(self.dyn_obs_vel, min = -0.001, max = 0.001)
         pred_pos = self.dyn_obs_pos + t * self.dyn_obs_vel * 10
         # Check the prec_pos and boundary

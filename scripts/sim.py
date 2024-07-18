@@ -44,7 +44,7 @@ class SIM():
         self.sim_time = np.array([])
         self.task_freq_array = np.array([])
         self.motion_freq_array = np.array([])
-        self.action_seq = torch.zeros(self.dofs_per_robot, device="cuda:0")
+        self.action_seq = torch.zeros(self.dofs_per_robot, **params.tensor_args)
         self.robot_pos_seq = self.robot_pos.clone()
         self.block_pos_seq = self.block_pos.clone()
         self.suction_exist = []

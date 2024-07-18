@@ -5,12 +5,12 @@ allow_viewer = False
 task = "reactive"                   # "simple", "patrolling", "reactive"
 num_envs = 100
 nx = 6
-noise_sigma = torch.tensor([[3, 0, 0], [0, 3, 0], [0, 0, 5]], device="cuda:0", dtype=torch.float32)
+tensor_args = {'device':"cuda:0", 'dtype':torch.float32} 
+noise_sigma = torch.tensor([[3, 0, 0], [0, 3, 0], [0, 0, 5]], **tensor_args)
 horizon = 20
 lambda_ = 1 
-device = "cuda:0" 
-u_max = torch.tensor([1.5, 1.5, 3.5], device="cuda:0", dtype=torch.float32)
-u_min = torch.tensor([-1.5, -1.5, -3.5], device="cuda:0", dtype=torch.float32)
+u_max = torch.tensor([1.5, 1.5, 3.5], **tensor_args)
+u_min = torch.tensor([-1.5, -1.5, -3.5], **tensor_args)
 step_dependent_dynamics = True
 terminal_state_cost = None
 sample_null_action = True

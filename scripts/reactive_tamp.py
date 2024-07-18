@@ -121,7 +121,7 @@ class REACTIVE_TAMP:
 
                     # Stay still if the task planner has no task
                     if self.task_planner.task == "None" or stay_still or task_success:
-                        actions = torch.zeros(self.motion_planner.u_per_command, self.motion_planner.nu, device="cuda:0")
+                        actions = torch.zeros(self.motion_planner.u_per_command, self.motion_planner.nu, **params.tensor_args)
                         self.motion_freq = 0 # should be filtered later
                         self.prefer_pull=-1
                     # Compute optimal action and send to real simulator
