@@ -2,7 +2,7 @@ import torch
 
 # Paramters in the reactive_tamp file
 allow_viewer = False
-task = "reactive"                   # "simple", "patrolling", "reactive"
+task = "navigation"
 num_envs = 100
 nx = 6
 tensor_args = {'device':"cuda:0", 'dtype':torch.float32} 

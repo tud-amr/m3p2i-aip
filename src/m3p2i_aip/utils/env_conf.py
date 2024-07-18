@@ -1,14 +1,14 @@
 from isaacgym import gymapi
 import math, torch, numpy as np
 import m3p2i_aip.utils.path_utils as path_utils
+import m3p2i_aip.params.params_point as params_point
+import m3p2i_aip.params.params_panda as params_panda
 
 box1_pose = gymapi.Transform()
 box1_pose.p = gymapi.Vec3(0, 3.5, 0)
 
 box2_pose = gymapi.Transform()
-# box2_pose.p = gymapi.Vec3(-1, 1, 0)         # for [-1, 1], [-1.5, 1], [-1, 2]
-# box2_pose.p = gymapi.Vec3(2, -2, 0)       # for reactive push
-box2_pose.p = gymapi.Vec3(-1.5, 1.5, 0) # at corner [3.7, -3.7], [3.7, 3.7], [-3.7, 3.7] [-1, 1]
+box2_pose.p = gymapi.Vec3(*params_point.block_init) # at corner [3.7, -3.7], [3.7, 3.7], [-3.7, 3.7] [-1, 1]
 
 box3_pose = gymapi.Transform()
 box3_pose.p = gymapi.Vec3(3, 0, 0)
@@ -28,9 +28,8 @@ goal1_pose.p = gymapi.Vec3(-3, 3, 0)
 goal2_pose = gymapi.Transform()
 goal2_pose.p = gymapi.Vec3(3, 3, 0)
 
-block_goal = torch.tensor([3, -3], dtype=torch.float32, device="cuda:0")
 goal3_pose = gymapi.Transform()
-goal3_pose.p = gymapi.Vec3(block_goal[0], block_goal[1], 0)
+goal3_pose.p = gymapi.Vec3(3, -3, 0)
 
 corner1_pose = gymapi.Transform()
 corner1_pose.p = gymapi.Vec3(-3.75, -3.75, 0)
@@ -44,10 +43,8 @@ corner3_pose.p = gymapi.Vec3(-3.75, 3.75, 0)
 corner4_pose = gymapi.Transform()
 corner4_pose.p = gymapi.Vec3(3.75, 3.75, 0)
 
-# docking_station_loc = torch.tensor([0, -3], dtype=torch.float32, device="cuda:0") # in the middle (for aif)
-docking_station_loc = torch.tensor([-3.75, -3.75], dtype=torch.float32, device="cuda:0") # close to corner
-recharge_pose = gymapi.Transform()
-recharge_pose.p = gymapi.Vec3(docking_station_loc[0], docking_station_loc[1], 0)
+block_goal_pose = gymapi.Transform()
+block_goal_pose.p = gymapi.Vec3(*params_point.block_goal)
 
 color_vec_box1 = gymapi.Vec3(0.5, 0.1, 0.7)
 color_vec_box2 = gymapi.Vec3(0.2, 0.1, 0.2)
@@ -230,7 +227,7 @@ def add_obstacles(sim, gym, env, environment_type, index):
             # goal_region2 = add_box(sim, gym, env, 1, 1, 0.01, goal2_pose, color_vec_box2, True, "goal_region2", -2) # No collisions with goal region
             # goal_region3 = add_box(sim, gym, env, 1, 1, 0.01, goal3_pose, color_vec_corner, True, "goal_region3", -2) # No collisions with goal region
 
-            recharge_region = add_box(sim, gym, env, 0.45, 0.45, 0.01, recharge_pose, color_vec_corner, True, "goal_region", -2) # No collisions with recharge region
+            block_goal_region = add_box(sim, gym, env, 0.45, 0.45, 0.01, block_goal_pose, color_vec_corner, True, "goal_region", -2) # No collisions with recharge region
         # add movable squar box
         y_axis = add_box(sim, gym, env, 0.05, 0.5, 0.01, yaxis_pose, gymapi.Vec3(0.0, 1, 0.2), True, "y", -2)
         x_axis = add_box(sim, gym, env, 0.5, 0.05, 0.01, xaxis_pose, gymapi.Vec3(1, 0.0, 0.2), True, "x", -2)       
@@ -248,7 +245,7 @@ def add_obstacles(sim, gym, env, environment_type, index):
 
         goal_region = add_box(sim, gym, env, 1, 1, 0.01, goal1_pose, color_vec_box1, True, "goal_region", -2) # No collisions with goal region
         
-        recharge_region = add_box(sim, gym, env,1 , 1, 0.01, recharge_pose, color_vec_recharge, True, "goal_region", -2) # No collisions with recharge region
+        block_goal_region = add_box(sim, gym, env,1 , 1, 0.01, block_goal_pose, color_vec_recharge, True, "goal_region", -2) # No collisions with recharge region
         
         y_axis = add_box(sim, gym, env, 0.05, 0.5, 0.01, yaxis_pose, gymapi.Vec3(0.0, 1, 0.2), True, "y", -2)
         x_axis = add_box(sim, gym, env, 0.5, 0.05, 0.01, xaxis_pose, gymapi.Vec3(1, 0.0, 0.2), True, "x", -2)
@@ -335,11 +332,10 @@ def add_panda_arena(gym, sim, env, robot_asset, i):
 
     # Define start pose for cubes
     cubeA_start_pose = gymapi.Transform()
-    cubeA_start_pose.p = gymapi.Vec3(0.2, -0.2, 1.05) # on the table
-    # cubeA_start_pose.p = gymapi.Vec3(0.45, 0, 1.35) # on the shelf # 0.42
+    cubeA_start_pose.p = gymapi.Vec3(*params_panda.start_cube)
     cubeA_start_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
     cubeB_start_pose = gymapi.Transform()
-    cubeB_start_pose.p = gymapi.Vec3(0.2, 0.2, 1.06)
+    cubeB_start_pose.p = gymapi.Vec3(*params_panda.goal_cube)
     cubeB_start_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
 
     # Create panda robot

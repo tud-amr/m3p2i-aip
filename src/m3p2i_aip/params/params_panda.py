@@ -2,7 +2,7 @@ import torch
 
 # Paramters in the reactive_tamp file
 allow_viewer = False
-task = "simple"                   # "simple", "patrolling", "reactive"
+task = "reactive_pick" 
 num_envs = 200
 nx = 18
 tensor_args = {'device':"cuda:0", 'dtype':torch.float32} 
@@ -36,3 +36,8 @@ spacing = 2.0
 manual_control_type = "vel_control"        # choose from "vel_control", "pos_control", "force_control"
 suction_active = False                     # the same with use_vacuum
 print_flag = False
+
+# Set initial and goal pos for cube
+start_cube = [0.2, -0.2, 1.06] # on the table
+# start_cube = [0.42, 0, 1.35] # on the shelf 0.45
+goal_cube = [0.2, 0.2, 1.06]

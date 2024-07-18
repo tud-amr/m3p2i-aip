@@ -27,7 +27,7 @@ class REACTIVE_TAMP:
 
         # Choose the task planner
         if self.is_mobile_robot:
-            self.task_planner = task_planner.PLANNER_SIMPLE(params.task, [-3.75, -3.75])
+            self.task_planner = task_planner.PLANNER_SIMPLE(params.task, params.block_goal)
         else:
             self.task_planner = task_planner.PLANNER_AIF_PANDA()
 

@@ -2,7 +2,7 @@ import torch
 
 # Paramters in the reactive_tamp file
 allow_viewer = False
-task = "reactive"                   # "simple", "patrolling", "reactive"
+task = "push"                   # "push", "pull", "hybrid"
 num_envs = 200
 nx = 4
 tensor_args = {'device':"cuda:0", 'dtype':torch.float32} 
@@ -33,3 +33,9 @@ spacing = 10.0
 manual_control_type = "vel_control"        # choose from "vel_control", "pos_control", "force_control"
 suction_active = False                     # the same with use_vacuum
 print_flag = False
+
+# Set initial and goal pos for block
+block_init = [-1.5, 1.5]
+block_goal = [-3.75, -3.75]
+# block_goal = [-3, -3]
+# block_goal = [3, -3]
