@@ -57,7 +57,7 @@ python3 sim.py --robot $(robot_type) --task $(task_type)
 
 Specifically, you can test the following:
 
-### Push only
+### Push only using MPPI
 ````bash
 python3 reactive_tamp.py --robot point --task push
 ````
@@ -65,8 +65,10 @@ python3 reactive_tamp.py --robot point --task push
 ````bash
 python3 sim.py --robot point --task push
 ````
+>[!NOTE]
+Pushing will always fail if the **initial position** is in the corner.
 
-### Pull only
+### Pull only using MPPI
 ````bash
 python3 reactive_tamp.py --robot point --task pull
 ````
@@ -74,8 +76,10 @@ python3 reactive_tamp.py --robot point --task pull
 ````bash
 python3 sim.py --robot point --task pull
 ````
+>[!NOTE]
+Pulling will always fail if the **goal** is in the corner.
 
-### Multi-modal push pull
+### Multi-modal push pull using M3P2I
 ````bash
 python3 reactive_tamp.py --robot point --task hybrid --multimodal True
 ````
@@ -84,7 +88,7 @@ python3 reactive_tamp.py --robot point --task hybrid --multimodal True
 python3 sim.py --robot point --task hybrid --multimodal True
 ````
 
-### Reactive pick
+### Reactive pick using MPPI
 You can play with the cube using ASDW keys.
 ````bash 
 python3 reactive_tamp.py --robot panda --task reactive_pick
@@ -94,7 +98,7 @@ python3 reactive_tamp.py --robot panda --task reactive_pick
 python3 sim.py --robot panda --task reactive_pick
 ````
 
-### Multi-modal pick
+### Multi-modal pick using M3P2I
 You can play with the cube using ASDW keys.
 ````bash 
 python3 reactive_tamp.py --robot panda --task reactive_pick --multimodal True
