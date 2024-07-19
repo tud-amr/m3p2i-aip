@@ -39,5 +39,5 @@ print_flag = False
 
 # Set initial and goal pos for cube
 start_cube = [0.2, -0.2, 1.06] # on the table
-# start_cube = [0.42, 0, 1.35] # on the shelf 0.45
+# start_cube = [0.425, 0, 1.35] # on the shelf 0.45
 goal_cube = [0.2, 0.2, 1.06]

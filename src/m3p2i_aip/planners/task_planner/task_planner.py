@@ -90,7 +90,7 @@ class PLANNER_AIF_PANDA(PLANNER_SIMPLE):
         if cube_height_diff < 0.001:
             self.obs = 0
             self.ai_agent_task[0].set_preferences(np.array([[0], [1], [0]]))
-        elif dist_cost + ori_cost < 0.01: # 0.025
+        elif dist_cost + ori_cost < 0.025: # 0.025 0.01
             self.obs = 1
             self.ee_goal = ee_state.clone()
             self.ee_goal[2] += 0.2
@@ -105,14 +105,14 @@ class PLANNER_AIF_PANDA(PLANNER_SIMPLE):
         self.task = curr_action
         if curr_action == 'pick':
             self.curr_goal = cube_goal.clone()
-            self.curr_goal[2] += 0.0525
+            self.curr_goal[2] += 0.053
         elif curr_action == "place":
             self.ai_agent_task[0].set_preferences(np.array([[1], [0], [0]]))
             self.curr_goal = self.ee_goal
     
     def check_task_success(self, ee_state):
         flag = False
-        if self.task == 'place' and torch.linalg.norm(ee_state - self.prev_ee_state) < 0.001:
+        if self.task == 'place' and torch.linalg.norm(ee_state - self.prev_ee_state) < 0.002:
             flag = True
         self.prev_ee_state = ee_state.clone()
         return flag

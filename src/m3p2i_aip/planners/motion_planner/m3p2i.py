@@ -30,7 +30,7 @@ class M3P2I(mppi.MPPI):
         elif self.env_type == 'lab':
             self.obs_list = torch.arange(4, device=self.device) 
         elif self.env_type == 'cube':
-            self.obs_list = torch.tensor(16, device=self.device) 
+            self.obs_list = torch.tensor([14, 16], device=self.device) 
             self.allow_dyn_obs = False
         elif self.env_type == 'albert_arena':
             self.obs_list = torch.tensor(0, device=self.device) 
@@ -303,9 +303,9 @@ class M3P2I(mppi.MPPI):
         else:
             # To combine costs of different tilt angles
             cost_1 = skill_utils.get_general_ori_ee2cube(ee_quaternion[:self.half_K], 
-                                                         cube_quaternion[:self.half_K], tilt_value=0) # 0.2
+                                                         cube_quaternion[:self.half_K], tilt_value = 0)
             cost_2 = skill_utils.get_general_ori_ee2cube(ee_quaternion[self.half_K:], 
-                                                         cube_quaternion[self.half_K:], tilt_value=0.7) #0.9
+                                                         cube_quaternion[self.half_K:], tilt_value = 0.5) #0.9
             ori_ee2cube =  torch.cat((cost_1, cost_2), dim=0)
 
         return 3 * ori_ee2cube
@@ -400,8 +400,8 @@ class M3P2I(mppi.MPPI):
             # print('push cost', task_cost[:10])
             # print('pull cost', task_cost[self.num_envs-10:])
         elif self.task == 'pick':
-            return self.get_panda_pick_cost(self.multi_modal) # for albert
-            # task_cost = self.get_panda_pick_cost(self.multi_modal) # for panda
+            # return self.get_panda_pick_cost(self.multi_modal) # for albert
+            task_cost = self.get_panda_pick_cost(self.multi_modal) # for panda
         elif self.task == 'place':
             return self.get_panda_place_cost()
         else:
