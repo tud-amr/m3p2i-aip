@@ -1,6 +1,6 @@
-import torch
 from isaacgym import gymapi
 from isaacgym import gymtorch
+import torch
 from m3p2i_aip.utils import sim_init, skill_utils
 
 class Params:
@@ -20,6 +20,7 @@ class Params:
         self.kp_suction = 400
 
         # Time logging
+        self.dt = 0.05
         self.frame_count = 0
         self.next_fps_report = 2.0
         self.t1 = 0
@@ -32,12 +33,7 @@ class Params:
 params = Params()
 
 # Make the environment
-gym, sim, viewer, envs, robot_handles = sim_init.make(params.allow_viewer, 
-                                                      params.num_envs, 
-                                                      params.spacing, 
-                                                      params.robot, 
-                                                      params.environment_type, 
-                                                      params.control_type)
+gym, sim, viewer, envs, robot_handles = sim_init.make(params)
 
 # Acquire states
 states_dict = sim_init.acquire_states(gym, sim, params)

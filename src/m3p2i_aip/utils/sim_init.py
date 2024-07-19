@@ -70,20 +70,22 @@ def config_gym(viewer, dt):
     return gym, sim, viewer
 
 # Make the environment and simulation
-def make(allow_viewer, num_envs, spacing, robot, obstacle_type, control_type = "vel_control", set_light = False, dt=0.05):
+def make(params, env = "none"):
     # Configure gym
-    gym, sim, viewer = config_gym(allow_viewer, dt)
+    allow_viewer = params.sim_allow_viewer if env == "sim" else params.allow_viewer
+    gym, sim, viewer = config_gym(allow_viewer, params.dt)
     # Set robot initial pose
     robot_init_pose = gymapi.Transform()
     robot_init_pose.p = gymapi.Vec3(0.0, 0.0, 0.05)
     # Load robot
-    robot_asset = env_conf.load_robot(robot, gym, sim)
+    robot_asset = env_conf.load_robot(params.robot, gym, sim)
     # Create the arena(s) with robots
-    envs, robot_handles = env_conf.create_robot_arena(gym, sim, num_envs, spacing, robot_asset, robot_init_pose, viewer, obstacle_type, control_type)
+    num_envs = params.sim_num_envs if env == "sim" else params.num_envs
+    envs, robot_handles = env_conf.create_robot_arena(gym, sim, num_envs, params.spacing, robot_asset, robot_init_pose, viewer, params.environment_type, control_type = "vel_control")
     # Prepare
     gym.prepare_sim(sim)
     # Set light rendering
-    if set_light:
+    if False:
         light_index = 3
         intensity = gymapi.Vec3(0.8, 0.8, 0.8)
         ambient = gymapi.Vec3(0.1, 0.1, 0.1)
@@ -92,11 +94,8 @@ def make(allow_viewer, num_envs, spacing, robot, obstacle_type, control_type = "
     return gym, sim, viewer, envs, robot_handles
 
 # Acquire states information
-def acquire_states(gym, sim, params, flag="none"):
-    if flag == "sim":
-        num_envs = params.sim_num_envs
-    else:
-        num_envs = params.num_envs
+def acquire_states(gym, sim, params, env="none"):
+    num_envs = params.sim_num_envs if env == "sim" else params.num_envs
     # Get dof state tensor
     _dof_states = gym.acquire_dof_state_tensor(sim)
     dof_states = gymtorch.wrap_tensor(_dof_states)
@@ -205,7 +204,7 @@ def acquire_states(gym, sim, params, flag="none"):
     return states_dict
 
 # Visualize top trajs
-def visualize_toptrajs(gym, viewer, env, states, mobile_robot):
+def visualize_toptrajs(gym, viewer, env, states, is_mobile_robot):
     states = states.cpu().clone().numpy()
     n_traj, t_horizon = states.shape[0], states.shape[1]-1
     line_array = np.zeros((t_horizon, 6), dtype=np.float32)
@@ -213,7 +212,7 @@ def visualize_toptrajs(gym, viewer, env, states, mobile_robot):
     color_array[:, 1] = 255 
     for i in range(n_traj):
         for j in range(t_horizon):
-            if mobile_robot:
+            if is_mobile_robot:
                 pos = [states[i, j, 0], states[i, j, 1], 0.1, states[i, j+1, 0], states[i, j+1, 1], 0.1]
             else:
                 pos = [states[i, j, 0], states[i, j, 1], states[i, j, 2], states[i, j+1, 0], states[i, j+1, 1], states[i, j+1, 2]]
@@ -242,7 +241,7 @@ def step_rendering(gym, sim, viewer, sync_frame_time=False):
             gym.sync_frame_time(sim)
 
 # Time logging
-def time_logging(gym, sim, next_fps_report, frame_count, t1, num_envs, freq_data = np.zeros(2)):
+def time_logging(gym, sim, next_fps_report, frame_count, t1, num_envs, sim_time=[]):
     t = gym.get_elapsed_time(sim)
     if t >= next_fps_report:
         t2 = gym.get_elapsed_time(sim)
@@ -251,13 +250,11 @@ def time_logging(gym, sim, next_fps_report, frame_count, t1, num_envs, freq_data
         frame_count = 0
         t1 = gym.get_elapsed_time(sim)
         next_fps_report = t1 + 1
-        if freq_data.any() != 0:
-            print('Task freq', freq_data[0])
-            if freq_data[1] != 0:
-                print('Motion freq', freq_data[1])
-            else:
-                print('Motion succeeds!')
     frame_count += 1
+    if len(sim_time) > 0:
+        elapsed_time = sim_time[-1] - sim_time[0]
+        if int(elapsed_time*100) % 20 == 0:
+            print("Current time:", format(elapsed_time, '.1f'))
     return next_fps_report, frame_count, t1
 
 # Destroy the simulation

@@ -13,7 +13,7 @@ class REACTIVE_TAMP:
         self.params = params
         self.num_envs = params.num_envs
         self.is_mobile_robot = True if params.robot in ['point_robot', 'heijn', 'boxer'] else False
-        self.gym, self.sim, self.viewer, envs, _ = sim_init.make(params.allow_viewer, self.num_envs, params.spacing, params.robot, params.environment_type, dt=params.dt)
+        self.gym, self.sim, self.viewer, _, _ = sim_init.make(params)
 
         # Acquire states
         states_dict = sim_init.acquire_states(self.gym, self.sim, self.params)
@@ -128,24 +128,21 @@ class REACTIVE_TAMP:
                     else:
                         motion_time_prev = time.monotonic()
                         actions = self.motion_planner.command(s[0])
-                        motion_time_now = time.monotonic()
-                        self.motion_freq = format(1/(motion_time_now-motion_time_prev), '.2f')
+                        self.motion_freq = format(1/(time.monotonic()-motion_time_prev), '.2f')
                         self.prefer_pull = self.motion_planner.get_weights_preference()
-                    # print('Motion freq', self.motion_freq)
                     conn.sendall(data_transfer.torch_to_bytes(actions))
 
                     # Send freq data
                     message = conn.recv(1024)
-                    # print(self.task_planner.curr_goal[0].item())
-                    freq_data = np.array([self.task_freq, self.motion_freq, self.params.suction_active,
-                                          self.task_planner.curr_goal[0].item(), self.task_planner.curr_goal[1].item(),
-                                          self.prefer_pull, int(task_success)], dtype = float)
+                    freq_data = np.array([self.motion_freq, self.params.suction_active], dtype = float)
                     conn.sendall(data_transfer.numpy_to_bytes(freq_data))
 
                     # Send top trajs
                     if self.motion_freq != 0:
+                        print("Motion freq", self.motion_freq)
                         res = conn.recv(1024)
                         conn.sendall(data_transfer.torch_to_bytes(self.motion_planner.top_trajs))
+                    print("Task succeeds!!") if task_success else False
 
 if __name__== "__main__":
     params = params_utils.load_params()
