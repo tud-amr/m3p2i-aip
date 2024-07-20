@@ -1,6 +1,6 @@
 <p align="center">
     <h1 align="center">Multi-Modal MPPI and Active Inference for Reactive Task and Motion Planning</h1>
-    <h3 align="center"><a href="https://arxiv.org/abs/2312.02328">Paper</a> | <a href="https://autonomousrobots.nl/paper_websites/m3p2i-aip">Website</a> | <a href="https://www.youtube.com/watch?v=y2CTgv6hxVI&t=2s">Video</a> </h3>
+    <h3 align="center"><a href="https://ieeexplore.ieee.org/document/10592649">Paper</a> | <a href="https://autonomousrobots.nl/paper_websites/m3p2i-aip">Website</a> | <a href="https://www.youtube.com/watch?v=y2CTgv6hxVI&t=2s">Video</a> </h3>
 </p>
 
 Repository for reactive task and motion planning making use of active inference for symbolic planning, and a new multi-modal MPPI for motion planning. Rollouts are evaluated in IsaacGym, a parallelizable physics simulator.
