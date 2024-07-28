@@ -6,68 +6,68 @@ import m3p2i_aip.utils.path_utils as path_utils
 # Parse arguments
 args = path_utils.load_yaml(os.path.join(path_utils.get_params_path(),'physx.yml')) # dictionary
 
-# Configure sim
-def configure_sim(dt=0.05):
-    # Get default set of parameters
-    sim_params = gymapi.SimParams()
-    # Set common parameters
-    sim_params.dt = dt
-    sim_params.substeps = 2
-    sim_params.up_axis = gymapi.UP_AXIS_Z
-    sim_params.gravity = gymapi.Vec3(0.0, 0.0, -9.8)
-    # Set PhysX-specific parameters
-    sim_params.use_gpu_pipeline = args['use_gpu']
-    sim_params.physx.solver_type = 1
-    sim_params.physx.num_position_iterations = 6
-    sim_params.physx.num_velocity_iterations = 1
-    sim_params.physx.num_threads = args['num_threads']
-    sim_params.physx.use_gpu = args['use_gpu']
-    sim_params.physx.contact_offset = 0.01
-    sim_params.physx.rest_offset = 0.0
-    return sim_params
+# # Configure sim
+# def configure_sim(dt=0.05):
+#     # Get default set of parameters
+#     sim_params = gymapi.SimParams()
+#     # Set common parameters
+#     sim_params.dt = dt
+#     sim_params.substeps = 2
+#     sim_params.up_axis = gymapi.UP_AXIS_Z
+#     sim_params.gravity = gymapi.Vec3(0.0, 0.0, -9.8)
+#     # Set PhysX-specific parameters
+#     sim_params.use_gpu_pipeline = args['use_gpu']
+#     sim_params.physx.solver_type = 1
+#     sim_params.physx.num_position_iterations = 6
+#     sim_params.physx.num_velocity_iterations = 1
+#     sim_params.physx.num_threads = args['num_threads']
+#     sim_params.physx.use_gpu = args['use_gpu']
+#     sim_params.physx.contact_offset = 0.01
+#     sim_params.physx.rest_offset = 0.0
+#     return sim_params
 
-# Creating gym
-def config_gym(viewer, dt):
-    params = configure_sim(dt)
-    gym = gymapi.acquire_gym()
-    physics_engine = args['physics_engine']
-    if(physics_engine=='physx'):
-        physics_engine = gymapi.SIM_PHYSX
-    elif(physics_engine == 'flex'):
-        physics_engine = gymapi.SIM_FLEX
-    sim = gym.create_sim(args['compute_device_id'], args['graphics_device_id'], physics_engine, params)
-    if viewer:
-        viewer = gym.create_viewer(sim, gymapi.CameraProperties())
-        # Subscribe to input events.
-        gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_A, "left")
-        gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_S, "down")
-        gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_D, "right")
-        gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_W, "up")
-        gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_1, "1")
-        gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_2, "2")
-        gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_3, "3")
-        gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_4, "4")
-        gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_5, "5")
-        gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_6, "6")
-        gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_7, "7")
-        gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_8, "8")
-        gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_9, "9")
-        gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_R, "reset")
-        gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_LEFT, "key_left")
-        gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_DOWN, "key_down")
-        gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_RIGHT, "key_right")
-        gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_UP, "key_up")
-    else:
-        viewer = None
-    # Add ground plane
-    plane_params = gymapi.PlaneParams()
-    plane_params.normal = gymapi.Vec3(0, 0, 1) # z-up!
-    plane_params.distance = 0
-    plane_params.static_friction = 1
-    plane_params.dynamic_friction = 1
-    plane_params.restitution = 0
-    gym.add_ground(sim, plane_params)
-    return gym, sim, viewer
+# # Creating gym
+# def config_gym(viewer, dt):
+#     params = configure_sim(dt)
+#     gym = gymapi.acquire_gym()
+#     physics_engine = args['physics_engine']
+#     if(physics_engine=='physx'):
+#         physics_engine = gymapi.SIM_PHYSX
+#     elif(physics_engine == 'flex'):
+#         physics_engine = gymapi.SIM_FLEX
+#     sim = gym.create_sim(args['compute_device_id'], args['graphics_device_id'], physics_engine, params)
+#     if viewer:
+#         viewer = gym.create_viewer(sim, gymapi.CameraProperties())
+#         # Subscribe to input events.
+#         gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_A, "left")
+#         gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_S, "down")
+#         gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_D, "right")
+#         gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_W, "up")
+#         gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_1, "1")
+#         gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_2, "2")
+#         gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_3, "3")
+#         gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_4, "4")
+#         gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_5, "5")
+#         gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_6, "6")
+#         gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_7, "7")
+#         gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_8, "8")
+#         gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_9, "9")
+#         gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_R, "reset")
+#         gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_LEFT, "key_left")
+#         gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_DOWN, "key_down")
+#         gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_RIGHT, "key_right")
+#         gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_UP, "key_up")
+#     else:
+#         viewer = None
+#     # Add ground plane
+#     plane_params = gymapi.PlaneParams()
+#     plane_params.normal = gymapi.Vec3(0, 0, 1) # z-up!
+#     plane_params.distance = 0
+#     plane_params.static_friction = 1
+#     plane_params.dynamic_friction = 1
+#     plane_params.restitution = 0
+#     gym.add_ground(sim, plane_params)
+#     return gym, sim, viewer
 
 # Make the environment and simulation
 def make(params, env = "none"):
