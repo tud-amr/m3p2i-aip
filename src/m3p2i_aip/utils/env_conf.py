@@ -144,16 +144,16 @@ def load_boxer(gym, sim):
     pose.p = gymapi.Vec3(0.0, 0.0, 0.01)    
     return robot_asset
 
-def load_point_robot(gym, sim):
-    # Load robot asset
-    asset_root = path_utils.get_assets_path()
-    asset_file = "urdf/pointRobot.urdf"
-    asset_options = gymapi.AssetOptions()
-    asset_options.fix_base_link = True
-    asset_options.armature = 0.01
-    print("Loading asset '%s' from '%s'" % (asset_file, asset_root))
-    robot_asset = gym.load_asset(sim, asset_root, asset_file, asset_options)
-    return robot_asset
+# def load_point_robot(gym, sim):
+#     # Load robot asset
+#     asset_root = path_utils.get_assets_path()
+#     asset_file = "urdf/pointRobot.urdf"
+#     asset_options = gymapi.AssetOptions()
+#     asset_options.fix_base_link = True
+#     asset_options.armature = 0.01
+#     print("Loading asset '%s' from '%s'" % (asset_file, asset_root))
+#     robot_asset = gym.load_asset(sim, asset_root, asset_file, asset_options)
+#     return robot_asset
 
 def load_heijn(gym, sim):
     # Load robot asset
@@ -166,19 +166,19 @@ def load_heijn(gym, sim):
     robot_asset = gym.load_asset(sim, asset_root, asset_file, asset_options)
     return robot_asset
 
-def load_panda(gym, sim):
-    # Load asset
-    asset_root = path_utils.get_assets_path()
-    franka_asset_file = "urdf/franka_description/robots/franka_panda.urdf"
-    asset_options = gymapi.AssetOptions()
-    asset_options.fix_base_link = True
-    asset_options.flip_visual_attachments = True
-    asset_options.disable_gravity = True
-    asset_options.armature = 0.01
-    print("Loading asset '%s' from '%s'" % (franka_asset_file, asset_root))
-    franka_asset = gym.load_asset(
-        sim, asset_root, franka_asset_file, asset_options)
-    return franka_asset
+# def load_panda(gym, sim):
+#     # Load asset
+#     asset_root = path_utils.get_assets_path()
+#     franka_asset_file = "urdf/franka_description/robots/franka_panda.urdf"
+#     asset_options = gymapi.AssetOptions()
+#     asset_options.fix_base_link = True
+#     asset_options.flip_visual_attachments = True
+#     asset_options.disable_gravity = True
+#     asset_options.armature = 0.01
+#     print("Loading asset '%s' from '%s'" % (franka_asset_file, asset_root))
+#     franka_asset = gym.load_asset(
+#         sim, asset_root, franka_asset_file, asset_options)
+#     return franka_asset
 
 def load_husky(gym, sim):
     # Load asset
@@ -423,21 +423,21 @@ def add_albert_arena(gym, sim, env, robot_asset, i):
     return albert_actor
 
 
-def get_default_franka_state(gym, robot_asset):
+# def get_default_franka_state(gym, robot_asset):
 
-    franka_dof_props = gym.get_asset_dof_properties(robot_asset)
-    franka_lower_limits = franka_dof_props["lower"]
-    franka_upper_limits = franka_dof_props["upper"]
-    franka_mids = 0.5 * (franka_upper_limits + franka_lower_limits)
+#     franka_dof_props = gym.get_asset_dof_properties(robot_asset)
+#     franka_lower_limits = franka_dof_props["lower"]
+#     franka_upper_limits = franka_dof_props["upper"]
+#     franka_mids = 0.5 * (franka_upper_limits + franka_lower_limits)
     
-    # default dof states and position targets
-    franka_num_dofs = gym.get_asset_dof_count(robot_asset)
-    # franka_mids[7:] = franka_upper_limits[7:] # grippers open
-    default_dof_state = np.zeros(franka_num_dofs, gymapi.DofState.dtype)
-    default_dof_state["pos"] = franka_mids[:]
-    default_dof_state["pos"][3] = -2
+#     # default dof states and position targets
+#     franka_num_dofs = gym.get_asset_dof_count(robot_asset)
+#     # franka_mids[7:] = franka_upper_limits[7:] # grippers open
+#     default_dof_state = np.zeros(franka_num_dofs, gymapi.DofState.dtype)
+#     default_dof_state["pos"] = franka_mids[:]
+#     default_dof_state["pos"][3] = -2
 
-    return default_dof_state
+#     return default_dof_state
                         
 def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, environment_type, control_type = "vel_control"):
     # Some common handles for later use
