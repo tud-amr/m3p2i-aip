@@ -111,7 +111,7 @@ python3 sim.py --robot panda --task reactive_pick --multimodal True
 ## Cite
 
 If you find the code useful, please cite:
-```
+```bibtex
 @article{zhang2024multi,
   title={Multi-Modal MPPI and Active Inference for Reactive Task and Motion Planning},
   author={Zhang, Yuezhe and Pezzato, Corrado and Trevisan, Elia and Salmi, Chadi and Corbato, Carlos Hern{\'a}ndez and Alonso-Mora, Javier},
