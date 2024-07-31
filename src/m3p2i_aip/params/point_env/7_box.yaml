@@ -1,0 +1,6 @@
+type: "box"
+name: "box"
+size: [.4, .4, .1]
+init_pos: [-1.5, 1.5, 0.0]
+fixed: False
+color: [0.2, 0.1, 0.2]

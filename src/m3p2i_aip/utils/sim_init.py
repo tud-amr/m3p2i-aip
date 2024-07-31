@@ -69,29 +69,29 @@ args = path_utils.load_yaml(os.path.join(path_utils.get_params_path(),'physx.yml
 #     gym.add_ground(sim, plane_params)
 #     return gym, sim, viewer
 
-# Make the environment and simulation
-def make(params, env = "none"):
-    # Configure gym
-    allow_viewer = params.sim_allow_viewer if env == "sim" else params.allow_viewer
-    gym, sim, viewer = config_gym(allow_viewer, params.dt)
-    # Set robot initial pose
-    robot_init_pose = gymapi.Transform()
-    robot_init_pose.p = gymapi.Vec3(0.0, 0.0, 0.05)
-    # Load robot
-    robot_asset = env_conf.load_robot(params.robot, gym, sim)
-    # Create the arena(s) with robots
-    num_envs = params.sim_num_envs if env == "sim" else params.num_envs
-    envs, robot_handles = env_conf.create_robot_arena(gym, sim, num_envs, params.spacing, robot_asset, robot_init_pose, viewer, params.environment_type, control_type = "vel_control")
-    # Prepare
-    gym.prepare_sim(sim)
-    # Set light rendering
-    if False:
-        light_index = 3
-        intensity = gymapi.Vec3(0.8, 0.8, 0.8)
-        ambient = gymapi.Vec3(0.1, 0.1, 0.1)
-        direction = gymapi.Vec3(1.5, 6.0, 8.0)
-        gym.set_light_parameters(sim, light_index, intensity, ambient, direction)
-    return gym, sim, viewer, envs, robot_handles
+# # Make the environment and simulation
+# def make(params, env = "none"):
+#     # Configure gym
+#     allow_viewer = params.sim_allow_viewer if env == "sim" else params.allow_viewer
+#     gym, sim, viewer = config_gym(allow_viewer, params.dt)
+#     # Set robot initial pose
+#     robot_init_pose = gymapi.Transform()
+#     robot_init_pose.p = gymapi.Vec3(0.0, 0.0, 0.05)
+#     # Load robot
+#     robot_asset = env_conf.load_robot(params.robot, gym, sim)
+#     # Create the arena(s) with robots
+#     num_envs = params.sim_num_envs if env == "sim" else params.num_envs
+#     envs, robot_handles = env_conf.create_robot_arena(gym, sim, num_envs, params.spacing, robot_asset, robot_init_pose, viewer, params.environment_type, control_type = "vel_control")
+#     # Prepare
+#     gym.prepare_sim(sim)
+#     # Set light rendering
+#     if False:
+#         light_index = 3
+#         intensity = gymapi.Vec3(0.8, 0.8, 0.8)
+#         ambient = gymapi.Vec3(0.1, 0.1, 0.1)
+#         direction = gymapi.Vec3(1.5, 6.0, 8.0)
+#         gym.set_light_parameters(sim, light_index, intensity, ambient, direction)
+#     return gym, sim, viewer, envs, robot_handles
 
 # Acquire states information
 def acquire_states(gym, sim, params, env="none"):

@@ -6,12 +6,12 @@ import numpy as np
 import torch
 @dataclass
 class IsaacGymConfig(object):
-    dt: float = 0.01 # 0.01
+    dt: float = 0.05 # 0.01
     substeps: int = 2
     use_gpu_pipeline: bool = True
     num_threads: int = 8
     viewer: bool = False
-    spacing: float = 2.0 # !!
+    spacing: float = 10 # !! 2.0
     # panda_camera_pos1: List[float] = [0, 1.5, 2.8]
     # panda_camera_pos2: List[float] = [0, 0, 1]
     # point_camera_pos1: List[float] = [1.5, 6, 8]

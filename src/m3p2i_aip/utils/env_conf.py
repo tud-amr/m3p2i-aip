@@ -67,38 +67,38 @@ xaxis_pose.p = gymapi.Vec3(0.25, 0, 0)
 yaxis_pose = gymapi.Transform()
 yaxis_pose.p = gymapi.Vec3(0, 0.25, 0.01)
 
-def add_box(sim, gym, env, width, height, depth, pose, color, isFixed, name, index):
-    # Additional assets from API
-    asset_options_objects = gymapi.AssetOptions()
-    asset_options_objects.fix_base_link = isFixed
-    object_asset = gym.create_box(sim, width, height, depth, asset_options_objects)
-    # Add obstacles
-    box_handle = gym.create_actor(env, object_asset, pose, name, index, -1)
-    gym.set_rigid_body_color(env, box_handle, 0, gymapi.MESH_VISUAL_AND_COLLISION, color)
-    return box_handle
+# def add_box(sim, gym, env, width, height, depth, pose, color, isFixed, name, index):
+#     # Additional assets from API
+#     asset_options_objects = gymapi.AssetOptions()
+#     asset_options_objects.fix_base_link = isFixed
+#     object_asset = gym.create_box(sim, width, height, depth, asset_options_objects)
+#     # Add obstacles
+#     box_handle = gym.create_actor(env, object_asset, pose, name, index, -1)
+#     gym.set_rigid_body_color(env, box_handle, 0, gymapi.MESH_VISUAL_AND_COLLISION, color)
+#     return box_handle
 
-def add_arena(sim, gym, env, environment_type, origin_x, origin_y, index):
-    wall_pose = gymapi.Transform()
-    color_vec_walls= gymapi.Vec3(0.1, 0.1, 0.1)
-    if environment_type in ["normal", "battery"]:
-        square_size = 8
-        wall_thickness = 0.1
-    if environment_type == "lab":
-        square_size = 5
-        wall_thickness = 0.05
-    # Add 4 walls
-    wall_pose.p = gymapi.Vec3(square_size/2+origin_x, origin_y, 0.0)
-    wall_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1)
-    add_box(sim, gym, env, wall_thickness, square_size, 0.2, wall_pose, color_vec_walls, True, "wall1", index)
-    wall_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1)
-    wall_pose.p = gymapi.Vec3(-square_size/2+origin_x, origin_y, 0.0)
-    add_box(sim, gym, env, wall_thickness, square_size, 0.2, wall_pose, color_vec_walls, True, "wall2", index)
-    wall_pose.p = gymapi.Vec3(origin_x, square_size/2+origin_y, 0.0)
-    wall_pose.r = gymapi.Quat(0.0, 0.0, 0.707107, 0.707107)
-    add_box(sim, gym, env, wall_thickness, square_size, 0.2, wall_pose, color_vec_walls, True, "wall3", index)
-    wall_pose.p = gymapi.Vec3(origin_x, -square_size/2+origin_y, 0.0)
-    wall_pose.r = gymapi.Quat(0.0, 0.0, 0.707107, 0.707107)
-    add_box(sim, gym, env, wall_thickness, square_size, 0.2, wall_pose, color_vec_walls, True, "wall4", index)
+# def add_arena(sim, gym, env, environment_type, origin_x, origin_y, index):
+#     wall_pose = gymapi.Transform()
+#     color_vec_walls= gymapi.Vec3(0.1, 0.1, 0.1)
+#     if environment_type in ["normal", "battery"]:
+#         square_size = 8
+#         wall_thickness = 0.1
+#     if environment_type == "lab":
+#         square_size = 5
+#         wall_thickness = 0.05
+#     # Add 4 walls
+#     wall_pose.p = gymapi.Vec3(square_size/2+origin_x, origin_y, 0.0)
+#     wall_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1)
+#     add_box(sim, gym, env, wall_thickness, square_size, 0.2, wall_pose, color_vec_walls, True, "wall1", index)
+#     wall_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1)
+#     wall_pose.p = gymapi.Vec3(-square_size/2+origin_x, origin_y, 0.0)
+#     add_box(sim, gym, env, wall_thickness, square_size, 0.2, wall_pose, color_vec_walls, True, "wall2", index)
+#     wall_pose.p = gymapi.Vec3(origin_x, square_size/2+origin_y, 0.0)
+#     wall_pose.r = gymapi.Quat(0.0, 0.0, 0.707107, 0.707107)
+#     add_box(sim, gym, env, wall_thickness, square_size, 0.2, wall_pose, color_vec_walls, True, "wall3", index)
+#     wall_pose.p = gymapi.Vec3(origin_x, -square_size/2+origin_y, 0.0)
+#     wall_pose.r = gymapi.Quat(0.0, 0.0, 0.707107, 0.707107)
+#     add_box(sim, gym, env, wall_thickness, square_size, 0.2, wall_pose, color_vec_walls, True, "wall4", index)
 
 # def load_robot(robot, gym, sim):
 #     if robot == "albert":
@@ -211,26 +211,26 @@ def add_arena(sim, gym, env, environment_type, origin_x, origin_y, index):
 #     pose.p = gymapi.Vec3(0.0, 0.0, 0.01)    
 #     return robot_asset
 
-def add_obstacles(sim, gym, env, environment_type, index):
-    if environment_type == "normal":
-        # add fixed obstacle
-        test_cornor = False
-        obstacle_handle = add_box(sim, gym, env, 0.3, 0.4, 0.5, obstacle_pose, color_vec_fixed, True, "obstacle", index)
-        dyn_obs_handle = add_box(sim, gym, env,0.4, 0.4, 0.1, dyn_obs_pose, color_vec_dyn_obs, False, "dyn_obs", index)
+# def add_obstacles(sim, gym, env, environment_type, index):
+#     if environment_type == "normal":
+#         # add fixed obstacle
+#         test_cornor = False
+#         obstacle_handle = add_box(sim, gym, env, 0.3, 0.4, 0.5, obstacle_pose, color_vec_fixed, True, "obstacle", index)
+#         dyn_obs_handle = add_box(sim, gym, env,0.4, 0.4, 0.1, dyn_obs_pose, color_vec_dyn_obs, False, "dyn_obs", index)
 
-        box1_handle = add_box(sim, gym, env,0.4, 0.4, 0.1, box1_pose, color_vec_box1, False, "box1", index)
-        box2_handle = add_box(sim, gym, env,0.4, 0.4, 0.1, box2_pose, color_vec_box2, False, "box2", index)
-        box3_handle = add_box(sim, gym, env,0.4, 0.4, 0.1, box3_pose, color_vec_box3, False, "box3", index)
+#         box1_handle = add_box(sim, gym, env,0.4, 0.4, 0.1, box1_pose, color_vec_box1, False, "box1", index)
+#         box2_handle = add_box(sim, gym, env,0.4, 0.4, 0.1, box2_pose, color_vec_box2, False, "box2", index)
+#         box3_handle = add_box(sim, gym, env,0.4, 0.4, 0.1, box3_pose, color_vec_box3, False, "box3", index)
 
-        if not test_cornor:
-            # goal_region1 = add_box(sim, gym, env, 1, 1, 0.01, goal1_pose, color_vec_box1, True, "goal_region1", -2) # No collisions with goal region
-            # goal_region2 = add_box(sim, gym, env, 1, 1, 0.01, goal2_pose, color_vec_box2, True, "goal_region2", -2) # No collisions with goal region
-            # goal_region3 = add_box(sim, gym, env, 1, 1, 0.01, goal3_pose, color_vec_corner, True, "goal_region3", -2) # No collisions with goal region
+#         if not test_cornor:
+#             # goal_region1 = add_box(sim, gym, env, 1, 1, 0.01, goal1_pose, color_vec_box1, True, "goal_region1", -2) # No collisions with goal region
+#             # goal_region2 = add_box(sim, gym, env, 1, 1, 0.01, goal2_pose, color_vec_box2, True, "goal_region2", -2) # No collisions with goal region
+#             # goal_region3 = add_box(sim, gym, env, 1, 1, 0.01, goal3_pose, color_vec_corner, True, "goal_region3", -2) # No collisions with goal region
 
-            block_goal_region = add_box(sim, gym, env, 0.45, 0.45, 0.01, block_goal_pose, color_vec_corner, True, "goal_region", -2) # No collisions with recharge region
-        # add movable squar box
-        y_axis = add_box(sim, gym, env, 0.05, 0.5, 0.01, yaxis_pose, gymapi.Vec3(0.0, 1, 0.2), True, "y", -2)
-        x_axis = add_box(sim, gym, env, 0.5, 0.05, 0.01, xaxis_pose, gymapi.Vec3(1, 0.0, 0.2), True, "x", -2)       
+#             block_goal_region = add_box(sim, gym, env, 0.45, 0.45, 0.01, block_goal_pose, color_vec_corner, True, "goal_region", -2) # No collisions with recharge region
+#         # add movable squar box
+#         y_axis = add_box(sim, gym, env, 0.05, 0.5, 0.01, yaxis_pose, gymapi.Vec3(0.0, 1, 0.2), True, "y", -2)
+#         x_axis = add_box(sim, gym, env, 0.5, 0.05, 0.01, xaxis_pose, gymapi.Vec3(1, 0.0, 0.2), True, "x", -2)       
 
         # if test_cornor:
         #     corner_region1 = add_box(sim, gym, env, 0.45, 0.45, 0.01, corner1_pose, color_vec_corner, True, "corner_region1", -2)
@@ -259,10 +259,10 @@ def add_obstacles(sim, gym, env, environment_type, index):
     #     crate_props = gym.get_actor_rigid_body_properties(env, crate_handle)
     #     crate_props[0].mass = 1. # Set 1kg mass
     #     gym.set_actor_rigid_body_properties(env, crate_handle, crate_props)      
-    else:
-        print("Invalid environment type")
+    # else:
+    #     print("Invalid environment type")
 
-def add_panda_arena(gym, sim, env, robot_asset, i):
+# def add_panda_arena(gym, sim, env, robot_asset, i):
     # # Create table asset
     # table_pos = [0.0, 0.0, 1.0]
     # table_thickness = 0.05
@@ -303,10 +303,10 @@ def add_panda_arena(gym, sim, env, robot_asset, i):
     # cubeB_asset = gym.create_box(sim, *([cubeB_size] * 3), cubeB_opts)
     # cubeB_color = gymapi.Vec3(0.0, 0.4, 0.1)
 
-    # Define start pose for panda
-    panda_start_pose = gymapi.Transform()
-    panda_start_pose.p = gymapi.Vec3(-0.45, 0.0, 1.0 + table_thickness / 2 + table_stand_height)
-    panda_start_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
+    # # Define start pose for panda
+    # panda_start_pose = gymapi.Transform()
+    # panda_start_pose.p = gymapi.Vec3(-0.45, 0.0, 1.0 + table_thickness / 2 + table_stand_height)
+    # panda_start_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
 
     # # Define start pose for table
     # table_start_pose = gymapi.Transform()
@@ -338,31 +338,31 @@ def add_panda_arena(gym, sim, env, robot_asset, i):
     # cubeB_start_pose.p = gymapi.Vec3(*params_panda.goal_cube)
     # cubeB_start_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
 
-    # Create panda robot
-    panda_actor = gym.create_actor(env, robot_asset, panda_start_pose, "panda", i, 0, 0)
+    # # Create panda robot
+    # panda_actor = gym.create_actor(env, robot_asset, panda_start_pose, "panda", i, 0, 0)
 
-    # Create table
-    table_actor = gym.create_actor(env, table_asset, table_start_pose, "table", i, 1, 0)
-    table_stand_actor = gym.create_actor(env, table_stand_asset, table_stand_start_pose, "table_stand",i, 1, 0)
+    # # Create table
+    # table_actor = gym.create_actor(env, table_asset, table_start_pose, "table", i, 1, 0)
+    # table_stand_actor = gym.create_actor(env, table_stand_asset, table_stand_start_pose, "table_stand",i, 1, 0)
     
-    # Create cubes
-    cubeA_id = gym.create_actor(env, cubeA_asset, cubeA_start_pose, "cubeA", i, 2, 0)
-    cubeB_id = gym.create_actor(env, cubeB_asset, cubeB_start_pose, "cubeB", i, 4, 0)
-    gym.set_rigid_body_color(env, cubeA_id, 0, gymapi.MESH_VISUAL, cubeA_color)
-    gym.set_rigid_body_color(env, cubeB_id, 0, gymapi.MESH_VISUAL, cubeB_color)
+    # # Create cubes
+    # cubeA_id = gym.create_actor(env, cubeA_asset, cubeA_start_pose, "cubeA", i, 2, 0)
+    # cubeB_id = gym.create_actor(env, cubeB_asset, cubeB_start_pose, "cubeB", i, 4, 0)
+    # gym.set_rigid_body_color(env, cubeA_id, 0, gymapi.MESH_VISUAL, cubeA_color)
+    # gym.set_rigid_body_color(env, cubeB_id, 0, gymapi.MESH_VISUAL, cubeB_color)
 
-    # Create shelf
-    shelf_creator = gym.create_actor(env, shelf_stand_asset, shelf_stand_start_pose, "shelf_stand",i, 1, 0)
+    # # Create shelf
+    # shelf_creator = gym.create_actor(env, shelf_stand_asset, shelf_stand_start_pose, "shelf_stand",i, 1, 0)
 
-    # Create obstacle
-    obs_creater = gym.create_actor(env, obs_asset, obs_start_pose, "obs",i, 1, 0)
+    # # Create obstacle
+    # obs_creater = gym.create_actor(env, obs_asset, obs_start_pose, "obs",i, 1, 0)
 
-    cubeA_rbid = gym.get_actor_rigid_body_index(env, cubeA_id, 0, gymapi.DOMAIN_SIM) # 13
-    cubeB_rbid = gym.get_actor_rigid_body_index(env, cubeB_id, 0, gymapi.DOMAIN_SIM) # 14
-    shelf_rbid = gym.get_actor_rigid_body_index(env, shelf_creator, 0, gymapi.DOMAIN_SIM) # 15
-    obs_rbid = gym.get_actor_rigid_body_index(env, obs_creater, 0, gymapi.DOMAIN_SIM) # 16
+    # cubeA_rbid = gym.get_actor_rigid_body_index(env, cubeA_id, 0, gymapi.DOMAIN_SIM) # 13
+    # cubeB_rbid = gym.get_actor_rigid_body_index(env, cubeB_id, 0, gymapi.DOMAIN_SIM) # 14
+    # shelf_rbid = gym.get_actor_rigid_body_index(env, shelf_creator, 0, gymapi.DOMAIN_SIM) # 15
+    # obs_rbid = gym.get_actor_rigid_body_index(env, obs_creater, 0, gymapi.DOMAIN_SIM) # 16
 
-    return panda_actor
+    # return panda_actor
 
 # def add_albert_arena(gym, sim, env, robot_asset, i):
 #     # Create table asset
@@ -439,40 +439,40 @@ def add_panda_arena(gym, sim, env, robot_asset, i):
 
 #     return default_dof_state
                         
-def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, environment_type, control_type = "vel_control"):
-    # Some common handles for later use
-    envs = []
-    robot_handles = []
-    print("Creating %d environments" % num_envs)
-    num_per_row = int(math.sqrt(num_envs))
-    # if environment_type == 'cube':
-    #     gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(0, 1.5, 2.8), gymapi.Vec3(0, 0, 1))
-    # elif environment_type == 'albert_arena':
-    #     gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(0, 4, 2.8), gymapi.Vec3(0, 0, 1))
-    # else:
-    #     gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(1.5, 6, 8), gymapi.Vec3(1.5, 0, 0))
+# def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, environment_type, control_type = "vel_control"):
+#     # Some common handles for later use
+#     envs = []
+#     robot_handles = []
+#     print("Creating %d environments" % num_envs)
+#     num_per_row = int(math.sqrt(num_envs))
+#     # if environment_type == 'cube':
+#     #     gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(0, 1.5, 2.8), gymapi.Vec3(0, 0, 1))
+#     # elif environment_type == 'albert_arena':
+#     #     gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(0, 4, 2.8), gymapi.Vec3(0, 0, 1))
+#     # else:
+#     #     gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(1.5, 6, 8), gymapi.Vec3(1.5, 0, 0))
 
-    for i in range(num_envs):
-        # Create env
-        env = gym.create_env(sim, gymapi.Vec3(-spacing, 0.0, -spacing), gymapi.Vec3(spacing, spacing, spacing), num_per_row)
-        envs.append(env)
+#     for i in range(num_envs):
+#         # Create env
+#         env = gym.create_env(sim, gymapi.Vec3(-spacing, 0.0, -spacing), gymapi.Vec3(spacing, spacing, spacing), num_per_row)
+#         envs.append(env)
 
-        if environment_type in ["normal" ,"battery", "lab"]:
-            add_arena(sim, gym, env, environment_type, 0, 0, i) # origin_x, origin_y, index
-            add_obstacles(sim, gym, env, environment_type, index = i)
-            robot_handle = gym.create_actor(env, robot_asset, pose, "robot", i, 1)
-            if environment_type == "battery":
-                gym.set_rigid_body_color(env, robot_handle, -1, gymapi.MESH_VISUAL_AND_COLLISION, color_vec_battery_ok)
-        else:
-            if environment_type == "cube":
-                robot_handle = add_panda_arena(gym, sim, env, robot_asset, i)
-            elif environment_type == "albert_arena":
-                robot_handle = add_albert_arena(gym, sim, env, robot_asset, i)
-            if 'default_dof_state' not in locals():
-                default_dof_state = get_default_franka_state(gym, robot_asset)
-            gym.set_actor_dof_states(env, robot_handle, default_dof_state, gymapi.STATE_ALL)
+#         if environment_type in ["normal" ,"battery", "lab"]:
+#             add_arena(sim, gym, env, environment_type, 0, 0, i) # origin_x, origin_y, index
+#             add_obstacles(sim, gym, env, environment_type, index = i)
+#             robot_handle = gym.create_actor(env, robot_asset, pose, "robot", i, 1)
+#             if environment_type == "battery":
+#                 gym.set_rigid_body_color(env, robot_handle, -1, gymapi.MESH_VISUAL_AND_COLLISION, color_vec_battery_ok)
+        # else:
+        #     if environment_type == "cube":
+        #         robot_handle = add_panda_arena(gym, sim, env, robot_asset, i)
+        #     elif environment_type == "albert_arena":
+        #         robot_handle = add_albert_arena(gym, sim, env, robot_asset, i)
+        #     if 'default_dof_state' not in locals():
+        #         default_dof_state = get_default_franka_state(gym, robot_asset)
+        #     gym.set_actor_dof_states(env, robot_handle, default_dof_state, gymapi.STATE_ALL)
 
-        robot_handles.append(robot_handle)
+        # robot_handles.append(robot_handle)
 
         # # Update point bot dynamics / control mode
         # props = gym.get_asset_dof_properties(robot_asset)
@@ -521,4 +521,4 @@ def create_robot_arena(gym, sim, num_envs, spacing, robot_asset, pose, viewer, e
         #     shape_props[21].rolling_friction = 0.
         #     gym.set_actor_rigid_shape_properties(env, robot_handle, shape_props)
 
-    return envs, robot_handles
+    # return envs, robot_handles
