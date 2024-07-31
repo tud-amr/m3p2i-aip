@@ -220,25 +220,25 @@ def visualize_toptrajs(gym, viewer, env, states, is_mobile_robot):
         # Draw lines
         gym.add_lines(viewer, env, t_horizon, line_array, color_array)
 
-# Step the simulation
-def step(gym, sim):
-    gym.simulate(sim)
-    gym.fetch_results(sim, True)
+# # Step the simulation
+# def step(gym, sim):
+#     gym.simulate(sim)
+#     gym.fetch_results(sim, True)
 
-# Refresh the states
-def refresh_states(gym, sim):
-    gym.refresh_actor_root_state_tensor(sim)
-    gym.refresh_dof_state_tensor(sim)
-    gym.refresh_rigid_body_state_tensor(sim)
+# # Refresh the states
+# def refresh_states(gym, sim):
+#     gym.refresh_actor_root_state_tensor(sim)
+#     gym.refresh_dof_state_tensor(sim)
+#     gym.refresh_rigid_body_state_tensor(sim)
 
-# Gym rendering 
-def step_rendering(gym, sim, viewer, sync_frame_time=False):
-    if viewer is not None:
-        # Step rendering
-        gym.step_graphics(sim)
-        gym.draw_viewer(viewer, sim, False)
-        if sync_frame_time:
-            gym.sync_frame_time(sim)
+# # Gym rendering 
+# def step_rendering(gym, sim, viewer, sync_frame_time=False):
+#     if viewer is not None:
+#         # Step rendering
+#         gym.step_graphics(sim)
+#         gym.draw_viewer(viewer, sim, False)
+#         if sync_frame_time:
+#             gym.sync_frame_time(sim)
 
 # Time logging
 def time_logging(gym, sim, next_fps_report, frame_count, t1, num_envs, sim_time=[]):

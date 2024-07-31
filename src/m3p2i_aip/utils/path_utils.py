@@ -12,7 +12,7 @@ def get_assets_path():
 
 def get_params_path():
     package_path = get_package_path()
-    path = os.path.join(package_path,'params')
+    path = os.path.join(package_path,'params/')
     return path
 
 def get_plot_path():

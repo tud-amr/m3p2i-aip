@@ -5,6 +5,9 @@ import m3p2i_aip.utils.path_utils as path_utils
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import List, Optional, Any
+import pathlib 
+import yaml
+from yaml import SafeLoader
 
 class SupportedActorTypes(Enum):
     Axis = 1
@@ -24,7 +27,7 @@ class ActorWrapper:
     color: List[float] = field(default_factory=lambda: [1.0, 1.0, 1.0])
     fixed: bool = False
     collision: bool = True
-    friction: float = 1.0
+    friction: float = 0.0 # 1.0
     handle: Optional[int] = None
     flip_visual: bool = False
     urdf_file: str = None
@@ -45,12 +48,12 @@ class ActorWrapper:
 def load_asset(gym, sim, actor_cfg):
     asset_options = gymapi.AssetOptions()
     asset_options.fix_base_link = actor_cfg.fixed
+    asset_options.disable_gravity = not actor_cfg.gravity
     asset_root_path = path_utils.get_assets_path()
 
     if actor_cfg.type == "robot":
         asset_file = "urdf/" + actor_cfg.urdf_file
         asset_options.flip_visual_attachments = actor_cfg.flip_visual
-        asset_options.disable_gravity = not actor_cfg.gravity
         actor_asset = gym.load_asset(
             sim=sim,
             rootpath=asset_root_path,
@@ -87,3 +90,17 @@ def load_asset(gym, sim, actor_cfg):
         )
 
     return actor_asset
+
+def load_env_cfgs(env_type: str) -> List[ActorWrapper]:
+    actor_cfgs = []
+    env_path = path_utils.get_params_path() + env_type
+    for file in pathlib.Path(env_path).iterdir():
+        # if file.is_file():
+        with open (f"{file}") as f:
+            actor_cfgs.append(ActorWrapper(**yaml.load(f, Loader=SafeLoader)))
+
+    return actor_cfgs
+
+# if __name__== "__main__":
+#     actor_cfgs = load_env_cfgs("point_env")
+    # print(actor_cfgs)
