@@ -89,6 +89,84 @@ class IsaacGymWrapper:
 
         self.set_initial_joint_pose()
 
+        self.acquire_states()
+
+    def acquire_states(self):
+        self._dof_state = gymtorch.wrap_tensor(
+            self._gym.acquire_dof_state_tensor(self._sim)
+        ).view(self.num_envs, -1)
+
+        self._root_state = gymtorch.wrap_tensor(
+            self._gym.acquire_actor_root_state_tensor(self._sim)
+        ).view(self.num_envs, -1, 13)
+
+        self._rigid_body_state = gymtorch.wrap_tensor(
+            self._gym.acquire_rigid_body_state_tensor(self._sim)
+        ).view(self.num_envs, -1, 13)
+
+    def _get_actor_index_by_name(self, name: str):
+        return torch.tensor([a.name for a in self.env_cfg].index(name), device=self.device)
+
+    def _get_actor_index_by_robot_index(self, robot_idx: int):
+        return self._robot_indices[robot_idx]
+
+    def get_actor_position_by_actor_index(self, actor_idx: int):
+        return torch.index_select(self._root_state, 1, actor_idx)[:, 0, 0:3]
+
+    def get_actor_position_by_name(self, name: str):
+        actor_idx = self._get_actor_index_by_name(name)
+        return self.get_actor_position_by_actor_index(actor_idx)
+
+    def get_actor_position_by_robot_index(self, robot_idx: int):
+        actor_idx = self._get_actor_index_by_robot_index(robot_idx)
+        return self.get_actor_position_by_actor_index(actor_idx)
+
+    def get_actor_velocity_by_actor_index(self, idx: int):
+        return torch.index_select(self._root_state, 1, idx)[:, 0, 7:10]
+
+    def get_actor_velocity_by_name(self, name: str):
+        actor_idx = self._get_actor_index_by_name(name)
+        return self.get_actor_velocity_by_actor_index(actor_idx)
+
+    def get_actor_velocity_by_robot_index(self, robot_idx: int):
+        actor_idx = self._get_actor_index_by_robot_index(robot_idx)
+        return self.get_actor_velocity_by_actor_index(actor_idx)
+
+    def get_actor_orientation_by_actor_index(self, idx: int):
+        return torch.index_select(self._root_state, 1, idx)[:, 0, 3:7]
+
+    def get_actor_orientation_by_name(self, name: str):
+        actor_idx = self._get_actor_index_by_name(name)
+        return self.get_actor_orientation_by_actor_index(actor_idx)
+
+    def get_actor_orientation_by_robot_index(self, robot_idx: int):
+        actor_idx = self._get_actor_index_by_robot_index(robot_idx)
+        return self.get_actor_orientation_by_actor_index(actor_idx)
+
+    def get_rigid_body_by_rigid_body_index(self, rigid_body_idx: int):
+        return torch.index_select(self._rigid_body_state, 1, rigid_body_idx)[:, 0, :]
+
+    def get_actor_link_by_name(self, actor_name: str, link_name: str):
+        actor_idx = self._get_actor_index_by_name(actor_name)
+        rigid_body_idx = torch.tensor(
+            self._gym.find_actor_rigid_body_index(
+                self.envs[0], actor_idx, link_name, gymapi.IndexDomain.DOMAIN_ENV
+            ),
+            device=self.device,
+        )
+        # print(rigid_body_idx)
+        return self.get_rigid_body_by_rigid_body_index(rigid_body_idx)
+
+    def get_actor_contact_forces_by_name(self, actor_name: str, link_name: str):
+        actor_idx = self._get_actor_index_by_name(actor_name)
+        rigid_body_idx = torch.tensor(
+            self._gym.find_actor_rigid_body_index(
+                self.envs[0], actor_idx, link_name, gymapi.IndexDomain.DOMAIN_ENV
+            ),
+            device=self.device,
+        )
+        return self._net_contact_force[:, rigid_body_idx]
+
     def set_initial_joint_pose(self):
         # set initial joint poses
         robots = [a for a in self.env_cfg if a.type == "robot"]
