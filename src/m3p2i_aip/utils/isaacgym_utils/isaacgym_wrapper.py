@@ -241,7 +241,7 @@ class IsaacGymWrapper:
             asset=asset,
             pose=pose,
             name=actor.name,
-            group=env_idx if actor.collision else env_idx + self.num_envs, #
+            group=env_idx if actor.collision else -2, #  env_idx + self.num_envs, #
         )
 
         if actor.noise_sigma_size:
@@ -257,7 +257,7 @@ class IsaacGymWrapper:
         # )
         # props[0].mass = actor.mass + actor_mass_noise
         # self._gym.set_actor_rigid_body_properties(env, handle, props)
-        print("mass", props[0].mass)
+        # print("mass", props[0].mass)
 
         body_names = self._gym.get_actor_rigid_body_names(env, handle)
         body_to_shape = self._gym.get_actor_rigid_body_shape_indices(env, handle)
