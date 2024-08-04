@@ -92,6 +92,7 @@ class IsaacGymWrapper:
         self.acquire_states()
 
     def acquire_states(self):
+        self.num_dofs = self._gym.get_sim_dof_count(self._sim)
         self._dof_state = gymtorch.wrap_tensor(
             self._gym.acquire_dof_state_tensor(self._sim)
         ).view(self.num_envs, -1)
@@ -317,6 +318,14 @@ class IsaacGymWrapper:
             self._gym.step_graphics(self._sim)
             self._gym.draw_viewer(self.viewer, self._sim, False)
 
+    def stop_sim(self):
+        print("Done! Stop sim!")
+        if self.viewer:
+            self._gym.destroy_viewer(self.viewer)
+        # for env_idx in range(self.num_envs):
+        #     self._gym.destroy_env(self.envs[env_idx])
+        self._gym.destroy_sim(self._sim)
+
     def initialize_keyboard_listeners(self):
         self._gym.subscribe_viewer_keyboard_event(self.viewer, gymapi.KEY_A, "left")
         self._gym.subscribe_viewer_keyboard_event(self.viewer, gymapi.KEY_S, "down")
@@ -336,6 +345,29 @@ class IsaacGymWrapper:
         self._gym.subscribe_viewer_keyboard_event(self.viewer, gymapi.KEY_DOWN, "key_down")
         self._gym.subscribe_viewer_keyboard_event(self.viewer, gymapi.KEY_RIGHT, "key_right")
         self._gym.subscribe_viewer_keyboard_event(self.viewer, gymapi.KEY_UP, "key_up")
+
+    def keyboard_control(self):
+        # Set targets for different robots
+        vel_targets = {}
+        zero_vel = torch.zeros(self.num_dofs, dtype=torch.float32, device=self.device)
+        if self.env_type == "point_env":
+            up_vel = torch.tensor([0, -2], dtype=torch.float32, device=self.device).repeat(self.num_envs)
+            down_vel = torch.tensor([0, 2], dtype=torch.float32, device=self.device).repeat(self.num_envs)
+            left_vel = torch.tensor([2, 0], dtype=torch.float32, device=self.device).repeat(self.num_envs)
+            right_vel = torch.tensor([-2, 0], dtype=torch.float32, device=self.device).repeat(self.num_envs)
+            vel_targets = {"up":up_vel, "down":down_vel, "left":left_vel, "right":right_vel}
+        elif self.env_type == "panda_env":
+            for i in range(self.num_dofs):
+                joint_i = torch.zeros(self.num_dofs, dtype=torch.float32, device=self.device)
+                joint_i[i] = 1
+                vel_targets[str(i+1)] = joint_i
+
+        # Respond the keyboard (velocity control)
+        for evt in self._gym.query_viewer_action_events(self.viewer):
+            if evt.value > 0:
+                self._gym.set_dof_velocity_target_tensor(self._sim, gymtorch.unwrap_tensor(vel_targets[evt.action]))
+            else:
+                self._gym.set_dof_velocity_target_tensor(self._sim, gymtorch.unwrap_tensor(zero_vel))
 
     def add_ground_plane(self):
         plane_params = gymapi.PlaneParams()
