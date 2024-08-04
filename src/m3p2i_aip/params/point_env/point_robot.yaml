@@ -1,7 +1,5 @@
 type: robot
 name: point_robot
 urdf_file: "pointRobot.urdf"
-flip_visual: False
 fixed: True
-collision: True
 init_pos: [.0, .0, .05]

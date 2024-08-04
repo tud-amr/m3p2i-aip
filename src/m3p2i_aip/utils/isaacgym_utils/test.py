@@ -7,12 +7,15 @@ sim = wrapper.IsaacGymWrapper(
         viewer=True,
     )
 
+# point_pos = sim.get_actor_position_by_name("point_robot")
+
 for i in range(2000):
     sim.step()
-    if i == 2: 
+    sim.keyboard_control()
+    if True: 
         print("dof states", sim._dof_state)
         print("root states", sim._root_state)
-        print("rb states", sim._rigid_body_state)
+        # print("rb states", sim._rigid_body_state)
         if sim.env_type == "panda_env":
             cubeA_pos = sim.get_actor_position_by_name("cubeA")
             cubeA_ori = sim.get_actor_orientation_by_name("cubeA")
@@ -27,10 +30,12 @@ for i in range(2000):
             print("left_finger:", left_finger)
             print("right_finger:", right_finger)
         elif sim.env_type == "point_env":
+            point_pos = sim.get_actor_position_by_name("point_robot")
             box_pos = sim.get_actor_position_by_name("box")
             box_ori = sim.get_actor_orientation_by_name("box")
             dyn_obs_pos = sim.get_actor_position_by_name("dyn-obs")
             goal_pos = sim.get_actor_position_by_name("goal")
-            print("box_pos", box_pos)
-            print("dyn_obs_pos", dyn_obs_pos)
-            print("goal_pos", goal_pos)
+            print("point_pos", point_pos)
+            # print("box_pos", box_pos)
+            # print("dyn_obs_pos", dyn_obs_pos)
+            # print("goal_pos", goal_pos)
