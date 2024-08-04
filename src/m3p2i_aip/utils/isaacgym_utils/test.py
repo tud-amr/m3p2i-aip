@@ -3,11 +3,9 @@ import  m3p2i_aip.utils.isaacgym_utils.isaacgym_wrapper as wrapper
 sim = wrapper.IsaacGymWrapper(
         wrapper.IsaacGymConfig,
         env_type="point_env",
-        num_envs=1,
+        num_envs=10,
         viewer=True,
     )
-
-# point_pos = sim.get_actor_position_by_name("point_robot")
 
 for i in range(2000):
     sim.step()
@@ -30,12 +28,12 @@ for i in range(2000):
             print("left_finger:", left_finger)
             print("right_finger:", right_finger)
         elif sim.env_type == "point_env":
-            point_pos = sim.get_actor_position_by_name("point_robot")
             box_pos = sim.get_actor_position_by_name("box")
             box_ori = sim.get_actor_orientation_by_name("box")
             dyn_obs_pos = sim.get_actor_position_by_name("dyn-obs")
             goal_pos = sim.get_actor_position_by_name("goal")
-            print("point_pos", point_pos)
-            # print("box_pos", box_pos)
-            # print("dyn_obs_pos", dyn_obs_pos)
+            print("point_pos", sim.robot_pos)
+            print("point_vel", sim.robot_vel)
+            print("box_pos", box_pos)
+            print("dyn_obs_pos", dyn_obs_pos)
             # print("goal_pos", goal_pos)

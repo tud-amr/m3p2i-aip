@@ -56,6 +56,7 @@ class IsaacGymWrapper:
         self.env_type = env_type
         self.env_cfg = actor_utils.load_env_cfgs(env_type)
         self.device = device
+        self.robot_indices = torch.tensor([i for i, a in enumerate(self.env_cfg) if a.type == "robot"], device=self.device)
 
         self.cfg = cfg
         if viewer:
@@ -105,11 +106,19 @@ class IsaacGymWrapper:
             self._gym.acquire_rigid_body_state_tensor(self._sim)
         ).view(self.num_envs, -1, 13)
 
+    @property
+    def robot_pos(self):
+        return torch.index_select(self._dof_state, 1, torch.tensor([0, 2], device=self.device))
+
+    @property
+    def robot_vel(self):
+        return torch.index_select(self._dof_state, 1, torch.tensor([1, 3], device=self.device))
+
     def _get_actor_index_by_name(self, name: str):
         return torch.tensor([a.name for a in self.env_cfg].index(name), device=self.device)
 
     def _get_actor_index_by_robot_index(self, robot_idx: int):
-        return self._robot_indices[robot_idx]
+        return self.robot_indices[robot_idx]
 
     def get_actor_position_by_actor_index(self, actor_idx: int):
         return torch.index_select(self._root_state, 1, actor_idx)[:, 0, 0:3]
