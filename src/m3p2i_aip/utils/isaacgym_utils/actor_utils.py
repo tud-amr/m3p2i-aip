@@ -93,7 +93,7 @@ def load_asset(gym, sim, actor_cfg):
 
 def load_env_cfgs(env_type: str) -> List[ActorWrapper]:
     actor_cfgs = []
-    env_path = path_utils.get_params_path() + env_type
+    env_path = path_utils.get_config_path() + env_type
     for file in pathlib.Path(env_path).iterdir():
         # if file.is_file():
         with open (f"{file}") as f:

@@ -1,7 +1,7 @@
 import  m3p2i_aip.utils.isaacgym_utils.isaacgym_wrapper as wrapper
 import torch
 import hydra
-from m3p2i_aip.utils.config_store import ExampleConfig
+from m3p2i_aip.config.config_store import ExampleConfig
 
 @hydra.main(version_base=None, config_path="../src/m3p2i_aip/params", config_name="config_panda")
 def test(cfg: ExampleConfig):
