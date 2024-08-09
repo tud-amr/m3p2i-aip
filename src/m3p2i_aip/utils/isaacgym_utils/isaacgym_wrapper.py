@@ -1,21 +1,20 @@
 from isaacgym import gymapi
 from isaacgym import gymtorch
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import  m3p2i_aip.utils.isaacgym_utils.actor_utils as actor_utils
 import numpy as np
 import torch
+from typing import List
 @dataclass
-class IsaacGymConfig(object):
+class IsaacGymConfig():
     dt: float = 0.05 # 0.01
     substeps: int = 2
     use_gpu_pipeline: bool = True
     num_threads: int = 8
     viewer: bool = False
     spacing: float = 10 # !! 2.0
-    # panda_camera_pos1: List[float] = [0, 1.5, 2.8]
-    # panda_camera_pos2: List[float] = [0, 0, 1]
-    # point_camera_pos1: List[float] = [1.5, 6, 8]
-    # point_camera_pos2: List[float] = [1.5, 0, 0]
+    camera_pos: List[float] = field(default_factory=lambda: [1.5, 6, 8])
+    camera_target: List[float] = field(default_factory=lambda: [1.5, 0, 0])
 
 
 def parse_isaacgym_config(cfg: IsaacGymConfig, device: str = "cuda:0") -> gymapi.SimParams:
@@ -63,8 +62,6 @@ class IsaacGymWrapper:
             self.cfg.viewer = viewer
         # self.interactive_goal = interactive_goal
         self.num_envs = num_envs
-        # self.camera_pos1 = {"point_env":self.cfg.point_camera_pos1, "panda_env":self.cfg.panda_camera_pos1}
-        # self.camera_pos2 = {"point_env":self.cfg.point_camera_pos2, "panda_env":self.cfg.panda_camera_pos2}
         # self.restarted = 1
         self.start_sim()
 
@@ -208,14 +205,9 @@ class IsaacGymWrapper:
             asset = actor_utils.load_asset(self._gym, self._sim, actor_cfg)
             env_actor_assets.append(asset)
 
-        # self._gym.viewer_camera_look_at(self.viewer, None, 
-        #                                 gymapi.Vec3(*self.camera_pos1[self.env_type]), 
-        #                                 gymapi.Vec3(*self.camera_pos2[self.env_type]))
-
-        if self.env_type == 'panda_env':
-            self._gym.viewer_camera_look_at(self.viewer, None, gymapi.Vec3(0, 1.5, 2.8), gymapi.Vec3(0, 0, 1))
-        else:
-            self._gym.viewer_camera_look_at(self.viewer, None, gymapi.Vec3(1.5, 6, 8), gymapi.Vec3(1.5, 0, 0))
+        self._gym.viewer_camera_look_at(self.viewer, None, 
+                                        gymapi.Vec3(*self.cfg.camera_pos), 
+                                        gymapi.Vec3(*self.cfg.camera_target))
 
         # Create envs and fill with assets
         self.envs = []

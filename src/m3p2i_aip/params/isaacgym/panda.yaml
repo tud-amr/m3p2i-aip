@@ -3,3 +3,5 @@ defaults:
 
 dt: 0.01
 spacing: 2
+camera_pos: [0, 1.5, 2.8]
+camera_target: [0, 0, 1]
