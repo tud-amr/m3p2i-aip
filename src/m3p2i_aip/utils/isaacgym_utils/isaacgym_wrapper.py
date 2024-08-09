@@ -106,6 +106,10 @@ class IsaacGymWrapper:
             self._gym.acquire_rigid_body_state_tensor(self._sim)
         ).view(self.num_envs, -1, 13)
 
+        self._net_contact_force = gymtorch.wrap_tensor(
+            self._gym.acquire_net_contact_force_tensor(self._sim)
+        ).view(self.num_envs, -1, 3)
+
     @property
     def robot_pos(self):
         return torch.index_select(self._dof_state, 1, torch.tensor([0, 2], device=self.device))
