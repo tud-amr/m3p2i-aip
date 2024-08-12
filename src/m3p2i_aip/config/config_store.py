@@ -18,6 +18,8 @@ class ExampleConfig:
     nx: int
     actors: List[str]
     initial_actor_positions: List[List[float]]
+    kp_suction: int
+    suction_active: bool
 
 
 cs = ConfigStore.instance()

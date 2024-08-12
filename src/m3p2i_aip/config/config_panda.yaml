@@ -9,6 +9,8 @@ task: reactive_pick
 # actors: ['albert', 'goal']
 # initial_actor_positions: [[0.0, 0.0, 0.05]]
 nx: 18
+kp_suction: 400
+suction_active: False
 
 # hydra:
 #   searchpath:

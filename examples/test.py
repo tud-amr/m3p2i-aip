@@ -15,6 +15,7 @@ def test(cfg: ExampleConfig):
     
     print("dt", cfg.isaacgym.dt, "spacing", cfg.isaacgym.spacing, "nx", cfg.nx)
     print("mppi samples", cfg.mppi.num_samples, "lambda", cfg.mppi.lambda_)
+    print("suction active", cfg.suction_active, "kp suction", cfg.kp_suction)
 
     for i in range(2000):
         sim.step()
@@ -26,6 +27,7 @@ def test(cfg: ExampleConfig):
             if sim.env_type == "panda_env":
                 cubeA_pos = sim.get_actor_position_by_name("cubeA")
                 cubeA_ori = sim.get_actor_orientation_by_name("cubeA")
+                cubeA_state = sim.get_actor_link_by_name("cubeA", "box")
                 cubeB_pos = sim.get_actor_position_by_name("cubeB")
                 cubeB_ori = sim.get_actor_orientation_by_name("cubeB")
                 left_finger = sim.get_actor_link_by_name("panda", "panda_leftfinger")
@@ -33,6 +35,7 @@ def test(cfg: ExampleConfig):
                 table_force = sim.get_actor_contact_forces_by_name("table", "box")
                 # print("cubeA_pos", cubeA_pos)
                 # print("cubeA_ori", cubeA_ori)
+                # print("cubeA_state", cubeA_state)
                 # print("cubeB_pos", cubeB_pos)
                 # print("cubeB_ori", cubeB_ori)
                 # print("left_finger:", left_finger)
@@ -42,7 +45,7 @@ def test(cfg: ExampleConfig):
                 box_pos = sim.get_actor_position_by_name("box")
                 box_ori = sim.get_actor_orientation_by_name("box")
                 dyn_obs_pos = sim.get_actor_position_by_name("dyn-obs")
-                dyn_obs_force = sim.get_actor_contact_forces_by_name("dyn-obs", "box")
+                dyn_obs_force = sim.get_actor_contact_forces_by_name("dyn-obs", "box") # [n, 3]
                 goal_pos = sim.get_actor_position_by_name("goal")
                 # print("point_pos", sim.robot_pos)
                 # print("point_vel", sim.robot_vel)
