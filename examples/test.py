@@ -14,7 +14,7 @@ def test(cfg: ExampleConfig):
         )
     
     print("dt", cfg.isaacgym.dt, "spacing", cfg.isaacgym.spacing, "nx", cfg.nx)
-    print("mppi samples", cfg.mppi.num_samples)
+    print("mppi samples", cfg.mppi.num_samples, "lambda", cfg.mppi.lambda_)
 
     for i in range(2000):
         sim.step()

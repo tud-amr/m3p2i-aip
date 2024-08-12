@@ -1,5 +1,5 @@
 defaults:
-  - mppi: base_mppi
+  - mppi: panda
   - isaacgym: panda
 
 env_type: panda_env

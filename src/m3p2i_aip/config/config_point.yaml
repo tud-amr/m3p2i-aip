@@ -1,5 +1,5 @@
 defaults:
-  - mppi: base_mppi
+  - mppi: point
   - isaacgym: point
 
 env_type: point_env

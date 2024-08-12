@@ -44,6 +44,7 @@ class MPPIConfig(object):
     """
         :param num_samples: K, number of trajectories to sample
         :param horizon: T, length of each trajectory
+        :param nx: state dimension
         :param mppi_mode: 'halton-spline' or 'simple' corresponds to the type of mppi.
         :param sampling_method: 'halton' or 'random', sampling strategy while using mode 'halton-spline'. In 'simple', random sampling is forced to 'random' 
         :param noise_sigma: variance per action (nu x nu, assume v_t ~ N(u_t, noise_sigma))
@@ -62,14 +63,15 @@ class MPPIConfig(object):
         :param noise_abs_cost: Whether to use the absolute value of the action noise to avoid bias when all states have the same cost   
     """
 
-    num_samples: int = 100
-    horizon: int = 30
+    num_samples: int = 200
+    horizon: int = 12
+    nx: int = 4
     mppi_mode: str = 'halton-spline'
     sampling_method: str = "halton"
     noise_sigma: Optional[List[List[float]]] = None
     noise_mu: Optional[List[float]] = None
     device: str = "cuda:0"
-    lambda_: float = 0.0
+    lambda_: float = 1.0
     update_lambda: bool = False
     update_cov: bool = False
     u_min: Optional[List[float]] = None
@@ -110,11 +112,10 @@ class MPPI():
                             mppi_mode = 'halton-spline', sample_mode = 'random'
     """
 
-    def __init__(self, cfg, nx, env_type, dynamics=None, running_cost=None):
+    def __init__(self, cfg, env_type, dynamics=None, running_cost=None):
         """
         :param dynamics: function(state, action) -> next_state (K x nx) taking in batch state (K x nx) and action (K x nu)
         :param running_cost: function(state, action) -> cost (K) taking in batch state and action (same as dynamics)
-        :param nx: state dimension
         :param terminal_state_cost: function(state) -> cost (K x 1) taking in batch state
         """
         # Utility vars
@@ -122,7 +123,7 @@ class MPPI():
         self.half_K = int(self.K/2)
         self.T = cfg.horizon  
         self.filter_u = cfg.filter_u
-        self.lambda_ = 1.
+        self.lambda_ = cfg.lambda_
         noise_sigma = cfg.noise_sigma
         self.delta = None
         self.sample_null_action = cfg.sample_null_action
@@ -132,7 +133,7 @@ class MPPI():
         self.tensor_args={'device':cfg.device, 'dtype':torch.float32}
 
         # Dimensions of state nx and control nu
-        self.nx = nx #
+        self.nx = cfg.nx
         self.nu = 1 if len(noise_sigma.shape) == 0 else noise_sigma.shape[0]
 
         # Noise initialization
@@ -146,7 +147,7 @@ class MPPI():
         self.noise_mu = noise_mu.to(**self.tensor_args)
         self.noise_sigma = noise_sigma.to(**self.tensor_args)
         self.noise_sigma_inv = torch.inverse(self.noise_sigma)
-        self.noise_abs_cost = False
+        self.noise_abs_cost = cfg.noise_abs_cost
 
         # Random noise dist
         self.noise_dist = MultivariateNormal(self.noise_mu, covariance_matrix=self.noise_sigma)
@@ -207,7 +208,7 @@ class MPPI():
         self.step_size_mean = 0.98      # From storm
 
         # Discount
-        self.gamma = 0.95 
+        self.gamma = cfg.rollout_var_discount 
         self.gamma_seq = torch.cumprod(torch.tensor([1.0] + [self.gamma] * (self.T - 1)),dim=0).reshape(1, self.T)
         self.gamma_seq = self.gamma_seq.to(**self.tensor_args)
         self.beta = 1 # param storm
@@ -227,7 +228,7 @@ class MPPI():
         self.lambda_mult = 0.1  # Update rate
 
         # covariance update
-        self.update_cov = False   # !! weird if set to True
+        self.update_cov = cfg.update_cov   # !! weird if set to True
         self.step_size_cov = 0.7
         self.kappa = 0.005
     
