@@ -3,7 +3,7 @@ import torch
 import hydra
 from m3p2i_aip.config.config_store import ExampleConfig
 
-@hydra.main(version_base=None, config_path="../src/m3p2i_aip/params", config_name="config_panda")
+@hydra.main(version_base=None, config_path="../src/m3p2i_aip/config", config_name="config_panda")
 def test(cfg: ExampleConfig):
 
     sim = wrapper.IsaacGymWrapper(
@@ -13,7 +13,8 @@ def test(cfg: ExampleConfig):
             viewer=True,
         )
     
-    print("dt", cfg.isaacgym.dt, "spacing", cfg.isaacgym.spacing)
+    print("dt", cfg.isaacgym.dt, "spacing", cfg.isaacgym.spacing, "nx", cfg.nx)
+    print("mppi samples", cfg.mppi.num_samples)
 
     for i in range(2000):
         sim.step()

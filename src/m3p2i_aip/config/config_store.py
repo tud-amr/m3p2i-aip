@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-# from mppi_torch.mppi import MPPIConfig
+from m3p2i_aip.planners.motion_planner.mppi import MPPIConfig
 from m3p2i_aip.utils.isaacgym_utils.isaacgym_wrapper import IsaacGymConfig
 from hydra.core.config_store import ConfigStore
 
@@ -10,9 +10,10 @@ from typing import List, Optional
 class ExampleConfig:
     render: bool
     n_steps: int
-    # mppi: MPPIConfig
+    mppi: MPPIConfig
     isaacgym: IsaacGymConfig
     env_type: str
+    task: str
     goal: List[float]
     nx: int
     actors: List[str]
@@ -22,7 +23,7 @@ class ExampleConfig:
 cs = ConfigStore.instance()
 cs.store(name="config_point", node=ExampleConfig)
 cs.store(name="config_panda", node=ExampleConfig)
-# cs.store(group="mppi", name="base_mppi", node=MPPIConfig)
+cs.store(group="mppi", name="base_mppi", node=MPPIConfig)
 cs.store(group="isaacgym", name="base_isaacgym", node=IsaacGymConfig)
 
 

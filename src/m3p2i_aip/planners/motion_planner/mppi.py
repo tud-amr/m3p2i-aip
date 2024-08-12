@@ -1,4 +1,6 @@
 from scipy import signal
+from dataclasses import dataclass, field
+from typing import List, Optional
 import torch, logging, functools, numpy as np, scipy.interpolate as si
 from torch.distributions.multivariate_normal import MultivariateNormal
 from m3p2i_aip.utils.skill_utils import _ensure_non_zero, is_tensor_like, bspline
@@ -37,6 +39,56 @@ def handle_batch_input(func):
 
     return wrapper
 
+@dataclass
+class MPPIConfig(object):
+    """
+        :param num_samples: K, number of trajectories to sample
+        :param horizon: T, length of each trajectory
+        :param mppi_mode: 'halton-spline' or 'simple' corresponds to the type of mppi.
+        :param sampling_method: 'halton' or 'random', sampling strategy while using mode 'halton-spline'. In 'simple', random sampling is forced to 'random' 
+        :param noise_sigma: variance per action (nu x nu, assume v_t ~ N(u_t, noise_sigma))
+        :param noise_mu: (nu) control noise mean (used to bias control samples); defaults to zero mean        
+        :param device: pytorch device
+        :param lambda_: inverse temperature, positive scalar where smaller values will allow more exploration
+        :param update_lambda: flag for updating inv temperature
+        :param update_cov: flag for updating covariance
+        :param u_min: (nu) minimum values for each dimension of control to pass into dynamics
+        :param u_max: (nu) maximum values for each dimension of control to pass into dynamics
+        :param u_init: (nu) what to initialize new end of trajectory control to be; defeaults to zero
+        :param U_init: (T x nu) initial control sequence; defaults to noise
+        :param rollout_var_discount: Discount cost over control horizon
+        :param sample_null_action: Whether to explicitly sample a null action (bad for starting in a local minima)
+        :param use_priors: Whether or not to use other prior controllers
+        :param noise_abs_cost: Whether to use the absolute value of the action noise to avoid bias when all states have the same cost   
+    """
+
+    num_samples: int = 100
+    horizon: int = 30
+    mppi_mode: str = 'halton-spline'
+    sampling_method: str = "halton"
+    noise_sigma: Optional[List[List[float]]] = None
+    noise_mu: Optional[List[float]] = None
+    device: str = "cuda:0"
+    lambda_: float = 0.0
+    update_lambda: bool = False
+    update_cov: bool = False
+    u_min: Optional[List[float]] = None
+    u_max: Optional[List[float]] = None
+    u_init: float = 0.0
+    U_init: Optional[List[List[float]]] = None
+    u_scale: float = 1
+    u_per_command: int = 1
+    rollout_var_discount: float = 0.95
+    sample_null_action: bool = False
+    sample_previous_plan: bool = True
+    sample_other_priors: bool = False
+    noise_abs_cost: bool = False
+    filter_u: bool = False
+    use_priors: bool = False
+    seed_val: int = 0
+    eta_u_bound: int = 10
+    eta_l_bound: int = 5
+
 class MPPI():
     """
     Model Predictive Path Integral control
@@ -58,49 +110,29 @@ class MPPI():
                             mppi_mode = 'halton-spline', sample_mode = 'random'
     """
 
-    def __init__(self, params, dynamics=None, running_cost=None):
+    def __init__(self, cfg, nx, env_type, dynamics=None, running_cost=None):
         """
         :param dynamics: function(state, action) -> next_state (K x nx) taking in batch state (K x nx) and action (K x nu)
         :param running_cost: function(state, action) -> cost (K) taking in batch state and action (same as dynamics)
         :param nx: state dimension
-        :param noise_sigma: (nu x nu) control noise covariance (assume v_t ~ N(u_t, noise_sigma))
-        :param num_samples: K, number of trajectories to sample
-        :param horizon: T, length of each trajectory
-        :param device: pytorch device
         :param terminal_state_cost: function(state) -> cost (K x 1) taking in batch state
-        :param lambda_: temperature, positive scalar where larger values will allow more exploration
-        :param noise_mu: (nu) control noise mean (used to bias control samples); defaults to zero mean
-        :param u_min: (nu) minimum values for each dimension of control to pass into dynamics
-        :param u_max: (nu) maximum values for each dimension of control to pass into dynamics
-        :param u_init: (nu) what to initialize new end of trajectory control to be; defeaults to zero
-        :param U_init: (T x nu) initial control sequence; defaults to noise
-        :param step_dependent_dynamics: whether the passed in dynamics needs horizon step passed in (as 3rd arg)
-        :param rollout_samples: M, number of state trajectories to rollout for each control trajectory
-            (should be 1 for deterministic dynamics and more for models that output a distribution)
-        :param rollout_var_cost: Cost attached to the variance of costs across trajectory rollouts
-        :param rollout_var_discount: Discount of variance cost over control horizon
-        :param sample_null_action: Whether to explicitly sample a null action (bad for starting in a local minima)
-        :param use_priors: Wheher or not to use other prior controllers
-        :param noise_abs_cost: Whether to use the absolute value of the action noise to avoid bias when all states have the same cost
         """
         # Utility vars
-        self.num_envs = params.num_envs
-        self.K = params.num_envs 
+        self.K = cfg.num_samples
         self.half_K = int(self.K/2)
-        self.T = params.horizon  
-        self.filter_u = params.filter_u
+        self.T = cfg.horizon  
+        self.filter_u = cfg.filter_u
         self.lambda_ = 1.
-        noise_sigma = params.noise_sigma
+        noise_sigma = cfg.noise_sigma
         self.delta = None
-        self.sample_null_action = params.sample_null_action
-        self.u_per_command = params.u_per_command
-        self.robot = params.robot
-        self.tensor_args = params.tensor_args
-        self.device = self.tensor_args['device']
-        self.dtype = self.tensor_args['dtype']
+        self.sample_null_action = cfg.sample_null_action
+        self.u_per_command = cfg.u_per_command
+        self.env_type = env_type #
+        self.device = cfg.device
+        self.tensor_args={'device':cfg.device, 'dtype':torch.float32}
 
         # Dimensions of state nx and control nu
-        self.nx = params.nx
+        self.nx = nx #
         self.nu = 1 if len(noise_sigma.shape) == 0 else noise_sigma.shape[0]
 
         # Noise initialization
@@ -129,8 +161,8 @@ class MPPI():
         self.mean_action_2 = torch.zeros((self.T, self.nu), **self.tensor_args)
 
         # Bound actions
-        self.u_min = params.u_min
-        self.u_max = params.u_max
+        self.u_min = cfg.u_min
+        self.u_max = cfg.u_max
         self.u_scale = 1
 
         if self.u_max is not None and self.u_min is None: # Make sure if any of them is specified, both are specified
@@ -150,10 +182,9 @@ class MPPI():
         self.U = self.noise_dist.sample((self.T,))
 
         # Costs and dynamics initialization
-        self.step_dependency = params.step_dependent_dynamics
         self.F = dynamics
         self.running_cost = running_cost
-        self.terminal_state_cost = params.terminal_state_cost
+        self.terminal_state_cost = None
 
         # Sampled results from last command
         self.state = None
@@ -206,8 +237,8 @@ class MPPI():
         self.multi_modal = multi_modal and mppi_mode == 'halton-spline'
 
     @handle_batch_input
-    def _dynamics(self, state, u, t):
-        return self.F(state, u, t) if self.step_dependency else self.F(state, u)
+    def _dynamics(self, state, u, t=None):
+        return self.F(state, u, t=None)
 
     @handle_batch_input
     def _running_cost(self, state, u, t):
@@ -350,11 +381,8 @@ class MPPI():
         
         # Naively bound control
         self.perturbed_action = self._bound_action(self.perturbed_action)
-        if self.robot == 'panda':
+        if self.env_type == 'panda_env':
             self.perturbed_action[:, :, 8] = self.perturbed_action[:, :, 7]
-        elif self.robot == 'albert':
-            self.perturbed_action[:, :, :11] = 0
-            # self.perturbed_action[:, :, 12] = 0
 
         self.cost_total, self.states, self.actions, self.ee_states = self._compute_rollout_costs(self.perturbed_action)
         self.actions /= self.u_scale
@@ -394,9 +422,6 @@ class MPPI():
             self.delta = self.get_samples(self.K, base_seed=0)
         elif self.delta == None and self.sample_method == 'halton':
             self.delta = self.get_samples(self.K, base_seed=0)
-        if self.robot == 'albert':
-            self.delta[:, :, 9:11] = 0
-            # self.delta[:, :, 12] = 0
 
         # Add zero-noise seq so mean is always a part of samples
         self.delta[-1,:,:] = self.Z_seq
@@ -420,10 +445,8 @@ class MPPI():
             act_seq[self.half_K, :, :] = self.best_traj_2
         
         self.perturbed_action = torch.clone(act_seq)
-        if self.robot == 'panda':
+        if self.env_type == 'panda_env':
             self.perturbed_action[:, :, 8] = self.perturbed_action[:, :, 7]
-        elif self.robot == 'albert':
-            self.perturbed_action[:, :, 9:11] = 0
 
         self.cost_total, self.states, self.actions, self.ee_states = self._compute_rollout_costs(self.perturbed_action)
 
