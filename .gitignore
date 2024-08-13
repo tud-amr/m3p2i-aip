@@ -1,4 +1,4 @@
 __pycache__/
 thirdparty/
 *.egg-info
-examples/outputs
+*/outputs

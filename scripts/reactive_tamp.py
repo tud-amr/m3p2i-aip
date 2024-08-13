@@ -1,51 +1,45 @@
 from isaacgym import gymtorch
 from m3p2i_aip.planners.motion_planner import m3p2i
 from m3p2i_aip.planners.task_planner import task_planner
-from m3p2i_aip.utils import sim_init, data_transfer
-from m3p2i_aip.params import params_utils
+from m3p2i_aip.utils import data_transfer
 import torch, time, copy, socket, numpy as np
 torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
+import  m3p2i_aip.utils.isaacgym_utils.isaacgym_wrapper as wrapper
+import hydra, zerorpc
+from m3p2i_aip.config.config_store import ExampleConfig
 
 
 class REACTIVE_TAMP:
-    def __init__(self, params) -> None:
-        # Make the environment and simulation
-        self.params = params
-        self.num_envs = params.num_envs
-        self.is_mobile_robot = True if params.robot in ['point_robot', 'heijn', 'boxer'] else False
-        self.gym, self.sim, self.viewer, _, _ = sim_init.make(params)
+    def __init__(self, cfg) -> None:
 
-        # Acquire states
-        states_dict = sim_init.acquire_states(self.gym, self.sim, self.params)
-        self.dofs_per_robot = states_dict["dofs_per_robot"]
-        self.robot_pos = states_dict["robot_pos"]
-        self.block_state = states_dict["block_state"]
-        self.cube_state = states_dict["cube_state"]
-        self.cube_goal_state = states_dict["cube_goal_state"]
-        self.ee_l_state = states_dict["ee_l_state"]
-        self.ee_r_state = states_dict["ee_r_state"]
+        self.sim = wrapper.IsaacGymWrapper(
+            cfg.isaacgym,
+            cfg.env_type,
+            num_envs=200,
+            viewer=False,
+        )
 
         # Choose the task planner
-        if self.is_mobile_robot:
-            self.task_planner = task_planner.PLANNER_SIMPLE(params.task, params.block_goal)
+        if self.sim.env_type == "point_env":
+            self.task_planner = task_planner.PLANNER_SIMPLE(cfg.task, cfg.goal)
         else:
             self.task_planner = task_planner.PLANNER_AIF_PANDA()
 
         # Choose the motion planner
-        self.motion_planner = m3p2i.M3P2I(self.params)
+        self.motion_planner = m3p2i.M3P2I(cfg)
         self.motion_planner.set_mode(mppi_mode = 'halton-spline', # 'halton-spline', 'simple'
                                      sample_method = 'halton',    # 'halton', 'random'
-                                     multi_modal = params.multimodal)
+                                     multi_modal = True)
         self.prefer_pull = -1
+
+    def test_hello(self):
+        print("hhhh hi!")
         
-        # Make sure the socket does not already exist
-        self.server_address = './uds_socket'
-        data_transfer.check_server(self.server_address)
 
     def tamp_interface(self, robot_pos, stay_still):
         # Update task and goal in the task planner
         start_time = time.monotonic()
-        if self.is_mobile_robot:
+        if self.sim.env_type == "point_env":
             self.task_planner.update_plan(robot_pos, stay_still)
         else:
             self.task_planner.update_plan(self.cube_state[0, :7], 
@@ -65,7 +59,7 @@ class REACTIVE_TAMP:
 
         # Check task succeeds or not
         task_success = False
-        if self.is_mobile_robot:
+        if self.sim.env_type == "point_env":
             task_success = self.task_planner.check_task_success(robot_pos, self.block_state[0, :])
         else:
             task_success = self.task_planner.check_task_success((self.ee_l_state[0, :7]+self.ee_r_state[0, :7])/2)
@@ -144,7 +138,12 @@ class REACTIVE_TAMP:
                         conn.sendall(data_transfer.torch_to_bytes(self.motion_planner.top_trajs))
                     print("Task succeeds!!") if task_success else False
 
+@hydra.main(version_base=None, config_path="../src/m3p2i_aip/config", config_name="config_point")
+def run_tamp(cfg: ExampleConfig):
+    reactive_tamp = REACTIVE_TAMP(cfg)
+    planner = zerorpc.Server(reactive_tamp)
+    planner.bind("tcp://0.0.0.0:4242")
+    planner.run()
+
 if __name__== "__main__":
-    params = params_utils.load_params()
-    reactive_tamp = REACTIVE_TAMP(params)
-    reactive_tamp.run()
+    run_tamp()
