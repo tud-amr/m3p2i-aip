@@ -1,13 +1,12 @@
 import torch
 from isaacgym import gymtorch, gymapi
-from m3p2i_aip.utils import sim_init, skill_utils, mppi_utils
+from m3p2i_aip.utils import skill_utils, mppi_utils
 import m3p2i_aip.planners.motion_planner.mppi as mppi
 
 class M3P2I(mppi.MPPI):
-    def __init__(self, cfg, env_type, dynamics=None, running_cost=None):
-        super().__init__(cfg, env_type, dynamics, running_cost)
+    def __init__(self, cfg, dynamics=None, running_cost=None):
+        super().__init__(cfg, dynamics, running_cost)
 
-        self.num_envs = cfg.num_samples
         self.kp_suction = cfg.kp_suction
         self.suction_active = cfg.suction_active
         # self.env_type = env_type
@@ -46,8 +45,8 @@ class M3P2I(mppi.MPPI):
 
     def get_weights_preference(self):
         if self.task == 'hybrid':
-            weight_push = torch.sum(self.weights[:int(self.num_envs/2)]).item()
-            weight_pull = torch.sum(self.weights[int(self.num_envs/2):]).item()
+            weight_push = torch.sum(self.weights[:int(self.K/2)]).item()
+            weight_pull = torch.sum(self.weights[int(self.K/2):]).item()
             return int(weight_pull > weight_push)
         else:
             return -1

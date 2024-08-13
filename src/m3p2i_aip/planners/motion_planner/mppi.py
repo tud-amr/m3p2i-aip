@@ -112,75 +112,75 @@ class MPPI():
                             mppi_mode = 'halton-spline', sample_mode = 'random'
     """
 
-    def __init__(self, cfg, env_type, dynamics=None, running_cost=None):
+    def __init__(self, cfg, dynamics=None, running_cost=None):
         """
         :param dynamics: function(state, action) -> next_state (K x nx) taking in batch state (K x nx) and action (K x nu)
         :param running_cost: function(state, action) -> cost (K) taking in batch state and action (same as dynamics)
         :param terminal_state_cost: function(state) -> cost (K x 1) taking in batch state
         """
+        self.env_type = cfg.env_type
+        cfg = cfg.mppi
+
         # Utility vars
         self.K = cfg.num_samples
         self.half_K = int(self.K/2)
         self.T = cfg.horizon  
         self.filter_u = cfg.filter_u
         self.lambda_ = cfg.lambda_
-        noise_sigma = cfg.noise_sigma
         self.delta = None
         self.sample_null_action = cfg.sample_null_action
         self.u_per_command = cfg.u_per_command
-        self.env_type = env_type #
         self.device = cfg.device
         self.tensor_args={'device':cfg.device, 'dtype':torch.float32}
 
+        # Bound actions
+        if cfg.u_max and not cfg.u_min:
+            cfg.u_min = -cfg.u_max
+        if cfg.u_min and not cfg.u_max:
+            cfg.u_max = -cfg.u_min
+        self.u_min = cfg.u_min
+        self.u_max = cfg.u_max
+        self.u_scale = cfg.u_scale
+
+        # Noise and input initialization
+        self.noise_abs_cost = cfg.noise_abs_cost
+        if not cfg.noise_sigma:
+            cfg.noise_sigma = np.identity(int(cfg.nx/2)).tolist()
+        assert all([len(cfg.noise_sigma[0]) == len(row) for row in cfg.noise_sigma])
+        if not cfg.noise_mu:
+            cfg.noise_mu = [0.0] * len(cfg.noise_sigma)
+        if not cfg.U_init:
+            cfg.U_init = [[0.0] * len(cfg.noise_mu)] * cfg.horizon
+
+        # Convert lists in cfg to tensors and put them on device
+        self.noise_sigma = torch.tensor(cfg.noise_sigma, device=cfg.device)
+        self.noise_mu = torch.tensor(cfg.noise_mu, device=cfg.device)
+        self.noise_sigma_inv = torch.inverse(self.noise_sigma)
+        self.noise_dist = MultivariateNormal(
+            self.noise_mu, covariance_matrix=self.noise_sigma
+        )
+        self.u_init = torch.tensor(cfg.u_init, device=cfg.device)
+        # self.U = torch.tensor(cfg.U_init, device=cfg.device)  # !!!!
+        self.U = self.noise_dist.sample((self.T,))
+        self.u_max = torch.tensor(cfg.u_max, device=cfg.device)
+        self.u_min = torch.tensor(cfg.u_min, device=cfg.device)
+
         # Dimensions of state nx and control nu
         self.nx = cfg.nx
-        self.nu = 1 if len(noise_sigma.shape) == 0 else noise_sigma.shape[0]
-
-        # Noise initialization
-        noise_mu = torch.zeros(self.nu, **self.tensor_args)
+        self.nu = 1 if len(self.noise_sigma.shape) == 0 else self.noise_sigma.shape[0]
 
         # Handle 1D edge case
         if self.nu == 1:
-            noise_mu = noise_mu.view(-1)
-            noise_sigma = noise_sigma.view(-1, 1)
-
-        self.noise_mu = noise_mu.to(**self.tensor_args)
-        self.noise_sigma = noise_sigma.to(**self.tensor_args)
-        self.noise_sigma_inv = torch.inverse(self.noise_sigma)
-        self.noise_abs_cost = cfg.noise_abs_cost
-
-        # Random noise dist
-        self.noise_dist = MultivariateNormal(self.noise_mu, covariance_matrix=self.noise_sigma)
+            self.noise_mu = self.noise_mu.view(-1)
+            self.noise_sigma = self.noise_sigma.view(-1, 1)
 
         # Input initialization
-        u_init = torch.zeros_like(noise_mu)
         self.mean_action = torch.zeros((self.T, self.nu), **self.tensor_args)
         self.best_traj = self.mean_action.clone()
         self.best_traj_1 = self.mean_action.clone()
         self.best_traj_2 = self.mean_action.clone()
         self.mean_action_1 = torch.zeros((self.T, self.nu), **self.tensor_args)
         self.mean_action_2 = torch.zeros((self.T, self.nu), **self.tensor_args)
-
-        # Bound actions
-        self.u_min = cfg.u_min
-        self.u_max = cfg.u_max
-        self.u_scale = 1
-
-        if self.u_max is not None and self.u_min is None: # Make sure if any of them is specified, both are specified
-            if not torch.is_tensor(self.u_max):
-                self.u_max = torch.tensor(self.u_max)
-            self.u_min = -self.u_max
-        if self.u_min is not None and self.u_max is None:
-            if not torch.is_tensor(self.u_min):
-                self.u_min = torch.tensor(self.u_min)
-            self.u_max = -self.u_min
-        if self.u_min is not None:
-            self.u_min = self.u_min.to(**self.tensor_args)
-            self.u_max = self.u_max.to(**self.tensor_args)
-        
-        # Control sequence (T x nu)
-        self.u_init = u_init.to(**self.tensor_args)
-        self.U = self.noise_dist.sample((self.T,))
 
         # Costs and dynamics initialization
         self.F = dynamics
@@ -202,7 +202,7 @@ class MPPI():
         self.ndims = self.n_knots * self.nu
         self.degree = 2                # From sample_lib storm
         self.Z_seq = torch.zeros(1, self.T, self.nu, **self.tensor_args)
-        self.cov_action = torch.diagonal(noise_sigma, 0)
+        self.cov_action = torch.diagonal(self.noise_sigma, 0)
         self.scale_tril = torch.sqrt(self.cov_action)
         self.squash_fn = 'clamp'
         self.step_size_mean = 0.98      # From storm
