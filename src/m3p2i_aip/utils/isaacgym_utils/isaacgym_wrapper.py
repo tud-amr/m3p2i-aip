@@ -16,7 +16,6 @@ class IsaacGymConfig():
     camera_pos: List[float] = field(default_factory=lambda: [1.5, 6, 8])
     camera_target: List[float] = field(default_factory=lambda: [1.5, 0, 0])
 
-
 def parse_isaacgym_config(cfg: IsaacGymConfig, device: str = "cuda:0") -> gymapi.SimParams:
     sim_params = gymapi.SimParams()
     sim_params.dt = cfg.dt
