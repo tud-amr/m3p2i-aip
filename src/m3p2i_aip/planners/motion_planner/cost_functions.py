@@ -1,9 +1,19 @@
 import torch
 from m3p2i_aip.utils import skill_utils
 from isaacgym import gymtorch, gymapi
+import  m3p2i_aip.utils.isaacgym_utils.isaacgym_wrapper as wrapper
 
-def get_navigation_cost(sim, nav_goal):
-    return torch.clamp(torch.linalg.norm(sim.robot_pos - nav_goal, axis=1)-0.05, min=0, max=1999) 
+class Objective(object):
+    def __init__(self, cfg):
+        self.cfg = cfg
+
+    def compute_cost(self, sim: wrapper):
+        self.goal = self.cfg.goal if torch.is_tensor(self.cfg.goal) else torch.tensor(self.cfg.goal, device=self.cfg.mppi.device)
+        if self.cfg.task == "navigation":
+            return self.get_navigation_cost(sim)
+
+    def get_navigation_cost(self, sim: wrapper):
+        return torch.linalg.norm(sim.robot_pos - self.goal, axis=1)
     
 def calculate_dist(sim, block_goal):
     block_pos = sim.get_actor_position_by_name("box")

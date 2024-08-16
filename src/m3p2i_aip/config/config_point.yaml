@@ -9,7 +9,6 @@ goal: [-3.75, -3.75]
 # n_steps: 10000
 # actors: ['albert', 'goal']
 # initial_actor_positions: [[0.0, 0.0, 0.05]]
-nx: 18
 kp_suction: 400
 suction_active: False
 

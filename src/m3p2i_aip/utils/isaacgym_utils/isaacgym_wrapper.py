@@ -32,7 +32,7 @@ def parse_isaacgym_config(cfg: IsaacGymConfig, device: str = "cuda:0") -> gymapi
     sim_params.physx.contact_offset = 0.01
     sim_params.physx.rest_offset = 0.0
     sim_params.physx.num_threads = cfg.num_threads
-    # sim_params.physx.use_gpu = cfg.use_gpu_pipeline
+    sim_params.physx.use_gpu = cfg.use_gpu_pipeline
     # sim_params.physx.friction_offset_threshold = 0.01
     # sim_params.physx.friction_correlation_distance = 0.001
 
@@ -107,6 +107,12 @@ class IsaacGymWrapper:
             self._gym.acquire_net_contact_force_tensor(self._sim)
         ).view(self.num_envs, -1, 3)
 
+        # Important!!!
+        self._gym.refresh_actor_root_state_tensor(self._sim)
+        self._gym.refresh_dof_state_tensor(self._sim)
+        self._gym.refresh_rigid_body_state_tensor(self._sim)
+        self._gym.refresh_net_contact_force_tensor(self._sim)
+
     @property
     def robot_pos(self):
         return torch.index_select(self._dof_state, 1, torch.tensor([0, 2], device=self.device))
@@ -177,6 +183,12 @@ class IsaacGymWrapper:
             device=self.device,
         )
         return self._net_contact_force[:, rigid_body_idx]
+
+    def set_dof_velocity_target_tensor(self, u):
+        self._gym.set_dof_velocity_target_tensor(self._sim, gymtorch.unwrap_tensor(u))
+
+    def set_dof_actuation_force_tensor(self, u):
+        self._gym.set_dof_actuation_force_tensor(self._sim, gymtorch.unwrap_tensor(u))
 
     def set_initial_joint_pose(self):
         # set initial joint poses

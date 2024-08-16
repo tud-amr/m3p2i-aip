@@ -13,7 +13,7 @@ def test(cfg: ExampleConfig):
             viewer=True,
         )
     
-    print("dt", cfg.isaacgym.dt, "spacing", cfg.isaacgym.spacing, "nx", cfg.nx)
+    print("dt", cfg.isaacgym.dt, "spacing", cfg.isaacgym.spacing, "nx", cfg.mppi.nx)
     print("mppi samples", cfg.mppi.num_samples, "lambda", cfg.mppi.lambda_)
     print("suction active", cfg.suction_active, "kp suction", cfg.kp_suction)
 

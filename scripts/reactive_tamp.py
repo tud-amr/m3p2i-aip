@@ -1,7 +1,8 @@
 from isaacgym import gymtorch
 from m3p2i_aip.planners.motion_planner import m3p2i
 from m3p2i_aip.planners.task_planner import task_planner
-from m3p2i_aip.utils import data_transfer
+from m3p2i_aip.utils.data_transfer import bytes_to_torch, torch_to_bytes
+from m3p2i_aip.planners.motion_planner.cost_functions import Objective
 import torch, time, copy, socket, numpy as np
 torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 import  m3p2i_aip.utils.isaacgym_utils.isaacgym_wrapper as wrapper
@@ -15,9 +16,10 @@ class REACTIVE_TAMP:
         self.sim = wrapper.IsaacGymWrapper(
             cfg.isaacgym,
             cfg.env_type,
-            num_envs=200,
+            num_envs=cfg.mppi.num_samples,
             viewer=False,
         )
+        self.objective = Objective(cfg)
 
         # Choose the task planner
         if self.sim.env_type == "point_env":
@@ -26,15 +28,45 @@ class REACTIVE_TAMP:
             self.task_planner = task_planner.PLANNER_AIF_PANDA()
 
         # Choose the motion planner
-        self.motion_planner = m3p2i.M3P2I(cfg)
+        self.motion_planner = m3p2i.M3P2I(cfg,
+                                          dynamics = self.dynamics, 
+                                          running_cost=self.running_cost)
         self.motion_planner.set_mode(mppi_mode = 'halton-spline', # 'halton-spline', 'simple'
                                      sample_method = 'halton',    # 'halton', 'random'
-                                     multi_modal = True)
+                                     multi_modal = False)
         self.prefer_pull = -1
 
     def test_hello(self):
         print("hhhh hi!")
-        
+
+    def test_task_planner(self, ele = "default"):
+        print("hh", ele)
+        print("task", self.task_planner.task, "goal", self.task_planner.curr_goal)
+        return "no output"
+    
+    def set_rollout_sim(self, dof_state, root_state):
+        self.sim._dof_state[:] = bytes_to_torch(dof_state)
+        self.sim._root_state[:] = bytes_to_torch(root_state)
+
+        self.sim._gym.set_dof_state_tensor(
+            self.sim._sim, gymtorch.unwrap_tensor(self.sim._dof_state)
+        )
+        self.sim._gym.set_actor_root_state_tensor(
+            self.sim._sim, gymtorch.unwrap_tensor(self.sim._root_state)
+        )
+        return torch_to_bytes(self.motion_planner.command(self.sim._dof_state[0]))
+    
+    def dynamics(self, _, u, t=None):
+        self.sim.set_dof_velocity_target_tensor(u)
+        self.sim.step()
+        states = torch.stack([self.sim.robot_pos[:, 0], 
+                              self.sim.robot_vel[:, 0], 
+                              self.sim.robot_pos[:, 1], 
+                              self.sim.robot_vel[:, 1]], dim=1) # [num_envs, 4]
+        return states, u
+    
+    def running_cost(self, _):
+        return self.objective.compute_cost(self.sim)
 
     def tamp_interface(self, robot_pos, stay_still):
         # Update task and goal in the task planner

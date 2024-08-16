@@ -1,43 +1,11 @@
 from scipy import signal
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import List, Optional, Callable
 import torch, logging, functools, numpy as np, scipy.interpolate as si
 from torch.distributions.multivariate_normal import MultivariateNormal
 from m3p2i_aip.utils.skill_utils import _ensure_non_zero, is_tensor_like, bspline
 from m3p2i_aip.utils.mppi_utils import generate_gaussian_halton_samples, scale_ctrl, cost_to_go
 logger = logging.getLogger(__name__)
-
-def handle_batch_input(func):
-    """For func that expect 2D input, handle input that have more than 2 dimensions by flattening them temporarily"""
-
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        # assume inputs that are tensor-like have compatible shapes and is represented by the first argument
-        batch_dims = []
-        for arg in args:
-            if is_tensor_like(arg) and len(arg.shape) > 2:
-                batch_dims = arg.shape[:-1]  # last dimension is type dependent; all previous ones are batches
-                break
-        # no batches; just return normally
-        if not batch_dims:
-            return func(*args, **kwargs)
-
-        # reduce all batch dimensions down to the first one
-        args = [v.view(-1, v.shape[-1]) if (is_tensor_like(v) and len(v.shape) > 2) else v for v in args]
-        ret = func(*args, **kwargs)
-        # restore original batch dimensions; keep variable dimension (nx)
-        if type(ret) is tuple:
-            ret = [v if (not is_tensor_like(v) or len(v.shape) == 0) else (
-                v.view(*batch_dims, v.shape[-1]) if len(v.shape) == 2 else v.view(*batch_dims)) for v in ret]
-        else:
-            if is_tensor_like(ret):
-                if len(ret.shape) == 2:
-                    ret = ret.view(*batch_dims, ret.shape[-1])
-                else:
-                    ret = ret.view(*batch_dims)
-        return ret
-
-    return wrapper
 
 @dataclass
 class MPPIConfig(object):
@@ -112,7 +80,7 @@ class MPPI():
                             mppi_mode = 'halton-spline', sample_mode = 'random'
     """
 
-    def __init__(self, cfg, dynamics=None, running_cost=None):
+    def __init__(self, cfg: MPPIConfig, dynamics: Callable, running_cost: Callable):
         """
         :param dynamics: function(state, action) -> next_state (K x nx) taking in batch state (K x nx) and action (K x nu)
         :param running_cost: function(state, action) -> cost (K) taking in batch state and action (same as dynamics)
@@ -237,13 +205,11 @@ class MPPI():
         self.sample_method = sample_method
         self.multi_modal = multi_modal and mppi_mode == 'halton-spline'
 
-    @handle_batch_input
     def _dynamics(self, state, u, t=None):
         return self.F(state, u, t=None)
 
-    @handle_batch_input
-    def _running_cost(self, state, u, t):
-        return self.running_cost(state, u, t)
+    def _running_cost(self, state):
+        return self.running_cost(state)
 
     def command(self, state):
         """
@@ -339,7 +305,7 @@ class MPPI():
                 self.perturbed_action[self.K - 1][t] = u[self.K -1, :]
 
             state, u = self._dynamics(state, u, t)
-            c = self._running_cost(state, u, t) # every time stes you get nsamples cost, we need that as output for the discount factor
+            c = self._running_cost(state) # every time stes you get nsamples cost, we need that as output for the discount factor
             # Update action if there were changes in M3P2I due for instance to suction constraints
             self.perturbed_action[:,t] = u
             cost_samples += c
@@ -348,7 +314,7 @@ class MPPI():
             # Save total states/actions
             states.append(state)
             actions.append(u)
-            ee_state = (self.ee_l_state[:, :3] + self.ee_r_state[:, :3])/2 if self.ee_l_state != 'None' else 'None'
+            ee_state = 'None' #(self.ee_l_state[:, :3] + self.ee_r_state[:, :3])/2 if self.ee_l_state != 'None' else 'None'
             ee_states.append(ee_state) if ee_state != 'None' else []
             
         # Actions is K x T x nu
@@ -502,7 +468,7 @@ class MPPI():
                 use_ghalton=True,
                 seed_val=self.seed_val,     # seed val is 0 
                 device=self.device,
-                float_dtype=self.dtype)
+                float_dtype=torch.float32)
             
             # Sample splines from knot points:
             # iteratre over action dimension:

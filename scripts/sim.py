@@ -1,6 +1,7 @@
 from isaacgym import gymapi, gymtorch
 import torch, time, numpy as np, socket
 from m3p2i_aip.utils import data_transfer, skill_utils
+from m3p2i_aip.utils.data_transfer import bytes_to_torch, torch_to_bytes
 import hydra, zerorpc
 import  m3p2i_aip.utils.isaacgym_utils.isaacgym_wrapper as wrapper
 from m3p2i_aip.config.config_store import ExampleConfig
@@ -21,8 +22,19 @@ def run_sim(cfg: ExampleConfig):
     print("Server found!")
 
     while True:
+
+        # print(planner.test_task_planner(122))
+        # print(planner.motion_planner.K) # not working
+        # print(planner.task_planner.curr_goal) # not working
+        # print("dof", sim._dof_state[0], "root", sim._root_state[0])
+
+        action = bytes_to_torch(
+            planner.set_rollout_sim(
+                torch_to_bytes(sim._dof_state[0]), torch_to_bytes(sim._root_state[0]))
+        )
         
-        planner.test_hello()
+        # print("action", action)
+        sim.set_dof_velocity_target_tensor(action[0])
 
         # Step simulator
         sim.step()
