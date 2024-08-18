@@ -24,7 +24,10 @@ def run_sim(cfg: ExampleConfig):
 
     planner = zerorpc.Client()
     planner.connect("tcp://127.0.0.1:4242")
-    print("Server found!")
+    print("Server found and wait for the viewer")
+    for _ in range(150):
+        sim.step()
+    print("Start simulation!")
 
     while True:
         # print("dof", sim._dof_state[0], "root", sim._root_state[0])

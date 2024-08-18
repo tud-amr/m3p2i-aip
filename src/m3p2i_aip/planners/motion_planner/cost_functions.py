@@ -11,37 +11,39 @@ class Objective(object):
         self.goal = self.cfg.goal if torch.is_tensor(self.cfg.goal) else torch.tensor(self.cfg.goal, device=self.cfg.mppi.device)
         if self.cfg.task == "navigation":
             return self.get_navigation_cost(sim)
+        elif self.cfg.task == "push":
+            return self.get_push_cost(sim, self.goal)
 
     def get_navigation_cost(self, sim: wrapper):
         return torch.linalg.norm(sim.robot_pos - self.goal, axis=1)
     
-def calculate_dist(sim, block_goal):
-    block_pos = sim.get_actor_position_by_name("box")
-    robot_to_block = sim.robot_pos - block_pos
-    block_to_goal = block_goal - block_pos
+    def calculate_dist(self, sim: wrapper, block_goal: torch.tensor):
+        block_pos = sim.get_actor_position_by_name("box")[:, :2]  # x, y position
+        robot_to_block = sim.robot_pos - block_pos
+        block_to_goal = block_goal - block_pos
 
-    robot_to_block_dist = torch.linalg.norm(robot_to_block, axis = 1)
-    block_to_goal_dist = torch.linalg.norm(block_to_goal, axis = 1)
-    
-    dist_cost = robot_to_block_dist + block_to_goal_dist * 10
-    cos_theta = torch.sum(robot_to_block*block_to_goal, 1)/(robot_to_block_dist*block_to_goal_dist)
+        robot_to_block_dist = torch.linalg.norm(robot_to_block, axis = 1)
+        block_to_goal_dist = torch.linalg.norm(block_to_goal, axis = 1)
+        
+        dist_cost = robot_to_block_dist + block_to_goal_dist * 10
+        cos_theta = torch.sum(robot_to_block*block_to_goal, 1)/(robot_to_block_dist*block_to_goal_dist)
 
-    return block_pos, dist_cost, cos_theta
+        return block_pos, dist_cost, cos_theta
 
-def get_push_cost(cfg, sim, block_goal):
-    # Calculate dist cost
-    block_pos, dist_cost, cos_theta = calculate_dist(sim, block_goal)
+    def get_push_cost(self, sim: wrapper, block_goal: torch.tensor):
+        # Calculate dist cost
+        _, dist_cost, cos_theta = self.calculate_dist(sim, block_goal)
 
-    # Force the robot behind block and goal, align_cost is actually cos(theta)+1
-    # align_cost = align_weight[robot] * (cos_theta + 1) * 5
-    align_cost = torch.zeros(cfg.num_samples, device=cfg.device)
-    align_cost[cos_theta>0] = cos_theta[cos_theta>0]
-    # print('push align', align_cost[:10])
-    # if robot != 'boxer':
-    #     align_cost += torch.abs(robot_to_goal_dist - block_to_goal_dist - align_offset[robot])
-    # ori_cost = skill_utils.get_general_ori_cube2goal(block_quat, goal_quaternion)
+        # Force the robot behind block and goal, align_cost is actually cos(theta)+1
+        # align_cost = align_weight[robot] * (cos_theta + 1) * 5
+        align_cost = torch.zeros(self.cfg.mppi.num_samples, device=self.cfg.mppi.device)
+        align_cost[cos_theta>0] = cos_theta[cos_theta>0]
+        # print('push align', align_cost[:10])
+        # if robot != 'boxer':
+        #     align_cost += torch.abs(robot_to_goal_dist - block_to_goal_dist - align_offset[robot])
+        # ori_cost = skill_utils.get_general_ori_cube2goal(block_quat, goal_quaternion)
 
-    return 3 * dist_cost + 1 * align_cost #+ 10 * ori_cost# [num_envs] 31
+        return 3 * dist_cost + 1 * align_cost #+ 10 * ori_cost# [num_envs] 31
 
 def get_pull_cost(multi_modal, cfg, sim, block_goal):
     block_pos, dist_cost, cos_theta = calculate_dist(sim, block_goal)
