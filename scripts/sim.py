@@ -37,7 +37,7 @@ def run_sim(cfg: ExampleConfig):
                 torch_to_bytes(sim._dof_state), torch_to_bytes(sim._root_state))
         )
         # print("task", cfg.task, "action", action)
-        sim.set_dof_velocity_target_tensor(action[0])
+        sim.set_dof_velocity_target_tensor(action)
 
         # Step simulator
         sim.step()

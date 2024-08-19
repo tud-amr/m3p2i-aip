@@ -443,7 +443,7 @@ class MPPI():
         # print('eta', eta)
 
         # Update beta to make eta converge within the bounds 
-        if self.env_type == 'cube': # grady's thesis
+        if self.env_type == 'panda_env': # grady's thesis
             eta_u_bound = 20
             eta_l_bound = 10
             beta_lm = 0.9

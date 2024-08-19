@@ -10,25 +10,6 @@ class M3P2I(mppi.MPPI):
         self.kp_suction = cfg.kp_suction
         self.suction_active = cfg.suction_active
         # self.env_type = env_type
-        
-        # Additional variables for the environment 
-        self.block_goal = torch.tensor([0, 0], **self.tensor_args)
-        self.block_not_goal = torch.tensor([-2, 1], **self.tensor_args)
-        self.nav_goal = torch.tensor([3, 3], device=self.device)
-        self.task = "navigation"  # "navigation", "push", "pull", "push_not_goal"
-    
-    def update_task(self, task, goal):
-        self.task = task
-        if self.task in ['navigation', 'go_recharge']:
-            self.nav_goal = goal
-        elif self.task in ['push', 'pull', 'hybrid']:
-            self.block_goal = goal
-        elif self.task == 'pick':
-            self.cube_goal_state = goal
-        elif self.task == 'place':
-            self.ee_goal = goal
-        # if self.robot == 'albert':
-        #     self.cube_goal_state = torch.tensor([0.5, 0.2, 0.7, 0, 0, 0, 1], device='cuda:0')
     
     def update_params(self, params, weight_prefer_pull):
         self.params = params

@@ -61,12 +61,11 @@ class REACTIVE_TAMP:
         self.task_success = self.tamp_interface()
         if self.task_success:
             print("--------Task success--------")
-            return torch_to_bytes(torch.zeros(self.cfg.mppi.horizon, 
-                                              int(self.cfg.mppi.nx/2), 
+            return torch_to_bytes(torch.zeros(int(self.cfg.mppi.nx/2), 
                                               device=self.cfg.mppi.device))
         else:
             print("--------Compute optimal action--------")
-            return torch_to_bytes(self.motion_planner.command(self.sim._dof_state[0]))
+            return torch_to_bytes(self.motion_planner.command(self.sim._dof_state[0])[0])
     
     def dynamics(self, _, u, t=None):
         self.sim.set_dof_velocity_target_tensor(u)
