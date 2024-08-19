@@ -21,19 +21,20 @@ class PLANNER_SIMPLE:
     
     def reset_plan(self):    
         pass
-
-    def check_task_success(self, robot_pos, block_state):
-        if self.task in ['navigation', 'go_recharge']:
-            task_success = torch.norm(robot_pos - self.curr_goal) < 0.1
+    
+    def check_task_success(self, sim):
+        box_pos = sim.get_actor_position_by_name("box")[0, :2]
+        box_ori = sim.get_actor_orientation_by_name("box")[0, :]
+        # print("robot", sim.robot_pos[0, :], "box_pos", box_pos, "box_ori", box_ori)
+        task_success = False
+        if self.task == "navigation":
+            task_success = torch.norm(sim.robot_pos[0, :] - self.curr_goal) < 0.1
         elif self.task in ['push', 'pull', 'hybrid']:
-            pos_dist = torch.norm(block_state[:2] - self.curr_goal)
+            pos_dist = torch.norm(box_pos - self.curr_goal)
             goal_quat = torch.tensor([0, 0, 0, 1], device="cuda:0").view(1, 4)
-            ori_dist = skill_utils.get_general_ori_cube2goal(block_state[3:7].view(1, 4), goal_quat)
-            # print('pos', pos_dist)
-            # print('ori', ori_dist)
-            task_success = pos_dist <= 0.15 and ori_dist <= 0.1
-        else:
-            task_success = False
+            ori_dist = skill_utils.get_general_ori_cube2goal(box_ori.view(1, 4), goal_quat)
+            # print('pos', pos_dist, 'ori', ori_dist)
+            task_success = pos_dist <= 0.15 # and ori_dist <= 0.1
         return task_success
 
 class PLANNER_PICK(PLANNER_SIMPLE):

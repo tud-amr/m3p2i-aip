@@ -12,6 +12,7 @@ from m3p2i_aip.config.config_store import ExampleConfig
 '''
 Run in the command line:
     python3 reactive_tamp.py task=navigation goal="[-1, -1]"
+    python3 reactive_tamp.py task=push goal="[-1, -1]"
 '''
 
 class REACTIVE_TAMP:
@@ -22,7 +23,9 @@ class REACTIVE_TAMP:
             cfg.env_type,
             num_envs=cfg.mppi.num_samples,
             viewer=False,
+            device=cfg.mppi.device,
         )
+        self.cfg = cfg
         self.objective = Objective(cfg)
 
         # Choose the task planner
@@ -30,6 +33,7 @@ class REACTIVE_TAMP:
             self.task_planner = task_planner.PLANNER_SIMPLE(cfg.task, cfg.goal)
         else:
             self.task_planner = task_planner.PLANNER_AIF_PANDA()
+        self.task_success = False
 
         # Choose the motion planner
         self.motion_planner = m3p2i.M3P2I(cfg,
@@ -54,7 +58,15 @@ class REACTIVE_TAMP:
         self.sim._gym.set_actor_root_state_tensor(
             self.sim._sim, gymtorch.unwrap_tensor(self.sim._root_state)
         )
-        return torch_to_bytes(self.motion_planner.command(self.sim._dof_state[0]))
+        self.task_success = self.tamp_interface()
+        if self.task_success:
+            print("--------Task success--------")
+            return torch_to_bytes(torch.zeros(self.cfg.mppi.horizon, 
+                                              int(self.cfg.mppi.nx/2), 
+                                              device=self.cfg.mppi.device))
+        else:
+            print("--------Compute optimal action--------")
+            return torch_to_bytes(self.motion_planner.command(self.sim._dof_state[0]))
     
     def dynamics(self, _, u, t=None):
         self.sim.set_dof_velocity_target_tensor(u)
@@ -67,35 +79,9 @@ class REACTIVE_TAMP:
     
     def running_cost(self, _):
         return self.objective.compute_cost(self.sim)
-
-    def tamp_interface(self, robot_pos, stay_still):
-        # Update task and goal in the task planner
-        start_time = time.monotonic()
-        if self.sim.env_type == "point_env":
-            self.task_planner.update_plan(robot_pos, stay_still)
-        else:
-            self.task_planner.update_plan(self.cube_state[0, :7], 
-                                          self.cube_goal_state[0, :7], 
-                                          (self.ee_l_state[0, :7]+self.ee_r_state[0, :7])/2)
-        self.task_freq = format(1/(time.monotonic()-start_time), '.2f')
-
-        # Update params according to the plan
-        self.params = self.task_planner.update_params(self.params)
-
-        # Update task and goal in the motion planner
-        # print('task:', self.task_planner.task, 'goal:', self.task_planner.curr_goal)
-        self.motion_planner.update_task(self.task_planner.task, self.task_planner.curr_goal)
-
-        # Update params in the motion planner
-        self.params = self.motion_planner.update_params(self.params, self.prefer_pull)
-
-        # Check task succeeds or not
-        task_success = False
-        if self.sim.env_type == "point_env":
-            task_success = self.task_planner.check_task_success(robot_pos, self.block_state[0, :])
-        else:
-            task_success = self.task_planner.check_task_success((self.ee_l_state[0, :7]+self.ee_r_state[0, :7])/2)
-        task_success = task_success and not stay_still
+    
+    def tamp_interface(self):
+        task_success = self.task_planner.check_task_success(self.sim)
         return task_success
 
 @hydra.main(version_base=None, config_path="../src/m3p2i_aip/config", config_name="config_point")

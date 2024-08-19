@@ -20,6 +20,7 @@ def run_sim(cfg: ExampleConfig):
         cfg.env_type,
         num_envs=1,
         viewer=True,
+        device=cfg.mppi.device,
     )
 
     planner = zerorpc.Client()
