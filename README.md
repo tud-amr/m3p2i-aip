@@ -45,12 +45,14 @@ If you want to test the TAMP framework, you will need two instances of Isaac Gym
 
 Run this terminal first:
 ````bash
+cd <project_folder>/m3p2i-aip/scripts
 conda activate m3p2i-aip
 python3 reactive_tamp.py --robot $(robot_type) --task $(task_type)
 ````
 
 Then run the second terminal:
 ````bash
+cd <project_folder>/m3p2i-aip/scripts
 conda activate m3p2i-aip
 python3 sim.py --robot $(robot_type) --task $(task_type)
 ````
