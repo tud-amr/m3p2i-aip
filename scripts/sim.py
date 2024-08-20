@@ -33,7 +33,7 @@ def run_sim(cfg: ExampleConfig):
     while True:
         # print("dof", sim._dof_state[0], "root", sim._root_state[0])
         action = bytes_to_torch(
-            planner.set_rollout_sim(
+            planner.run_tamp(
                 torch_to_bytes(sim._dof_state), torch_to_bytes(sim._root_state))
         )
         # print("task", cfg.task, "action", action)

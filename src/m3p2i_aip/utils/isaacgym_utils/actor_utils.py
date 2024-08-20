@@ -95,12 +95,11 @@ def load_env_cfgs(env_type: str) -> List[ActorWrapper]:
     actor_cfgs = []
     env_path = path_utils.get_config_path() + env_type
     for file in pathlib.Path(env_path).iterdir():
-        # if file.is_file():
         with open (f"{file}") as f:
             actor_cfgs.append(ActorWrapper(**yaml.load(f, Loader=SafeLoader)))
 
     return actor_cfgs
 
-# if __name__== "__main__":
-#     actor_cfgs = load_env_cfgs("point_env")
-    # print(actor_cfgs)
+if __name__== "__main__":
+    actor_cfgs = load_env_cfgs("point_env")
+    print(actor_cfgs)

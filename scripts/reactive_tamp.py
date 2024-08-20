@@ -44,28 +44,29 @@ class REACTIVE_TAMP:
                                      multi_modal = False)
         self.prefer_pull = -1
 
-    def test_task_planner(self, ele = "default"):
-        print("task", self.task_planner.task, "goal", self.task_planner.curr_goal)
-        return "no output"
-    
-    def set_rollout_sim(self, dof_state, root_state):
+    def run_tamp(self, dof_state, root_state):
+        # Set rollout state from sim state
         self.sim._dof_state[:] = bytes_to_torch(dof_state)
         self.sim._root_state[:] = bytes_to_torch(root_state)
-
         self.sim._gym.set_dof_state_tensor(
             self.sim._sim, gymtorch.unwrap_tensor(self.sim._dof_state)
         )
         self.sim._gym.set_actor_root_state_tensor(
             self.sim._sim, gymtorch.unwrap_tensor(self.sim._root_state)
         )
-        self.task_success = self.tamp_interface()
+
+        self.tamp_interface()
+        
         if self.task_success:
             print("--------Task success--------")
-            return torch_to_bytes(torch.zeros(int(self.cfg.mppi.nx/2), 
-                                              device=self.cfg.mppi.device))
+            return torch_to_bytes(
+                torch.zeros(int(self.cfg.mppi.nx/2), device=self.cfg.mppi.device)
+            )
         else:
             print("--------Compute optimal action--------")
-            return torch_to_bytes(self.motion_planner.command(self.sim._dof_state[0])[0])
+            return torch_to_bytes(
+                self.motion_planner.command(self.sim._dof_state[0])[0]
+            )
     
     def dynamics(self, _, u, t=None):
         self.sim.set_dof_velocity_target_tensor(u)
@@ -80,15 +81,15 @@ class REACTIVE_TAMP:
         return self.objective.compute_cost(self.sim)
     
     def tamp_interface(self):
-        task_success = self.task_planner.check_task_success(self.sim)
-        return task_success
+        print("task", self.task_planner.task, "goal", self.task_planner.curr_goal)
+        self.task_success = self.task_planner.check_task_success(self.sim)
 
 @hydra.main(version_base=None, config_path="../src/m3p2i_aip/config", config_name="config_point")
-def run_tamp(cfg: ExampleConfig):
+def run_reactive_tamp(cfg: ExampleConfig):
     reactive_tamp = REACTIVE_TAMP(cfg)
     planner = zerorpc.Server(reactive_tamp)
     planner.bind("tcp://0.0.0.0:4242")
     planner.run()
 
 if __name__== "__main__":
-    run_tamp()
+    run_reactive_tamp()
