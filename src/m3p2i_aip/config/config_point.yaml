@@ -10,7 +10,8 @@ goal: [-3.75, -3.75]
 # actors: ['albert', 'goal']
 # initial_actor_positions: [[0.0, 0.0, 0.05]]
 kp_suction: 400
-suction_active: False
+suction_active: True
+multi_modal: False
 
 # hydra:
 #   searchpath:

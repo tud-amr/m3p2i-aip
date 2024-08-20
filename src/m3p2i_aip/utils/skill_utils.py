@@ -21,6 +21,21 @@ def bspline(c_arr, t_arr=None, n=100, degree=3):
     samples = torch.as_tensor(samples, device=sample_device, dtype=sample_dtype)
     return samples
 
+# Check whether suction is possible
+def check_suction_condition(cfg, sim, action):
+    if cfg.task not in ['pull', 'hybrid']:
+        return False
+    dir_robot_block = (sim.robot_pos - sim.get_actor_position_by_name("box")[:, :2]).squeeze(0)
+    action_align_pull = torch.sum(action * dir_robot_block).item()
+    dis_robot_block = torch.linalg.norm(dir_robot_block)
+
+    # Can only pull if the robot is close to block and the action aligns with pulling direction
+    # print("dist", dis_robot_block, "align", action_align_pull)
+    if dis_robot_block < 0.6 and action_align_pull > 0:
+        return True
+    else:
+        return False
+
 # Calculate the suction force
 def calculate_suction(cfg, sim):
     # Calculate the direction and magnitude between the block and robot 
@@ -31,7 +46,7 @@ def calculate_suction(cfg, sim):
     # print('mag', magnitude)
 
     # Form the suction force
-    unit_force = dir_vector*magnitude  # [num_envs, 2] Same as the unit direction of pulling force
+    unit_force = dir_vector * magnitude  # [num_envs, 2] Same as the unit direction of pulling force
     forces = torch.zeros((sim.num_envs, sim.bodies_per_env, 3), dtype=torch.float32, device='cuda:0', requires_grad=False)
     
     # Start suction only when close
@@ -50,13 +65,13 @@ def calculate_suction(cfg, sim):
     mask = mask.reshape(sim.num_envs)
     # Force on the block
     block_index = sim._get_actor_index_by_name("box").item()
-    forces[mask, block_index, 0] = -cfg.kp_suction*unit_force[mask, 0]
-    forces[mask, block_index, 1] = -cfg.kp_suction*unit_force[mask, 1]
+    forces[mask, block_index, 0] = -cfg.kp_suction * unit_force[mask, 0]
+    forces[mask, block_index, 1] = -cfg.kp_suction * unit_force[mask, 1]
     # Opposite force on the robot body
-    forces[mask, -1, 0] = cfg.kp_suction*unit_force[mask, 0]
-    forces[mask, -1, 1] = cfg.kp_suction*unit_force[mask, 1]
+    forces[mask, -1, 0] = cfg.kp_suction * unit_force[mask, 0]
+    forces[mask, -1, 1] = cfg.kp_suction * unit_force[mask, 1]
     # Add clamping to control input
-    forces = torch.clamp(forces, min=-500, max=500).view(-1, 3)
+    forces = torch.clamp(forces, min=-500, max=500)
 
     return forces, -unit_force, mask
 

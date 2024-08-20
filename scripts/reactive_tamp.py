@@ -13,6 +13,7 @@ from m3p2i_aip.config.config_store import ExampleConfig
 Run in the command line:
     python3 reactive_tamp.py task=navigation goal="[-1, -1]"
     python3 reactive_tamp.py task=push goal="[-1, -1]"
+    python3 reactive_tamp.py task=pull goal="[0, 0]"
 '''
 
 class REACTIVE_TAMP:
@@ -41,7 +42,7 @@ class REACTIVE_TAMP:
                                           running_cost=self.running_cost)
         self.motion_planner.set_mode(mppi_mode = 'halton-spline', # 'halton-spline', 'simple'
                                      sample_method = 'halton',    # 'halton', 'random'
-                                     multi_modal = False)
+                                     multi_modal = cfg.multi_modal)
         self.prefer_pull = -1
 
     def run_tamp(self, dof_state, root_state):

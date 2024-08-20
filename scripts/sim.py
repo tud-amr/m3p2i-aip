@@ -10,6 +10,7 @@ torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 '''
 Run in the command line:
     python3 sim.py
+    python3 sim.py task=pull
 '''
 
 @hydra.main(version_base=None, config_path="../src/m3p2i_aip/config", config_name="config_point")
@@ -38,6 +39,10 @@ def run_sim(cfg: ExampleConfig):
         )
         # print("task", cfg.task, "action", action)
         sim.set_dof_velocity_target_tensor(action)
+
+        if skill_utils.check_suction_condition(cfg, sim, action):
+            suction_force, _, _ = skill_utils.calculate_suction(cfg, sim)
+            sim.apply_rigid_body_force_tensors(suction_force)
 
         # Step simulator
         sim.step()

@@ -195,7 +195,7 @@ class IsaacGymWrapper:
         self._gym.set_dof_actuation_force_tensor(self._sim, gymtorch.unwrap_tensor(u))
 
     def apply_rigid_body_force_tensors(self, u):
-        self._gym.apply_rigid_body_force_tensors(self._sim, gymtorch.unwrap_tensor(u))
+        self._gym.apply_rigid_body_force_tensors(self._sim, gymtorch.unwrap_tensor(u.view(-1, 3)))
 
     def set_initial_joint_pose(self):
         # set initial joint poses

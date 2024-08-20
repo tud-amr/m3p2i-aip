@@ -18,6 +18,7 @@ class ExampleConfig:
     initial_actor_positions: List[List[float]]
     kp_suction: int
     suction_active: bool
+    multi_modal: bool
 
 cs = ConfigStore.instance()
 cs.store(name="config_point", node=ExampleConfig)
