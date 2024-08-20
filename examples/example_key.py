@@ -1,6 +1,7 @@
 import  m3p2i_aip.utils.isaacgym_utils.isaacgym_wrapper as wrapper
 import torch
 import hydra
+from m3p2i_aip.utils import skill_utils
 from m3p2i_aip.config.config_store import ExampleConfig
 
 @hydra.main(version_base=None, config_path="../src/m3p2i_aip/config", config_name="config_point")
@@ -55,11 +56,11 @@ def test(cfg: ExampleConfig):
                 #     print("force", dyn_obs_force)
                 # print("goal_pos", goal_pos)
 
-                # if params.suction_active:
-                #     # Simulation of a magnetic/suction effect to attach to the box
-                #     suction_force, _, _ = skill_utils.calculate_suction(block_pos, robot_pos, params.num_envs, params.kp_suction, params.block_index, bodies_per_env)
-                #     # Apply suction/magnetic force
-                #     gym.apply_rigid_body_force_tensors(sim, gymtorch.unwrap_tensor(torch.reshape(suction_force, (params.num_envs*bodies_per_env, 3))), None, gymapi.ENV_SPACE)
+                if cfg.suction_active:
+                    # Simulate a suction to the box
+                    suction_force, _, _ = skill_utils.calculate_suction(cfg, sim)
+                    # Apply suction force
+                    sim.apply_rigid_body_force_tensors(suction_force)
 
 if __name__ == "__main__":
     test()

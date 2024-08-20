@@ -55,6 +55,7 @@ class IsaacGymWrapper:
         self.env_cfg = actor_utils.load_env_cfgs(env_type)
         self.device = device
         self.robot_indices = torch.tensor([i for i, a in enumerate(self.env_cfg) if a.type == "robot"], device=self.device)
+        self.robot_per_env = len(self.robot_indices)
 
         self.cfg = cfg
         if viewer:
@@ -90,6 +91,10 @@ class IsaacGymWrapper:
 
     def acquire_states(self):
         self.num_dofs = self._gym.get_sim_dof_count(self._sim)
+        self.dofs_per_robot = int(self.num_dofs/(self.num_envs*self.robot_per_env))
+        self.num_bodies = self._gym.get_sim_rigid_body_count(self._sim)
+        self.bodies_per_env = int(self.num_bodies/self.num_envs)
+
         self._dof_state = gymtorch.wrap_tensor(
             self._gym.acquire_dof_state_tensor(self._sim)
         ).view(self.num_envs, -1)
@@ -188,6 +193,9 @@ class IsaacGymWrapper:
 
     def set_dof_actuation_force_tensor(self, u):
         self._gym.set_dof_actuation_force_tensor(self._sim, gymtorch.unwrap_tensor(u))
+
+    def apply_rigid_body_force_tensors(self, u):
+        self._gym.apply_rigid_body_force_tensors(self._sim, gymtorch.unwrap_tensor(u))
 
     def set_initial_joint_pose(self):
         # set initial joint poses

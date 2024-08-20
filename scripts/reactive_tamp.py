@@ -60,7 +60,7 @@ class REACTIVE_TAMP:
         if self.task_success:
             print("--------Task success--------")
             return torch_to_bytes(
-                torch.zeros(int(self.cfg.mppi.nx/2), device=self.cfg.mppi.device)
+                torch.zeros(self.sim.dofs_per_robot, device=self.cfg.mppi.device)
             )
         else:
             print("--------Compute optimal action--------")

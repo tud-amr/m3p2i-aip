@@ -22,24 +22,24 @@ def bspline(c_arr, t_arr=None, n=100, degree=3):
     return samples
 
 # Calculate the suction force
-def calculate_suction(block_pos, robot_pos, num_envs, kp_suction, block_index, bodies_per_env):
+def calculate_suction(cfg, sim):
     # Calculate the direction and magnitude between the block and robot 
-    dir_vector = block_pos - robot_pos # [num_envs, 2]
+    dir_vector = sim.get_actor_position_by_name("box")[:, :2] - sim.robot_pos # [num_envs, 2]
     magnitude = 1/torch.linalg.norm(dir_vector, dim=1) # [num_envs]
-    magnitude = magnitude.reshape([num_envs, 1])
+    magnitude = magnitude.reshape([sim.num_envs, 1])
     # print('robo', robot_pos)
     # print('mag', magnitude)
 
     # Form the suction force
     unit_force = dir_vector*magnitude  # [num_envs, 2] Same as the unit direction of pulling force
-    forces = torch.zeros((num_envs, bodies_per_env, 3), dtype=torch.float32, device='cuda:0', requires_grad=False)
+    forces = torch.zeros((sim.num_envs, sim.bodies_per_env, 3), dtype=torch.float32, device='cuda:0', requires_grad=False)
     
     # Start suction only when close
     # The different thresholds for real and sim envs are due to the inconsistency of 
     # transferring suction force between sim to real. Among the rollouts, the optimal
     # solution is selected based on the cost instead of the criteria which one is closest to the block. 
     # So the optimal solution does not mean it is closest to the block. This leads to the inconsistency of suction force.
-    if num_envs == 1:
+    if sim.num_envs == 1:
         # For the case of real env, the threshold is lower. 
         # This means the robot and block donot need to be so close to generate the suction
         mask = magnitude[:, :] > 1.5
@@ -47,15 +47,16 @@ def calculate_suction(block_pos, robot_pos, num_envs, kp_suction, block_index, b
         # For the case of simulated rollout env, the threshold is higher.
         # This means the robot and block need to be close enough to generate the suction
         mask = magnitude[:, :] > 1.8
-    mask = mask.reshape(num_envs)
+    mask = mask.reshape(sim.num_envs)
     # Force on the block
-    forces[mask, block_index, 0] = -kp_suction*unit_force[mask, 0]
-    forces[mask, block_index, 1] = -kp_suction*unit_force[mask, 1]
+    block_index = sim._get_actor_index_by_name("box").item()
+    forces[mask, block_index, 0] = -cfg.kp_suction*unit_force[mask, 0]
+    forces[mask, block_index, 1] = -cfg.kp_suction*unit_force[mask, 1]
     # Opposite force on the robot body
-    forces[mask, -1, 0] = kp_suction*unit_force[mask, 0]
-    forces[mask, -1, 1] = kp_suction*unit_force[mask, 1]
+    forces[mask, -1, 0] = cfg.kp_suction*unit_force[mask, 0]
+    forces[mask, -1, 1] = cfg.kp_suction*unit_force[mask, 1]
     # Add clamping to control input
-    forces = torch.clamp(forces, min=-500, max=500)
+    forces = torch.clamp(forces, min=-500, max=500).view(-1, 3)
 
     return forces, -unit_force, mask
 
