@@ -1,10 +1,8 @@
-from isaacgym import gymapi
-from isaacgym import gymtorch
+from isaacgym import gymapi, gymtorch
+import torch, numpy as np
+from typing import List
 from dataclasses import dataclass, field
 import  m3p2i_aip.utils.isaacgym_utils.actor_utils as actor_utils
-import numpy as np
-import torch
-from typing import List
 @dataclass
 class IsaacGymConfig():
     dt: float = 0.05 # 0.01

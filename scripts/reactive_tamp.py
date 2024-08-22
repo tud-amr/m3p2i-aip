@@ -1,13 +1,12 @@
 from isaacgym import gymtorch
+import torch, hydra, zerorpc
 from m3p2i_aip.planners.motion_planner import m3p2i
 from m3p2i_aip.planners.task_planner import task_planner
-from m3p2i_aip.utils.data_transfer import bytes_to_torch, torch_to_bytes
-from m3p2i_aip.planners.motion_planner.cost_functions import Objective
-import torch, time, copy, socket, numpy as np
-torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
-import  m3p2i_aip.utils.isaacgym_utils.isaacgym_wrapper as wrapper
-import hydra, zerorpc
 from m3p2i_aip.config.config_store import ExampleConfig
+import  m3p2i_aip.utils.isaacgym_utils.isaacgym_wrapper as wrapper
+from m3p2i_aip.planners.motion_planner.cost_functions import Objective
+from m3p2i_aip.utils.data_transfer import bytes_to_torch, torch_to_bytes
+torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 
 '''
 Run in the command line:

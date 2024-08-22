@@ -1,6 +1,5 @@
 import torch
-from isaacgym import gymtorch, gymapi
-from m3p2i_aip.utils import skill_utils, mppi_utils
+from m3p2i_aip.utils import mppi_utils
 import m3p2i_aip.planners.motion_planner.mppi as mppi
 
 class M3P2I(mppi.MPPI):

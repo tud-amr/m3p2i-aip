@@ -31,10 +31,7 @@ def check_suction_condition(cfg, sim, action):
 
     # Can only pull if the robot is close to block and the action aligns with pulling direction
     # print("dist", dis_robot_block, "align", action_align_pull)
-    if dis_robot_block < 0.6 and action_align_pull > 0:
-        return True
-    else:
-        return False
+    return dis_robot_block < 0.6 and action_align_pull > 0
 
 # Calculate the suction force
 def calculate_suction(cfg, sim):
@@ -73,7 +70,7 @@ def calculate_suction(cfg, sim):
     # Add clamping to control input
     forces = torch.clamp(forces, min=-500, max=500)
 
-    return forces, -unit_force, mask
+    return forces
 
 # Apply forward kinematics
 def apply_fk(robot, u):

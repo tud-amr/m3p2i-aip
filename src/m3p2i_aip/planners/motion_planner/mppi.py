@@ -1,11 +1,10 @@
 from scipy import signal
+import torch, numpy as np
 from dataclasses import dataclass, field
 from typing import List, Optional, Callable
-import torch, logging, functools, numpy as np, scipy.interpolate as si
 from torch.distributions.multivariate_normal import MultivariateNormal
-from m3p2i_aip.utils.skill_utils import _ensure_non_zero, is_tensor_like, bspline
+from m3p2i_aip.utils.skill_utils import _ensure_non_zero, bspline
 from m3p2i_aip.utils.mppi_utils import generate_gaussian_halton_samples, scale_ctrl, cost_to_go
-logger = logging.getLogger(__name__)
 
 @dataclass
 class MPPIConfig(object):

@@ -1,8 +1,7 @@
-import  m3p2i_aip.utils.isaacgym_utils.isaacgym_wrapper as wrapper
-import torch
 import hydra
 from m3p2i_aip.utils import skill_utils
 from m3p2i_aip.config.config_store import ExampleConfig
+import m3p2i_aip.utils.isaacgym_utils.isaacgym_wrapper as wrapper
 
 @hydra.main(version_base=None, config_path="../src/m3p2i_aip/config", config_name="config_point")
 def test(cfg: ExampleConfig):
@@ -58,7 +57,7 @@ def test(cfg: ExampleConfig):
 
                 if cfg.suction_active:
                     # Simulate a suction to the box
-                    suction_force, _, _ = skill_utils.calculate_suction(cfg, sim)
+                    suction_force = skill_utils.calculate_suction(cfg, sim)
                     # Apply suction force
                     sim.apply_rigid_body_force_tensors(suction_force)
 

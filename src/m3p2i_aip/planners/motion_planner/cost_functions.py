@@ -1,6 +1,5 @@
 import torch
 from m3p2i_aip.utils import skill_utils
-from isaacgym import gymtorch, gymapi
 import  m3p2i_aip.utils.isaacgym_utils.isaacgym_wrapper as wrapper
 
 class Objective(object):
@@ -56,7 +55,7 @@ class Objective(object):
         flag_towards_block = torch.sum(sim.robot_vel*pos_dir, 1) > 0
 
         # simulate a suction to the box
-        suction_force, dir, mask = skill_utils.calculate_suction(self.cfg, sim)
+        suction_force = skill_utils.calculate_suction(self.cfg, sim)
         # Set no suction force if robot moves towards the block
         suction_force[flag_towards_block] = 0
         if self.multi_modal:

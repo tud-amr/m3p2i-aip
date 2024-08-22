@@ -1,10 +1,9 @@
-from isaacgym import gymapi, gymtorch
-import torch, time, numpy as np, socket
-from m3p2i_aip.utils import data_transfer, skill_utils
-from m3p2i_aip.utils.data_transfer import bytes_to_torch, torch_to_bytes
-import hydra, zerorpc
-import  m3p2i_aip.utils.isaacgym_utils.isaacgym_wrapper as wrapper
+from isaacgym import gymtorch
+import torch, hydra, zerorpc
 from m3p2i_aip.config.config_store import ExampleConfig
+import  m3p2i_aip.utils.isaacgym_utils.isaacgym_wrapper as wrapper
+from m3p2i_aip.utils.data_transfer import bytes_to_torch, torch_to_bytes
+from m3p2i_aip.utils.skill_utils import check_suction_condition, calculate_suction
 torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 
 '''
@@ -40,8 +39,8 @@ def run_sim(cfg: ExampleConfig):
         # print("task", cfg.task, "action", action)
         sim.set_dof_velocity_target_tensor(action)
 
-        if skill_utils.check_suction_condition(cfg, sim, action):
-            suction_force, _, _ = skill_utils.calculate_suction(cfg, sim)
+        if check_suction_condition(cfg, sim, action):
+            suction_force = calculate_suction(cfg, sim)
             sim.apply_rigid_body_force_tensors(suction_force)
 
         # Step simulator

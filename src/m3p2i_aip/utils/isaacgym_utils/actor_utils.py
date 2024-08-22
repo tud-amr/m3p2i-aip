@@ -1,13 +1,11 @@
 
 from isaacgym import gymapi
-import numpy as np 
-import m3p2i_aip.utils.path_utils as path_utils
-from dataclasses import dataclass, field
 from enum import Enum
-from typing import List, Optional, Any
-import pathlib 
-import yaml
 from yaml import SafeLoader
+import yaml, pathlib, numpy as np 
+from typing import List, Optional, Any
+from dataclasses import dataclass, field
+import m3p2i_aip.utils.path_utils as path_utils
 
 class SupportedActorTypes(Enum):
     Axis = 1
