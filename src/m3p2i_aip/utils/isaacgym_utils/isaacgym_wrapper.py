@@ -347,6 +347,25 @@ class IsaacGymWrapper:
         # for env_idx in range(self.num_envs):
         #     self._gym.destroy_env(self.envs[env_idx])
         self._gym.destroy_sim(self._sim)
+    
+    def visualize_trajs(self, trajs):
+        trajs = trajs.cpu().clone().numpy()
+        n_traj, t_horizon = trajs.shape[0], trajs.shape[1]-1
+        line_array = np.zeros((t_horizon, 6), dtype=np.float32)
+        color_array = np.zeros((t_horizon, 3), dtype=np.float32)
+        color_array[:, 1] = 255 
+        
+        self._gym.clear_lines(self.viewer)
+        for i in range(n_traj):
+            for j in range(t_horizon):
+                if self.env_type == "point_env":
+                    pos = [trajs[i, j, 0], trajs[i, j, 1], 0.1, 
+                           trajs[i, j+1, 0], trajs[i, j+1, 1], 0.1]
+                else:
+                    pos = [trajs[i, j, 0], trajs[i, j, 1], trajs[i, j, 2], 
+                           trajs[i, j+1, 0], trajs[i, j+1, 1], trajs[i, j+1, 2]]
+                line_array[j, :] = pos
+            self._gym.add_lines(self.viewer, self.envs[0], t_horizon, line_array, color_array)
 
     def initialize_keyboard_listeners(self):
         self._gym.subscribe_viewer_keyboard_event(self.viewer, gymapi.KEY_A, "left")

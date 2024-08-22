@@ -1,9 +1,9 @@
 from isaacgym import gymtorch
-import torch, hydra, zerorpc
+import torch, hydra, zerorpc, time
 from m3p2i_aip.config.config_store import ExampleConfig
 import  m3p2i_aip.utils.isaacgym_utils.isaacgym_wrapper as wrapper
 from m3p2i_aip.utils.data_transfer import bytes_to_torch, torch_to_bytes
-from m3p2i_aip.utils.skill_utils import check_suction_condition, calculate_suction
+from m3p2i_aip.utils.skill_utils import check_suction_condition, calculate_suction, time_tracking
 torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 
 '''
@@ -30,6 +30,7 @@ def run_sim(cfg: ExampleConfig):
         sim.step()
     print("Start simulation!")
 
+    t = time.time()
     while True:
         # print("dof", sim._dof_state[0], "root", sim._root_state[0])
         action = bytes_to_torch(
@@ -43,8 +44,13 @@ def run_sim(cfg: ExampleConfig):
             suction_force = calculate_suction(cfg, sim)
             sim.apply_rigid_body_force_tensors(suction_force)
 
-        # Step simulator
         sim.step()
+
+        sim.visualize_trajs(
+            bytes_to_torch(planner.get_trajs())
+        )
+        
+        t = time_tracking(t, cfg)
 
 if __name__== "__main__":
     run_sim()

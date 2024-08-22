@@ -1,4 +1,4 @@
-import torch, numpy as np, scipy.interpolate as si
+import torch, numpy as np, scipy.interpolate as si, time
 
 def _ensure_non_zero(cost, beta, factor):
     return torch.exp(-factor * (cost - beta))
@@ -20,6 +20,17 @@ def bspline(c_arr, t_arr=None, n=100, degree=3):
     samples = si.splev(xx, spl, ext=3)
     samples = torch.as_tensor(samples, device=sample_device, dtype=sample_dtype)
     return samples
+
+# Track time
+def time_tracking(t, cfg):
+    actual_dt = time.time() - t
+    rt = cfg.isaacgym.dt / actual_dt
+    if rt > 1.0:
+        time.sleep(cfg.isaacgym.dt - actual_dt)
+        actual_dt = time.time() - t
+        rt = cfg.isaacgym.dt / actual_dt
+    print("FPS: {:.3f}".format(1/actual_dt), "RT: {:.3f}".format(rt))
+    return time.time()
 
 # Check whether suction is possible
 def check_suction_condition(cfg, sim, action):

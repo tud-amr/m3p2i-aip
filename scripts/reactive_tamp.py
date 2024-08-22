@@ -84,6 +84,9 @@ class REACTIVE_TAMP:
         print("task", self.task_planner.task, "goal", self.task_planner.curr_goal)
         self.task_success = self.task_planner.check_task_success(self.sim)
 
+    def get_trajs(self):
+        return torch_to_bytes(self.motion_planner.top_trajs)
+
 @hydra.main(version_base=None, config_path="../src/m3p2i_aip/config", config_name="config_point")
 def run_reactive_tamp(cfg: ExampleConfig):
     reactive_tamp = REACTIVE_TAMP(cfg)

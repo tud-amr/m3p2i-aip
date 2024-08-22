@@ -203,22 +203,22 @@ def acquire_states(gym, sim, params, env="none"):
 
     return states_dict
 
-# Visualize top trajs
-def visualize_toptrajs(gym, viewer, env, states, is_mobile_robot):
-    states = states.cpu().clone().numpy()
-    n_traj, t_horizon = states.shape[0], states.shape[1]-1
-    line_array = np.zeros((t_horizon, 6), dtype=np.float32)
-    color_array = np.zeros((t_horizon, 3), dtype=np.float32)
-    color_array[:, 1] = 255 
-    for i in range(n_traj):
-        for j in range(t_horizon):
-            if is_mobile_robot:
-                pos = [states[i, j, 0], states[i, j, 1], 0.1, states[i, j+1, 0], states[i, j+1, 1], 0.1]
-            else:
-                pos = [states[i, j, 0], states[i, j, 1], states[i, j, 2], states[i, j+1, 0], states[i, j+1, 1], states[i, j+1, 2]]
-            line_array[j, :] = pos
-        # Draw lines
-        gym.add_lines(viewer, env, t_horizon, line_array, color_array)
+# # Visualize top trajs
+# def visualize_toptrajs(gym, viewer, env, states, is_mobile_robot):
+#     states = states.cpu().clone().numpy()
+#     n_traj, t_horizon = states.shape[0], states.shape[1]-1
+#     line_array = np.zeros((t_horizon, 6), dtype=np.float32)
+#     color_array = np.zeros((t_horizon, 3), dtype=np.float32)
+#     color_array[:, 1] = 255 
+#     for i in range(n_traj):
+#         for j in range(t_horizon):
+#             if is_mobile_robot:
+#                 pos = [states[i, j, 0], states[i, j, 1], 0.1, states[i, j+1, 0], states[i, j+1, 1], 0.1]
+#             else:
+#                 pos = [states[i, j, 0], states[i, j, 1], states[i, j, 2], states[i, j+1, 0], states[i, j+1, 1], states[i, j+1, 2]]
+#             line_array[j, :] = pos
+#         # Draw lines
+#         gym.add_lines(viewer, env, t_horizon, line_array, color_array)
 
 # # Step the simulation
 # def step(gym, sim):
@@ -240,22 +240,22 @@ def visualize_toptrajs(gym, viewer, env, states, is_mobile_robot):
 #         if sync_frame_time:
 #             gym.sync_frame_time(sim)
 
-# Time logging
-def time_logging(gym, sim, next_fps_report, frame_count, t1, num_envs, sim_time=[]):
-    t = gym.get_elapsed_time(sim)
-    if t >= next_fps_report:
-        t2 = gym.get_elapsed_time(sim)
-        fps = frame_count / (t2 - t1)
-        print("FPS %.1f (%.1f)" % (fps, fps * num_envs))
-        frame_count = 0
-        t1 = gym.get_elapsed_time(sim)
-        next_fps_report = t1 + 1
-    frame_count += 1
-    if len(sim_time) > 0:
-        elapsed_time = sim_time[-1] - sim_time[0]
-        if int(elapsed_time*100) % 20 == 0:
-            print("Current time:", format(elapsed_time, '.1f'))
-    return next_fps_report, frame_count, t1
+# # Time logging
+# def time_logging(gym, sim, next_fps_report, frame_count, t1, num_envs, sim_time=[]):
+#     t = gym.get_elapsed_time(sim)
+#     if t >= next_fps_report:
+#         t2 = gym.get_elapsed_time(sim)
+#         fps = frame_count / (t2 - t1)
+#         print("FPS %.1f (%.1f)" % (fps, fps * num_envs))
+#         frame_count = 0
+#         t1 = gym.get_elapsed_time(sim)
+#         next_fps_report = t1 + 1
+#     frame_count += 1
+#     if len(sim_time) > 0:
+#         elapsed_time = sim_time[-1] - sim_time[0]
+#         if int(elapsed_time*100) % 20 == 0:
+#             print("Current time:", format(elapsed_time, '.1f'))
+#     return next_fps_report, frame_count, t1
 
 # # Destroy the simulation
 # def destroy_sim(gym, sim, viewer):
