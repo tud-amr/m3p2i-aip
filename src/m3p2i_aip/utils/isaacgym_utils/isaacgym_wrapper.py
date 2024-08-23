@@ -194,6 +194,23 @@ class IsaacGymWrapper:
 
     def apply_rigid_body_force_tensors(self, u):
         self._gym.apply_rigid_body_force_tensors(self._sim, gymtorch.unwrap_tensor(u.view(-1, 3)))
+    
+    def update_dyn_obs(self, i, period=100):
+        dyn_obs_id = self._get_actor_index_by_name("dyn-obs")
+        dyn_obs_pos = self._root_state[:, dyn_obs_id, :3]
+
+        if self.env_type == "point_env":
+            offsets = torch.tensor([0.03, 0.03, 0], dtype=torch.float32, device=self.device)
+        else:
+            offsets = torch.tensor([0.01, 0, 0], dtype=torch.float32, device=self.device)
+
+        if i % period > period/4 and i % period < period/4*3:
+            dyn_obs_pos += offsets
+        else:
+            dyn_obs_pos -= offsets
+        self._gym.set_actor_root_state_tensor(
+            self._sim, gymtorch.unwrap_tensor(self._root_state)
+        )
 
     def set_initial_joint_pose(self):
         # set initial joint poses

@@ -41,7 +41,7 @@ def check_and_apply_suction(cfg, sim, action):
     if suction_force.any() == 0:
         print("no suction...")
     else:
-        print("suction!!!!")
+        print("suction!!!")
 
 # Check whether suction is possible
 def check_suction_condition(cfg, sim, action):
@@ -68,11 +68,10 @@ def calculate_suction(cfg, sim):
     unit_force = dir_vector * magnitude  # [num_envs, 2] Same as the unit direction of pulling force
     forces = torch.zeros((sim.num_envs, sim.bodies_per_env, 3), dtype=torch.float32, device='cuda:0', requires_grad=False)
     
-    # Start suction only when close
-    # The different thresholds for real and sim envs are due to the inconsistency of 
-    # transferring suction force between sim to real. Among the rollouts, the optimal
-    # solution is selected based on the cost instead of the criteria which one is closest to the block. 
-    # So the optimal solution does not mean it is closest to the block. This leads to the inconsistency of suction force.
+    # Start suction only when close. The different thresholds for real and sim envs are due to the inconsistency 
+    # of transferring suction force between sim to real. Among the rollouts, the optimal solution is selected 
+    # based on the cost instead of the criteria which one is closest to the block. So the optimal solution 
+    # does not mean it is closest to the block. This leads to the inconsistency of suction force.
     if sim.num_envs == 1:
         # For the case of real env, the threshold is lower. 
         # This means the robot and block donot need to be so close to generate the suction

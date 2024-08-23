@@ -32,8 +32,9 @@ def run_sim(cfg: ExampleConfig):
     print("Start simulation!")
 
     t = time.time()
-    while True:
-        # print("dof", sim._dof_state[0], "root", sim._root_state[0])
+    for i in range(10000):
+        sim.update_dyn_obs(i)
+
         action = bytes_to_torch(
             planner.run_tamp(
                 torch_to_bytes(sim._dof_state), torch_to_bytes(sim._root_state))
@@ -44,7 +45,6 @@ def run_sim(cfg: ExampleConfig):
         cfg.suction_active = bytes_to_torch(
             planner.get_suction()
         )
-
         check_and_apply_suction(cfg, sim, action)
 
         sim.step()
