@@ -13,6 +13,7 @@ Run in the command line:
     python3 reactive_tamp.py task=navigation goal="[-1, -1]"
     python3 reactive_tamp.py task=push goal="[-1, -1]"
     python3 reactive_tamp.py task=pull goal="[0, 0]"
+    python3 reactive_tamp.py task=push_pull multi_modal=True goal="[-3.75, -3.75]"
 '''
 
 class REACTIVE_TAMP:
@@ -81,11 +82,15 @@ class REACTIVE_TAMP:
         return self.objective.compute_cost(self.sim)
     
     def tamp_interface(self):
+        self.suction_active = self.motion_planner.get_pull_preference()
         print("task", self.task_planner.task, "goal", self.task_planner.curr_goal)
         self.task_success = self.task_planner.check_task_success(self.sim)
 
     def get_trajs(self):
         return torch_to_bytes(self.motion_planner.top_trajs)
+    
+    def get_suction(self):
+        return torch_to_bytes(self.suction_active)
 
 @hydra.main(version_base=None, config_path="../src/m3p2i_aip/config", config_name="config_point")
 def run_reactive_tamp(cfg: ExampleConfig):

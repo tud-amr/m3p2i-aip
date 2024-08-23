@@ -29,7 +29,7 @@ class PLANNER_SIMPLE:
         task_success = False
         if self.task == "navigation":
             task_success = torch.norm(sim.robot_pos[0, :] - self.curr_goal) < 0.1
-        elif self.task in ['push', 'pull', 'hybrid']:
+        elif self.task in ['push', 'pull', 'push_pull']:
             pos_dist = torch.norm(box_pos - self.curr_goal)
             goal_quat = torch.tensor([0, 0, 0, 1], device="cuda:0").view(1, 4)
             ori_dist = skill_utils.get_general_ori_cube2goal(box_ori.view(1, 4), goal_quat)

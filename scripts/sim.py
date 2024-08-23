@@ -3,13 +3,14 @@ import torch, hydra, zerorpc, time
 from m3p2i_aip.config.config_store import ExampleConfig
 import  m3p2i_aip.utils.isaacgym_utils.isaacgym_wrapper as wrapper
 from m3p2i_aip.utils.data_transfer import bytes_to_torch, torch_to_bytes
-from m3p2i_aip.utils.skill_utils import check_suction_condition, calculate_suction, time_tracking
+from m3p2i_aip.utils.skill_utils import check_and_apply_suction, time_tracking
 torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 
 '''
 Run in the command line:
     python3 sim.py
     python3 sim.py task=pull
+    python3 sim.py task=push_pull
 '''
 
 @hydra.main(version_base=None, config_path="../src/m3p2i_aip/config", config_name="config_point")
@@ -40,9 +41,11 @@ def run_sim(cfg: ExampleConfig):
         # print("task", cfg.task, "action", action)
         sim.set_dof_velocity_target_tensor(action)
 
-        if check_suction_condition(cfg, sim, action):
-            suction_force = calculate_suction(cfg, sim)
-            sim.apply_rigid_body_force_tensors(suction_force)
+        cfg.suction_active = bytes_to_torch(
+            planner.get_suction()
+        )
+
+        check_and_apply_suction(cfg, sim, action)
 
         sim.step()
 

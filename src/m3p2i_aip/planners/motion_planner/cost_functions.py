@@ -18,6 +18,9 @@ class Objective(object):
             return self.get_push_cost(sim, self.goal)
         elif self.cfg.task == "pull":
             return self.get_pull_cost(sim, self.goal)
+        elif self.cfg.task == "push_pull":
+            return torch.cat((self.get_push_cost(sim, self.goal)[:self.half_samples], 
+                              self.get_pull_cost(sim, self.goal)[self.half_samples:]), dim=0)
 
     def get_navigation_cost(self, sim: wrapper):
         return torch.linalg.norm(sim.robot_pos - self.goal, axis=1)
@@ -76,7 +79,7 @@ class Objective(object):
 
         # ori_cost = skill_utils.get_general_ori_cube2goal(block_quat, goal_quaternion)
 
-        return 3 * self.dist_cost + vel_cost + 5 * align_cost #+ 10 * ori_cost # [num_envs] 315 
+        return 3 * self.dist_cost + 3 * vel_cost + 7 * align_cost #+ 10 * ori_cost # [num_envs] 315 
 
     def get_panda_pick_cost(self, sim, cube_goal_state):
         ee_l_state = sim.get_actor_link_by_name("panda", "panda_leftfinger")

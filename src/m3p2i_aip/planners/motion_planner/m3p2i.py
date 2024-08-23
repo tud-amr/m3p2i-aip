@@ -9,22 +9,14 @@ class M3P2I(mppi.MPPI):
         self.kp_suction = cfg.kp_suction
         self.suction_active = cfg.suction_active
         # self.env_type = env_type
-    
-    def update_params(self, params, weight_prefer_pull):
-        self.params = params
-        if self.task == 'hybrid' and weight_prefer_pull == 1:
-            params.suction_active = True
-        else:
-            self.suction_active = params.suction_active
-        return params
 
-    def get_weights_preference(self):
-        if self.task == 'hybrid':
-            weight_push = torch.sum(self.weights[:int(self.K/2)]).item()
-            weight_pull = torch.sum(self.weights[int(self.K/2):]).item()
+    def get_pull_preference(self):
+        if self.multi_modal:
+            weight_push = torch.sum(self.weights[:self.half_K]).item()
+            weight_pull = torch.sum(self.weights[self.half_K:]).item()
             return int(weight_pull > weight_push)
         else:
-            return -1
+            return self.suction_active
         
     def update_infinite_beta(self, costs, beta, eta_u_bound, eta_l_bound):
         """

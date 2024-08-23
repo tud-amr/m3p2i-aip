@@ -32,9 +32,20 @@ def time_tracking(t, cfg):
     print("FPS: {:.3f}".format(1/actual_dt), "RT: {:.3f}".format(rt))
     return time.time()
 
+# The function to call in sim.py
+def check_and_apply_suction(cfg, sim, action):
+    suction_force = torch.zeros(10, device=cfg.mppi.device) # the size does not matter
+    if check_suction_condition(cfg, sim, action):
+        suction_force = calculate_suction(cfg, sim)
+        sim.apply_rigid_body_force_tensors(suction_force)
+    if suction_force.any() == 0:
+        print("no suction...")
+    else:
+        print("suction!!!!")
+
 # Check whether suction is possible
 def check_suction_condition(cfg, sim, action):
-    if cfg.task not in ['pull', 'hybrid']:
+    if cfg.task not in ['pull', 'push_pull'] or not cfg.suction_active:
         return False
     dir_robot_block = (sim.robot_pos - sim.get_actor_position_by_name("box")[:, :2]).squeeze(0)
     action_align_pull = torch.sum(action * dir_robot_block).item()

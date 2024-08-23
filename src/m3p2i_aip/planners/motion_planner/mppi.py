@@ -158,7 +158,7 @@ class MPPI():
         self.state = None
         self.cost_total = None
         self.cost_total_non_zero = None
-        self.weights = None
+        self.weights = torch.zeros(self.K, **self.tensor_args)
         self.states = None
         self.actions = None
 
