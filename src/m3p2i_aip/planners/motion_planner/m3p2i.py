@@ -5,10 +5,7 @@ import m3p2i_aip.planners.motion_planner.mppi as mppi
 class M3P2I(mppi.MPPI):
     def __init__(self, cfg, dynamics=None, running_cost=None):
         super().__init__(cfg, dynamics, running_cost)
-
-        self.kp_suction = cfg.kp_suction
         self.suction_active = cfg.suction_active
-        # self.env_type = env_type
 
     def get_pull_preference(self):
         if self.multi_modal:

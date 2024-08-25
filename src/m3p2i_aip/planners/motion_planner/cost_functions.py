@@ -10,17 +10,24 @@ class Objective(object):
         self.half_samples = int(cfg.mppi.num_samples/2)
         self.device = self.cfg.mppi.device
 
+    def update_objective(self, task, goal):
+        self.task = task
+        self.goal = goal if torch.is_tensor(goal) else torch.tensor(goal, device=self.device)
+        
     def compute_cost(self, sim: wrapper):
-        self.goal = self.cfg.goal if torch.is_tensor(self.cfg.goal) else torch.tensor(self.cfg.goal, device=self.device)
-        if self.cfg.task == "navigation":
+        if self.task == "navigation":
             return self.get_navigation_cost(sim)
-        elif self.cfg.task == "push":
+        elif self.task == "push":
             return self.get_push_cost(sim, self.goal)
-        elif self.cfg.task == "pull":
+        elif self.task == "pull":
             return self.get_pull_cost(sim, self.goal)
-        elif self.cfg.task == "push_pull":
+        elif self.task == "push_pull":
             return torch.cat((self.get_push_cost(sim, self.goal)[:self.half_samples], 
                               self.get_pull_cost(sim, self.goal)[self.half_samples:]), dim=0)
+        elif self.task == "pick":
+            return self.get_panda_pick_cost(sim, self.goal)
+        elif self.task == "place":
+            return self.get_panda_place_cost(sim, self.goal)
 
     def get_navigation_cost(self, sim: wrapper):
         return torch.linalg.norm(sim.robot_pos - self.goal, axis=1)
@@ -88,11 +95,11 @@ class Objective(object):
         cube_state = sim.get_actor_link_by_name("cubeA", "box")
 
         reach_cost = torch.linalg.norm(ee_state[:,:3] - cube_state[:,:3], axis = 1) 
+        # print("reach", reach_cost)
         goal_cost = torch.linalg.norm(cube_goal_state[:3] - cube_state[:,:3], axis = 1) #+ 2*torch.abs(block_goal[2] - block_state[:,2])
         # Close the gripper when close to the cube
         gripper_dist = torch.linalg.norm(ee_l_state[:, :3] - ee_r_state[:, :3], axis=1)
         gripper_cost = 2 * (1 - gripper_dist)
-        threshold_gripper = {'panda':0.1, 'albert':0.08}
         gripper_cost[reach_cost < 0.1] = 0
 
         manip_cost = torch.zeros_like(reach_cost)

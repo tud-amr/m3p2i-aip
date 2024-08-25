@@ -5,18 +5,12 @@ from m3p2i_aip.planners.task_planner import ai_agent, adaptive_action_selection
 from m3p2i_aip.planners.task_planner import isaac_int_req_templates, isaac_state_action_templates
 
 class PLANNER_SIMPLE:
-    def __init__(self, task, goal) -> None:
-        self.task = task
-        self.curr_goal = goal if torch.is_tensor(goal) else torch.tensor(goal, device="cuda:0")
+    def __init__(self, cfg) -> None:
+        self.device = cfg.mppi.device
+        self.task = cfg.task
+        self.curr_goal = cfg.goal if torch.is_tensor(cfg.goal) else torch.tensor(cfg.goal, device=self.device)
 
-    def update_params(self, params):
-        if self.task == "pull":
-            params.suction_active = True
-        else:
-            params.suction_active = False
-        return params
-
-    def update_plan(self, robot_pos, stay_still):
+    def update_plan(self, sim):
         pass
     
     def reset_plan(self):    
@@ -31,7 +25,7 @@ class PLANNER_SIMPLE:
             task_success = torch.norm(sim.robot_pos[0, :] - self.curr_goal) < 0.1
         elif self.task in ['push', 'pull', 'push_pull']:
             pos_dist = torch.norm(box_pos - self.curr_goal)
-            goal_quat = torch.tensor([0, 0, 0, 1], device="cuda:0").view(1, 4)
+            goal_quat = torch.tensor([0, 0, 0, 1], device=self.device).view(1, 4)
             ori_dist = skill_utils.get_general_ori_cube2goal(box_ori.view(1, 4), goal_quat)
             # print('pos', pos_dist, 'ori', ori_dist)
             task_success = pos_dist <= 0.15 # and ori_dist <= 0.1
@@ -72,15 +66,17 @@ class PLANNER_PICK(PLANNER_SIMPLE):
         self.curr_goal = self.initial_goal
 
 class PLANNER_AIF_PANDA(PLANNER_SIMPLE):
-    def __init__(self) -> None:
-        PLANNER_SIMPLE.__init__(self, "idle", [0, 0, 0, 0, 0, 0, 0])
+    def __init__(self, cfg) -> None:
+        self.device = cfg.mppi.device
+        self.task = "idle"
+        self.curr_goal = torch.zeros(7, device=self.device)
         # Define the required mdp structures from the templates
         mdp_isCubeAt = isaac_state_action_templates.MDPIsCubeAt()
 
         # Agent with following states [isCubeAt]
         self.ai_agent_task = [ai_agent.AiAgent(mdp_isCubeAt)]
         self.obs = 0
-        self.prev_ee_state = torch.zeros(7, device="cuda:0")
+        self.prev_ee_state = torch.zeros(7, device=self.device)
 
     def get_obs(self, cube_state, cube_goal, ee_state):
         cube_height_diff = torch.linalg.norm(cube_state[2] - cube_goal[2])
@@ -97,8 +93,13 @@ class PLANNER_AIF_PANDA(PLANNER_SIMPLE):
             self.ee_goal[2] += 0.2
             self.ai_agent_task[0].set_preferences(np.array([[1], [0], [0]]))
 
-    def update_plan(self, cube_state, cube_goal, ee_state):
-        self.get_obs(cube_state, cube_goal, ee_state)
+    def update_plan(self, sim):
+        cube_state = sim.get_actor_link_by_name("cubeA", "box")[0, :7]
+        cube_goal = sim.get_actor_link_by_name("cubeB", "box")[0, :7]
+        left_finger = sim.get_actor_link_by_name("panda", "panda_leftfinger")[0, :7]
+        right_finger = sim.get_actor_link_by_name("panda", "panda_rightfinger")[0, :7]
+        self.ee_state = (left_finger + right_finger) / 2
+        self.get_obs(cube_state, cube_goal, self.ee_state)
         outcome, curr_action = adaptive_action_selection.adapt_act_sel(self.ai_agent_task, [self.obs])
         # print('Status:', outcome)
         # print('Current action:', curr_action)
@@ -111,11 +112,11 @@ class PLANNER_AIF_PANDA(PLANNER_SIMPLE):
             self.ai_agent_task[0].set_preferences(np.array([[1], [0], [0]]))
             self.curr_goal = self.ee_goal
     
-    def check_task_success(self, ee_state):
+    def check_task_success(self, sim):
         flag = False
-        if self.task == 'place' and torch.linalg.norm(ee_state - self.prev_ee_state) < 0.002:
+        if self.task == 'place' and torch.linalg.norm(self.ee_state - self.prev_ee_state) < 0.002:
             flag = True
-        self.prev_ee_state = ee_state.clone()
+        self.prev_ee_state = self.ee_state.clone()
         return flag
 
 class PLANNER_PATROLLING(PLANNER_SIMPLE):

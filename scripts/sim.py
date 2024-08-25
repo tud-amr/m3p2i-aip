@@ -49,9 +49,9 @@ def run_sim(cfg: ExampleConfig):
 
         sim.step()
 
-        sim.visualize_trajs(
-            bytes_to_torch(planner.get_trajs())
-        )
+        # sim.visualize_trajs(
+        #     bytes_to_torch(planner.get_trajs())
+        # )
         
         t = time_tracking(t, cfg)
 

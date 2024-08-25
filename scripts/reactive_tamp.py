@@ -31,9 +31,9 @@ class REACTIVE_TAMP:
 
         # Choose the task planner
         if self.sim.env_type == "point_env":
-            self.task_planner = task_planner.PLANNER_SIMPLE(cfg.task, cfg.goal)
+            self.task_planner = task_planner.PLANNER_SIMPLE(cfg)
         else:
-            self.task_planner = task_planner.PLANNER_AIF_PANDA()
+            self.task_planner = task_planner.PLANNER_AIF_PANDA(cfg)
         self.task_success = False
 
         # Choose the motion planner
@@ -74,8 +74,10 @@ class REACTIVE_TAMP:
         return self.objective.compute_cost(self.sim)
     
     def tamp_interface(self):
-        self.suction_active = self.motion_planner.get_pull_preference()
+        self.task_planner.update_plan(self.sim)
         print("task", self.task_planner.task, "goal", self.task_planner.curr_goal)
+        self.objective.update_objective(self.task_planner.task, self.task_planner.curr_goal)
+        self.suction_active = self.motion_planner.get_pull_preference()
         self.task_success = self.task_planner.check_task_success(self.sim)
 
     def get_trajs(self):
