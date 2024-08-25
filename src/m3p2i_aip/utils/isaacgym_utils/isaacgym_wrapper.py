@@ -185,6 +185,12 @@ class IsaacGymWrapper:
             device=self.device,
         )
         return self._net_contact_force[:, rigid_body_idx]
+    
+    def set_dof_state_tensor(self, u):
+        self._gym.set_dof_state_tensor(self._sim, gymtorch.unwrap_tensor(u))
+
+    def set_actor_root_state_tensor(self, u):
+        self._gym.set_actor_root_state_tensor(self._sim, gymtorch.unwrap_tensor(u))
 
     def set_dof_velocity_target_tensor(self, u):
         self._gym.set_dof_velocity_target_tensor(self._sim, gymtorch.unwrap_tensor(u))

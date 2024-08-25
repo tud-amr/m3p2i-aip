@@ -71,12 +71,12 @@ class MPPI():
 
     This mppi can run in two modes: 'simple' and a 'halton-spline':
         - simple:           random sampling at each MPPI iteration from normal distribution with simple mean update. To use this set 
-                            mppi_mode = 'simple_mean'
+                            mppi_mode = 'simple', sampling_method = 'random'
         - halton-spline:    samples only at the start a halton-spline which is then shifted according to the current moments of the control distribution. 
                             Moments are updated using gradient. To use this set
-                            mppi_mode = 'halton-spline', sample_mode = 'halton'
+                            mppi_mode = 'halton-spline', sampling_method = 'halton'
                             Alternatively, one can also sample random trajectories at each iteration using gradient mean update by setting
-                            mppi_mode = 'halton-spline', sample_mode = 'random'
+                            mppi_mode = 'halton-spline', sampling_method = 'random'
     """
 
     def __init__(self, cfg: MPPIConfig, dynamics: Callable, running_cost: Callable):
@@ -86,7 +86,10 @@ class MPPI():
         :param terminal_state_cost: function(state) -> cost (K x 1) taking in batch state
         """
         self.env_type = cfg.env_type
+        self.multi_modal = cfg.multi_modal
         cfg = cfg.mppi
+        self.mppi_mode = cfg.mppi_mode
+        self.sampling_method = cfg.sampling_method
 
         # Utility vars
         self.K = cfg.num_samples
@@ -198,11 +201,6 @@ class MPPI():
         self.update_cov = cfg.update_cov   # !! weird if set to True
         self.step_size_cov = 0.7
         self.kappa = 0.005
-    
-    def set_mode(self, mppi_mode, sample_method, multi_modal):
-        self.mppi_mode = mppi_mode
-        self.sample_method = sample_method
-        self.multi_modal = multi_modal and mppi_mode == 'halton-spline'
 
     def _dynamics(self, state, u, t=None):
         return self.F(state, u, t=None)
@@ -384,9 +382,9 @@ class MPPI():
             Samples Halton splines once and then shifts mean according to control distribution. If random sampling is selected 
             then samples random noise at each step. Mean of control distribution is updated using gradient
         """
-        if self.sample_method == 'random':
+        if self.sampling_method == 'random':
             self.delta = self.get_samples(self.K, base_seed=0)
-        elif self.delta == None and self.sample_method == 'halton':
+        elif self.delta == None and self.sampling_method == 'halton':
             self.delta = self.get_samples(self.K, base_seed=0)
 
         # Add zero-noise seq so mean is always a part of samples
@@ -460,7 +458,7 @@ class MPPI():
             Depending on the method, the samples can be Halton or Random. Halton samples a 
             number of knots, later interpolated with a spline
         """
-        if(self.sample_method=='halton'):   # !!
+        if(self.sampling_method=='halton'):   # !!
             self.knot_points = generate_gaussian_halton_samples(
                 sample_shape,               # Number of samples
                 self.ndims,                 # n_knots * nu (knots per number of actions)
@@ -477,7 +475,7 @@ class MPPI():
                 for j in range(self.nu):
                     self.samples[i,:,j] = bspline(knot_samples[i,j,:], n=self.T, degree=self.degree)
 
-        elif(self.sample_method == 'random'):
+        elif(self.sampling_method == 'random'):
             self.samples = self.noise_dist.sample((self.K, self.T))
         
         return self.samples

@@ -40,21 +40,13 @@ class REACTIVE_TAMP:
         self.motion_planner = m3p2i.M3P2I(cfg,
                                           dynamics = self.dynamics, 
                                           running_cost=self.running_cost)
-        self.motion_planner.set_mode(mppi_mode = 'halton-spline', # 'halton-spline', 'simple'
-                                     sample_method = 'halton',    # 'halton', 'random'
-                                     multi_modal = cfg.multi_modal)
-        self.prefer_pull = -1
 
     def run_tamp(self, dof_state, root_state):
         # Set rollout state from sim state
         self.sim._dof_state[:] = bytes_to_torch(dof_state)
         self.sim._root_state[:] = bytes_to_torch(root_state)
-        self.sim._gym.set_dof_state_tensor(
-            self.sim._sim, gymtorch.unwrap_tensor(self.sim._dof_state)
-        )
-        self.sim._gym.set_actor_root_state_tensor(
-            self.sim._sim, gymtorch.unwrap_tensor(self.sim._root_state)
-        )
+        self.sim.set_dof_state_tensor(self.sim._dof_state)
+        self.sim.set_actor_root_state_tensor(self.sim._root_state)
 
         self.tamp_interface()
         
