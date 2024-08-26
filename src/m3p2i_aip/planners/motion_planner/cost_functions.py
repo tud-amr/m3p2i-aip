@@ -15,8 +15,9 @@ class Objective(object):
         self.goal = goal if torch.is_tensor(goal) else torch.tensor(goal, device=self.device)
         
     def compute_cost(self, sim: wrapper):
+        task_cost = 0
         if self.task == "navigation":
-            return self.get_navigation_cost(sim)
+            task_cost = self.get_navigation_cost(sim)
         elif self.task == "push":
             return self.get_push_cost(sim, self.goal)
         elif self.task == "pull":
@@ -25,9 +26,10 @@ class Objective(object):
             return torch.cat((self.get_push_cost(sim, self.goal)[:self.half_samples], 
                               self.get_pull_cost(sim, self.goal)[self.half_samples:]), dim=0)
         elif self.task == "pick":
-            return self.get_panda_pick_cost(sim, self.goal)
+            task_cost = self.get_panda_pick_cost(sim, self.goal)
         elif self.task == "place":
-            return self.get_panda_place_cost(sim, self.goal)
+            task_cost = self.get_panda_place_cost(sim, self.goal)
+        return task_cost + self.get_motion_cost(sim)
 
     def get_navigation_cost(self, sim: wrapper):
         return torch.linalg.norm(sim.robot_pos - self.goal, axis=1)
@@ -100,7 +102,7 @@ class Objective(object):
         # Close the gripper when close to the cube
         gripper_dist = torch.linalg.norm(ee_l_state[:, :3] - ee_r_state[:, :3], axis=1)
         gripper_cost = 2 * (1 - gripper_dist)
-        gripper_cost[reach_cost < 0.1] = 0
+        gripper_cost[reach_cost < 0.05] = 0
 
         manip_cost = torch.zeros_like(reach_cost)
         
@@ -117,7 +119,7 @@ class Objective(object):
         weight_goal = {True:15, False:5}
         total_cost = 0.2 * manip_cost + 10 * reach_cost + weight_goal[self.multi_modal] * goal_cost + ori_cost + gripper_cost + tilt_cost
 
-        return  total_cost #+ align_cost multiply 10*reach_cost when using mppi_mode == storm
+        return total_cost
 
     def get_pick_tilt_cost(self, sim):
         # This measures the cost of the tilt angle between the end effector and the cube
@@ -129,6 +131,7 @@ class Objective(object):
         if not self.multi_modal:
             # To make the z-axis direction of end effector to be perpendicular to the cube surface
             ori_ee2cube = skill_utils.get_general_ori_ee2cube(ee_quaternion, cubeA_ori, tilt_value=0)
+            # ori_ee2cube = skill_utils.get_ori_ee2cube(ee_quaternion, cubeA_ori)
         else:
             # To combine costs of different tilt angles
             cost_1 = skill_utils.get_general_ori_ee2cube(ee_quaternion[:self.half_samples], 
@@ -154,36 +157,15 @@ class Objective(object):
         gripper_cost[gripper_dist > 0.078] = 0
         return 10 * gripper_cost + 10 * reach_cost
 
-    def get_motion_cost(self, sim, t):
+    def get_motion_cost(self, sim):
         if self.cfg.env_type == 'point_env':   
             obs_force = sim.get_actor_contact_forces_by_name("dyn-obs", "box") # [num_envs, 3]
         elif self.cfg.env_type == 'panda_env':
             obs_force = sim.get_actor_contact_forces_by_name("table", "box")
-        coll_cost = torch.sum(torch.abs(obs_force[:, :2]))
+            obs_force += sim.get_actor_contact_forces_by_name("cubeB", "box")
+        coll_cost = torch.sum(torch.abs(obs_force[:, :2]), dim=1) # [num_envs]
         # Binary check for collisions.
         coll_cost[coll_cost>0.1] = 1
         coll_cost[coll_cost<=0.1] = 0
 
-        # Avoid dynamic obstacle
-        penalty_factor = 2 # the larger the factor, the more penalty to geting close to the obs
-        allow_dyn_obs = False
-        dyn_obs_cost = self._predict_dyn_obs(penalty_factor, t+1, sim) if allow_dyn_obs else 0
-
-        return 1000*coll_cost + dyn_obs_cost
-
-    def _predict_dyn_obs(self, factor, t, sim):
-        dyn_obs_pos = sim.get_actor_position_by_name("dyn-obs")
-        # Obs boundary [-2.5, 1.5] <--> [-1.5, 2.5]
-        obs_lb = torch.tensor([-2.5, 1.5], device=self.device)
-        obs_ub = torch.tensor([-1.5, 2.5], device=self.device)
-        dyn_obs_vel = torch.clamp(dyn_obs_vel, min = -0.001, max = 0.001)
-        pred_pos = dyn_obs_pos + t * dyn_obs_vel * 10
-        # Check the prec_pos and boundary
-        exceed_ub = pred_pos[:, 1] > obs_ub[1]
-        exceed_lb = pred_pos[:, 1] < obs_lb[1]
-        pred_pos[exceed_ub] = 2 * obs_ub - pred_pos[exceed_ub]
-        pred_pos[exceed_lb] = 2 * obs_lb - pred_pos[exceed_lb]
-        # Compute the cost
-        dyn_obs_cost = factor * torch.exp(-torch.norm(pred_pos - sim.robot_pos, dim=1))
-
-        return dyn_obs_cost
+        return 1000*coll_cost

@@ -14,6 +14,7 @@ Run in the command line:
     python3 reactive_tamp.py task=push goal="[-1, -1]"
     python3 reactive_tamp.py task=pull goal="[0, 0]"
     python3 reactive_tamp.py task=push_pull multi_modal=True goal="[-3.75, -3.75]"
+    python3 reactive_tamp.py -cn config_panda
 '''
 
 class REACTIVE_TAMP:

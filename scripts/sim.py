@@ -11,6 +11,7 @@ Run in the command line:
     python3 sim.py
     python3 sim.py task=pull
     python3 sim.py task=push_pull
+    python3 sim.py -cn config_panda
 '''
 
 @hydra.main(version_base=None, config_path="../src/m3p2i_aip/config", config_name="config_point")

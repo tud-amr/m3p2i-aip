@@ -83,7 +83,8 @@ class PLANNER_AIF_PANDA(PLANNER_SIMPLE):
         dist_cost = torch.linalg.norm(self.curr_goal[:3] - cube_state[:3]) # self.curr_goal
         ori_cost = skill_utils.get_general_ori_cube2goal(self.curr_goal[3:].view(-1,4), cube_state[3:].view(-1,4))
         print('dis', dist_cost)
-        print('ori', ori_cost[0])
+        print('ori', ori_cost)
+        print("cur goal", self.curr_goal)
         if cube_height_diff < 0.001:
             self.obs = 0
             self.ai_agent_task[0].set_preferences(np.array([[0], [1], [0]]))
@@ -98,6 +99,7 @@ class PLANNER_AIF_PANDA(PLANNER_SIMPLE):
         cube_goal = sim.get_actor_link_by_name("cubeB", "box")[0, :7]
         left_finger = sim.get_actor_link_by_name("panda", "panda_leftfinger")[0, :7]
         right_finger = sim.get_actor_link_by_name("panda", "panda_rightfinger")[0, :7]
+        # print("ee vel", sim.get_actor_link_by_name("panda", "panda_hand")[0, 7:10])
         self.ee_state = (left_finger + right_finger) / 2
         self.get_obs(cube_state, cube_goal, self.ee_state)
         outcome, curr_action = adaptive_action_selection.adapt_act_sel(self.ai_agent_task, [self.obs])

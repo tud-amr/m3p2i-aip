@@ -25,7 +25,7 @@ class ActorWrapper:
     color: List[float] = field(default_factory=lambda: [1.0, 1.0, 1.0])
     fixed: bool = False
     collision: bool = True
-    friction: float = 0.0 # 1.0
+    friction: float = 1.0 # 1.0
     handle: Optional[int] = None
     flip_visual: bool = False
     urdf_file: str = None

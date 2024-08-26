@@ -206,7 +206,7 @@ class IsaacGymWrapper:
         dyn_obs_pos = self._root_state[:, dyn_obs_id, :3]
 
         if self.env_type == "point_env":
-            offsets = torch.tensor([0.03, 0.03, 0], dtype=torch.float32, device=self.device)
+            offsets = torch.tensor([0.01, 0.01, 0], dtype=torch.float32, device=self.device)
         else:
             offsets = torch.tensor([0, 0.0, 0], dtype=torch.float32, device=self.device)
 
@@ -329,11 +329,7 @@ class IsaacGymWrapper:
                 )
 
             props = self._gym.get_asset_dof_properties(asset)
-            if actor.name == "panda": #!
-                props["driveMode"][7:].fill(gymapi.DOF_MODE_VEL)
-                props["stiffness"][7:].fill(800.0)
-                props["damping"][7:].fill(40.0)
-            elif actor.dof_mode == "effort":
+            if actor.dof_mode == "effort":
                 props["driveMode"].fill(gymapi.DOF_MODE_EFFORT)
                 props["stiffness"].fill(0.0)
                 props["armature"].fill(0.0)

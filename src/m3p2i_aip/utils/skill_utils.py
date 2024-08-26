@@ -205,17 +205,19 @@ def get_ori_cube2goal(cube_quaternion, goal_quatenion):
 # To measure the difference of ee and cube quaternions
 def get_ori_ee2cube(ee_quaternion, cube_quaternion):
     ee_rot_matrix = quaternion_rotation_matrix(ee_quaternion)
+    ee_xaxis = ee_rot_matrix[:, :, 0]
     ee_yaxis = ee_rot_matrix[:, :, 1]
     ee_zaxis = ee_rot_matrix[:, :, 2]
     cube_rot_matrix = quaternion_rotation_matrix(cube_quaternion)
     cube_xaxis = cube_rot_matrix[:, :, 0]
     cube_yaxis = cube_rot_matrix[:, :, 1]
     cube_zaxis = cube_rot_matrix[:, :, 2]
+    cos_alpha = torch.sum(torch.mul(ee_xaxis, cube_xaxis), dim=1)
     cos_theta = torch.sum(torch.mul(ee_zaxis, cube_zaxis), dim=1)
     cos_omega = torch.sum(torch.mul(ee_yaxis, cube_yaxis), dim=1)
     # cos_theta, cos_omega should be close to -1
 
-    return (1+cos_theta) + (1+cos_omega)
+    return (1+cos_alpha) + (1+cos_theta) + (1+cos_omega)
 
 # A general way to measure the difference of cube and goal quaternions
 # so that it fits the case when the cube is flipped and upside down
