@@ -34,7 +34,7 @@ class REACTIVE_TAMP:
         if self.sim.env_type == "point_env":
             self.task_planner = task_planner.PLANNER_SIMPLE(cfg)
         else:
-            self.task_planner = task_planner.PLANNER_AIF_PANDA(cfg)
+            self.task_planner = task_planner.PLANNER_AIF_PANDA_REAL(cfg)
         self.task_success = False
 
         # Choose the motion planner
