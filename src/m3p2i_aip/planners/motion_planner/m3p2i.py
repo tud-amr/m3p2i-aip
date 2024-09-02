@@ -95,31 +95,3 @@ class M3P2I(mppi.MPPI):
         delta = actions - self.mean_action.unsqueeze(0)
 
         return delta
-
-    # @mppi.handle_batch_input
-    # def _running_cost(self, state, u, t):
-    # #     # if self.robot == 'albert':
-    # #     #     return self.get_albert_cost()
-    # #     if self.task == 'navigation' or self.task == 'go_recharge':
-    # #         task_cost = self.get_navigation_cost()
-    # #     elif self.task == 'push':
-    # #         task_cost = self.get_push_cost()
-    # #     elif self.task == 'pull':
-    # #         task_cost = self.get_pull_cost(False) # 10
-    # #     elif self.task == 'push_not_goal':
-    # #         task_cost = self.get_push_not_goal_cost()
-    # #     elif self.task == 'hybrid':
-    # #         return torch.cat((self.get_push_cost()[:self.half_K], self.get_pull_cost(True)[self.half_K:]), dim=0)
-    # #         # print('push cost', task_cost[:10])
-    # #         # print('pull cost', task_cost[self.num_envs-10:])
-    # #     elif self.task == 'pick':
-    # #         # return self.get_panda_pick_cost(self.multi_modal) # for albert
-    # #         task_cost = self.get_panda_pick_cost(self.multi_modal) # for panda
-    # #     elif self.task == 'place':
-    # #         return self.get_panda_place_cost()
-    # #     else:
-    # #         task_cost = 0
-
-    # #     total_cost = task_cost + self.get_motion_cost(t)
-    #     goal = torch.tensor([1., 1.], device=self.cfg.device)
-    #     return  torch.linalg.norm(self.sim.robot_pos - goal, axis=1)

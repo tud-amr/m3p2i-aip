@@ -31,11 +31,6 @@ class Objective(object):
             task_cost = self.get_panda_pick_cost(sim, self.goal)
         elif self.task == "place":
             task_cost = self.get_panda_place_cost(sim)
-
-        # elif self.task == "pick":
-        #     task_cost = self.get_panda_pick_cost(sim, self.goal)
-        # elif self.task == "place":
-        #     task_cost = self.get_panda_place_cost(sim, self.goal)
         return task_cost + self.get_motion_cost(sim)
 
     def get_navigation_cost(self, sim: wrapper):
@@ -125,8 +120,6 @@ class Objective(object):
         return 10 * reach_cost + tilt_cost
     
     def get_panda_pick_cost(self, sim, pre_place_state):
-        ee_l_state = sim.get_actor_link_by_name("panda", "panda_leftfinger")
-        ee_r_state = sim.get_actor_link_by_name("panda", "panda_rightfinger")
         cube_state = sim.get_actor_link_by_name("cubeA", "box")
 
         # Move to pre-place location
@@ -153,7 +146,6 @@ class Objective(object):
         # This measures the cost of the tilt angle between the end effector and the cube
         ee_l_state = sim.get_actor_link_by_name("panda", "panda_leftfinger")
         ee_quaternion = ee_l_state[:, 3:7]
-        cubeA_pos = sim.get_actor_position_by_name("cubeA")
         cubeA_ori = sim.get_actor_orientation_by_name("cubeA")
         # cube_quaternion = cube_state[:, 3:7]
         if not self.multi_modal:
@@ -169,53 +161,6 @@ class Objective(object):
             ori_ee2cube =  torch.cat((cost_1, cost_2), dim=0)
 
         return 3 * ori_ee2cube
-    
-    ## old
-    # def get_panda_pick_cost(self, sim, cube_goal_state):
-    #     ee_l_state = sim.get_actor_link_by_name("panda", "panda_leftfinger")
-    #     ee_r_state = sim.get_actor_link_by_name("panda", "panda_rightfinger")
-    #     ee_state = (ee_l_state + ee_r_state) / 2
-    #     cube_state = sim.get_actor_link_by_name("cubeA", "box")
-
-    #     reach_cost = torch.linalg.norm(ee_state[:,:3] - cube_state[:,:3], axis = 1) 
-    #     # print("reach", reach_cost)
-    #     goal_cost = torch.linalg.norm(cube_goal_state[:3] - cube_state[:,:3], axis = 1) #+ 2*torch.abs(block_goal[2] - block_state[:,2])
-    #     # Close the gripper when close to the cube
-    #     gripper_dist = torch.linalg.norm(ee_l_state[:, :3] - ee_r_state[:, :3], axis=1)
-    #     gripper_cost = 2 * (1 - gripper_dist)
-    #     gripper_cost[reach_cost < 0.05] = 0
-
-    #     manip_cost = torch.zeros_like(reach_cost)
-        
-    #     # Compute the orientation cost
-    #     cube_quaternion = cube_state[:, 3:7]
-    #     goal_quatenion = cube_goal_state[3:7].repeat(self.num_samples).view(self.num_samples, 4)
-    #     # To make the cube fit the goal's orientation well
-    #     ori_cube2goal = skill_utils.get_general_ori_cube2goal(cube_quaternion, goal_quatenion) 
-    #     ori_cost = 3 * ori_cube2goal
-
-    #     # Compute the tilt value between ee and cube
-    #     tilt_cost = self.get_pick_tilt_cost(sim)
-    #     tilt_cost[reach_cost<=0.05] = 0
-    #     weight_goal = {True:15, False:10}
-    #     total_cost = 0.2 * manip_cost + 10 * reach_cost + weight_goal[self.multi_modal] * goal_cost + 5 * ori_cost + gripper_cost + tilt_cost
-
-    #     return total_cost
-
-    # def get_panda_place_cost(self, sim, ee_goal):
-    #     ee_l_state = sim.get_actor_link_by_name("panda", "panda_leftfinger")
-    #     ee_r_state = sim.get_actor_link_by_name("panda", "panda_rightfinger")
-
-    #     gripper_dist = torch.linalg.norm(ee_l_state[:, :3] - ee_r_state[:, :3], axis=1)
-    #     gripper_cost = 1 - gripper_dist
-    #     ee_state = (ee_l_state + ee_r_state) / 2
-    #     reach_cost = torch.linalg.norm(ee_state[:,:7] - ee_goal[:7], axis=1)
-
-    #     # If gripper is not fully open, no reach cost
-    #     reach_cost[gripper_dist <= 0.078] = 0
-    #     # If gripper is fully open, no gripper cost, retract the arm
-    #     gripper_cost[gripper_dist > 0.078] = 0
-    #     return 10 * gripper_cost + 10 * reach_cost
 
     def get_motion_cost(self, sim):
         if self.cfg.env_type == 'point_env':   

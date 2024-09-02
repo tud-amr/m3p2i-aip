@@ -5,14 +5,7 @@ defaults:
 env_type: panda_env
 task: reactive_pick
 
-# n_steps: 10000
-# actors: ['albert', 'goal']
-# initial_actor_positions: [[0.0, 0.0, 0.05]]
 kp_suction: 0
 suction_active: False
 multi_modal: False
 cube_on_shelf: False
-
-# hydra:
-#   searchpath:
-#     - pkg://params
