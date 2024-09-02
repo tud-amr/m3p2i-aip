@@ -16,10 +16,11 @@ class ExampleConfig:
     nx: int
     actors: List[str]
     initial_actor_positions: List[List[float]]
-    kp_suction: int
-    suction_active: bool
-    multi_modal: bool
-    cube_on_shelf: bool
+    kp_suction: int = 0
+    suction_active: bool = False
+    multi_modal: bool = False
+    pre_height_diff: float = 0.
+    cube_on_shelf: bool = False
 
 cs = ConfigStore.instance()
 cs.store(name="config_point", node=ExampleConfig)

@@ -9,6 +9,8 @@ class Objective(object):
         self.num_samples = cfg.mppi.num_samples
         self.half_samples = int(cfg.mppi.num_samples/2)
         self.device = self.cfg.mppi.device
+        self.pre_height_diff = cfg.pre_height_diff
+        self.tilt_cos_theta = 0.5
 
     def update_objective(self, task, goal):
         self.task = task
@@ -99,16 +101,15 @@ class Objective(object):
         cube_state = sim.get_actor_link_by_name("cubeA", "box")
         if not self.multi_modal:
             pre_pick_goal = cube_state[0, :3].clone()
-            pre_pick_goal[2] += 0.05
+            pre_pick_goal[2] += self.pre_height_diff
             reach_cost = torch.linalg.norm(ee_state[:,:3] - pre_pick_goal, axis = 1) 
         else:
             pre_pick_goal = cube_state[:, :3].clone()
             pre_pick_goal_1 = cube_state[0, :3].clone()
             pre_pick_goal_2 = cube_state[0, :3].clone()
-            pre_pick_goal_1[2] += 0.05
-            tilt_angle = 0.5
-            pre_pick_goal_2[0] -= 0.05 * tilt_angle
-            pre_pick_goal_2[2] += 0.05 * (1 - tilt_angle**2)**0.5
+            pre_pick_goal_1[2] += self.pre_height_diff
+            pre_pick_goal_2[0] -= self.pre_height_diff * self.tilt_cos_theta
+            pre_pick_goal_2[2] += self.pre_height_diff * (1 - self.tilt_cos_theta ** 2) ** 0.5
             # print("1", pre_pick_goal_1, "2", pre_pick_goal_2)
             pre_pick_goal[:self.half_samples, :] = pre_pick_goal_1
             pre_pick_goal[self.half_samples:, :] = pre_pick_goal_2
@@ -157,7 +158,7 @@ class Objective(object):
             cost_1 = skill_utils.get_general_ori_ee2cube(ee_quaternion[:self.half_samples], 
                                                             cubeA_ori[:self.half_samples], tilt_value = 0)
             cost_2 = skill_utils.get_general_ori_ee2cube(ee_quaternion[self.half_samples:], 
-                                                            cubeA_ori[self.half_samples:], tilt_value = 0.5) #0.9
+                                                            cubeA_ori[self.half_samples:], tilt_value = self.tilt_cos_theta)
             ori_ee2cube =  torch.cat((cost_1, cost_2), dim=0)
 
         return 3 * ori_ee2cube

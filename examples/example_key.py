@@ -1,4 +1,5 @@
 import hydra
+from isaacgym import gymtorch
 from m3p2i_aip.utils import skill_utils
 from m3p2i_aip.config.config_store import ExampleConfig
 import m3p2i_aip.utils.isaacgym_utils.isaacgym_wrapper as wrapper
