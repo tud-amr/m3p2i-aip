@@ -10,7 +10,7 @@ torch.set_printoptions(precision=3, sci_mode=False, linewidth=160)
 
 '''
 Run in the command line:
-    python3 reactive_tamp.py task=navigation goal="[-1, -1]"
+    python3 reactive_tamp.py task=navigation goal="[-3, 3]"
     python3 reactive_tamp.py task=push goal="[-1, -1]"
     python3 reactive_tamp.py task=pull goal="[0, 0]"
     python3 reactive_tamp.py task=push_pull multi_modal=True goal="[-3.75, -3.75]"

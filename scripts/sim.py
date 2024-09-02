@@ -37,6 +37,7 @@ def run_sim(cfg: ExampleConfig):
     t = time.time()
     for i in range(10000):
         sim.update_dyn_obs(i)
+        sim.play_with_cube()
 
         action = bytes_to_torch(
             planner.run_tamp(

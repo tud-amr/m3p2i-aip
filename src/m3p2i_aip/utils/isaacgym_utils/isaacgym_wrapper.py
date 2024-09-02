@@ -411,6 +411,32 @@ class IsaacGymWrapper:
         self._gym.subscribe_viewer_keyboard_event(self.viewer, gymapi.KEY_RIGHT, "key_right")
         self._gym.subscribe_viewer_keyboard_event(self.viewer, gymapi.KEY_UP, "key_up")
 
+    def play_with_cube(self):
+        if self.env_type != "panda_env":
+            return 0
+        x_pos = torch.tensor([0.03, 0, 0], dtype=torch.float32, device=self.device).repeat(self.num_envs)
+        y_pos = torch.tensor([0, 0.03, 0], dtype=torch.float32, device=self.device).repeat(self.num_envs)
+        z_pos = torch.tensor([0, 0, 0.03], dtype=torch.float32, device=self.device).repeat(self.num_envs)
+        cube_targets = {'key_up':-y_pos, 'key_down':y_pos, 'key_left':x_pos, 'key_right':-x_pos}
+        goal_targets = {'up':-y_pos, 'down':y_pos, 'left':x_pos, 'right':-x_pos}
+        obs_targets = {'1':x_pos, '2':-x_pos, '3':-y_pos, '4':y_pos, '5':z_pos, '6':-z_pos}
+        cubeA_index = self._get_actor_index_by_name("cubeA")
+        cubeB_index = self._get_actor_index_by_name("cubeB")
+        obs_index = self._get_actor_index_by_name("dyn-obs")
+        for evt in self._gym.query_viewer_action_events(self.viewer):
+            # Press WASD and up,left,right,down to interact with the cubes
+            if evt.value > 0:
+                if evt.action in ['key_up', 'key_down', 'key_left', 'key_right']:
+                    self._root_state[:, cubeA_index, :3] += cube_targets[evt.action]
+                if evt.action in ['up', 'down', 'left', 'right']:
+                    self._root_state[:, cubeB_index, :3] += goal_targets[evt.action]
+                if evt.action in ['1', '2', '3', '4', '5', '6']:
+                    self._root_state[:, obs_index, :3] += obs_targets[evt.action]
+
+                self._gym.set_actor_root_state_tensor(
+                    self._sim, gymtorch.unwrap_tensor(self._root_state)
+                )
+
     def keyboard_control(self):
         # Set targets for different robots
         vel_targets = {}
