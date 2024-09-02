@@ -88,7 +88,7 @@ class PLANNER_AIF_PANDA_REAL(PLANNER_SIMPLE):
         dist_cost = torch.linalg.norm(self.pre_place_loc[:2] - cube_state[:2])
         ori_ee2cube = skill_utils.get_general_ori_ee2cube(ee_state[3:].view(-1,4), cube_state[3:].view(-1,4), tilt_value=0)
         ori_cost = skill_utils.get_general_ori_cube2goal(cube_goal[3:].view(-1,4), cube_state[3:].view(-1,4))
-        # print('reach_cost', reach_cost)
+        print('reach_cost', reach_cost)
         # print("cubbb", cube_state)
         print('dis', dist_cost)
         print('ori', ori_cost)
@@ -99,25 +99,17 @@ class PLANNER_AIF_PANDA_REAL(PLANNER_SIMPLE):
         # else:
         #     self.pick_always = True
 
-        pre_pick_reach = torch.linalg.norm(ee_state[:3] - self.pre_pick_loc[:3])
-        print("pre_pick_dist", pre_pick_reach)
         if dist_cost + ori_cost < 0.03 or self.place_always:  # 0.035
-        # if dist_cost < 0.025 and ori_cost < 0.02: # 0.025 0.01
-            print('HHHHH dis', dist_cost)
-            print('hhhh ori', ori_cost)
             self.obs = 2
             self.ai_agent_task[0].set_preferences(np.array([[1], [0], [0], [0]]))
             self.place_always = True
-            # self.curr_action = "place"
-        elif pre_pick_reach < 0.015 or self.pick_always: # 0.035 0.06
+        elif reach_cost < 0.055 or self.pick_always: # 0.055
             self.obs = 1
             self.ai_agent_task[0].set_preferences(np.array([[1], [0], [0], [0]]))
-            # self.curr_action = "pick"
             self.pick_always = True
         elif not self.pick_always:
             self.obs = 0
             self.ai_agent_task[0].set_preferences(np.array([[0], [1], [0], [0]]))
-            # self.curr_action = "reach"
 
     def update_plan(self, sim):
         sim.step()
@@ -127,25 +119,21 @@ class PLANNER_AIF_PANDA_REAL(PLANNER_SIMPLE):
         right_finger = sim.get_actor_link_by_name("panda", "panda_rightfinger")[0, :7]
         # print("ee vel", sim.get_actor_link_by_name("panda", "panda_hand")[0, 7:10])
         self.ee_state = (left_finger + right_finger) / 2
-        self.pre_pick_loc = cube_state.clone()
-        self.pre_pick_loc[2] += 0.05
         self.pre_place_loc = cube_goal.clone()
         self.pre_place_loc[2] += 0.053
-        self.get_obs(cube_state, cube_goal, self.ee_state)
         # print("cube state", cube_state)
         # print("cube_goal", cube_goal)
+        self.get_obs(cube_state, cube_goal, self.ee_state)
         # print("obs", self.obs)
         outcome, self.curr_action = adaptive_action_selection.adapt_act_sel(self.ai_agent_task, [self.obs])
         # print('Current action:', self.curr_action)
 
         self.task = self.curr_action
         if self.curr_action == "reach":
-            self.curr_goal = self.pre_pick_loc
+            pass
         if self.curr_action == 'pick':
             self.curr_goal = self.pre_place_loc
         elif self.curr_action == "place":
-            # self.ai_agent_task[0].set_preferences(np.array([[1], [0], [0]]))
-            # self.curr_goal = self.ee_goal
             pass
     
     def check_task_success(self, sim):

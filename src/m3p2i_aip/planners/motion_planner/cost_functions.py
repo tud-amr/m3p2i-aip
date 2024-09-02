@@ -102,11 +102,22 @@ class Objective(object):
         ee_r_state = sim.get_actor_link_by_name("panda", "panda_rightfinger")
         ee_state = (ee_l_state + ee_r_state) / 2
         cube_state = sim.get_actor_link_by_name("cubeA", "box")
-        reach_cost = torch.linalg.norm(ee_state[:,:3] - pre_pick_goal[:3], axis = 1) 
-
-        # Keep the gripper open
-        gripper_dist = torch.linalg.norm(ee_l_state[:, :3] - ee_r_state[:, :3], axis=1)
-        gripper_cost = 2 * (1 - gripper_dist)
+        if not self.multi_modal:
+            pre_pick_goal = cube_state[0, :3].clone()
+            pre_pick_goal[2] += 0.05
+            reach_cost = torch.linalg.norm(ee_state[:,:3] - pre_pick_goal, axis = 1) 
+        else:
+            pre_pick_goal = cube_state[:, :3].clone()
+            pre_pick_goal_1 = cube_state[0, :3].clone()
+            pre_pick_goal_2 = cube_state[0, :3].clone()
+            pre_pick_goal_1[2] += 0.05
+            tilt_angle = 0.5
+            pre_pick_goal_2[0] -= 0.05 * tilt_angle
+            pre_pick_goal_2[2] += 0.05 * (1 - tilt_angle**2)**0.5
+            # print("1", pre_pick_goal_1, "2", pre_pick_goal_2)
+            pre_pick_goal[:self.half_samples, :] = pre_pick_goal_1
+            pre_pick_goal[self.half_samples:, :] = pre_pick_goal_2
+            reach_cost = torch.linalg.norm(ee_state[:,:3] - pre_pick_goal, axis = 1) 
 
         # Compute the tilt value between ee and cube
         tilt_cost = self.get_pick_tilt_cost(sim)
@@ -118,29 +129,25 @@ class Objective(object):
         ee_r_state = sim.get_actor_link_by_name("panda", "panda_rightfinger")
         cube_state = sim.get_actor_link_by_name("cubeA", "box")
 
-        # Keep the gripper closed
-        gripper_dist = torch.linalg.norm(ee_l_state[:, :3] - ee_r_state[:, :3], axis=1)
-        gripper_cost = 2 * gripper_dist
-
-        # Move to pre-place locationW
+        # Move to pre-place location
         goal_cost = torch.linalg.norm(pre_place_state[:3] - cube_state[:,:3], axis = 1)
         cube_quaternion = cube_state[:, 3:7]
         goal_quatenion = pre_place_state[3:7].repeat(self.num_samples).view(self.num_samples, 4)
         ori_cube2goal = skill_utils.get_general_ori_cube2goal(cube_quaternion, goal_quatenion) 
         ori_cost = 10 * ori_cube2goal
 
-        # return 5 * gripper_cost
         return 10 * goal_cost + ori_cost # 5
     
-    def get_place_cost(self, sim):
-        # ee_l_state = sim.get_actor_link_by_name("panda", "panda_leftfinger")
-        # ee_r_state = sim.get_actor_link_by_name("panda", "panda_rightfinger")
+    def get_panda_place_cost(self, sim):
+        # task planner will send discrete gripper commands instead of sampling
 
-        # # Keep the gripper open
-        # gripper_dist = torch.linalg.norm(ee_l_state[:, :3] - ee_r_state[:, :3], axis=1)
-        # gripper_cost = 2 * (1 - gripper_dist)
+        # Just to make mppi running! Actually this is not useful!!
+        ee_l_state = sim.get_actor_link_by_name("panda", "panda_leftfinger")
+        ee_r_state = sim.get_actor_link_by_name("panda", "panda_rightfinger")
+        gripper_dist = torch.linalg.norm(ee_l_state[:, :3] - ee_r_state[:, :3], axis=1)
+        gripper_cost = 2 * (1 - gripper_dist)
 
-        return 0
+        return gripper_cost
 
     def get_pick_tilt_cost(self, sim):
         # This measures the cost of the tilt angle between the end effector and the cube
@@ -215,6 +222,7 @@ class Objective(object):
             obs_force = sim.get_actor_contact_forces_by_name("dyn-obs", "box") # [num_envs, 3]
         elif self.cfg.env_type == 'panda_env':
             obs_force = sim.get_actor_contact_forces_by_name("table", "box")
+            obs_force += sim.get_actor_contact_forces_by_name("shelf_stand", "box")
             obs_force += sim.get_actor_contact_forces_by_name("cubeB", "box")
         coll_cost = torch.sum(torch.abs(obs_force[:, :2]), dim=1) # [num_envs]
         # Binary check for collisions.
