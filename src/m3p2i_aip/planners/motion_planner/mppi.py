@@ -345,8 +345,11 @@ class MPPI():
         
         # Naively bound control
         self.perturbed_action = self._bound_action(self.perturbed_action)
-        if self.env_type == 'panda_env':
-            self.perturbed_action[:, :, 8] = self.perturbed_action[:, :, 7]
+        if self.env_type == "panda_env":
+            if self.gripper_command == "open":
+                self.perturbed_action[:, :, 8] = self.perturbed_action[:, :, 7] = 1.5
+            elif self.gripper_command == "close":
+                self.perturbed_action[:, :, 8] = self.perturbed_action[:, :, 7] = -1.5
 
         self.cost_total, self.states, self.actions, self.ee_states = self._compute_rollout_costs(self.perturbed_action)
         self.actions /= self.u_scale
@@ -409,8 +412,11 @@ class MPPI():
             act_seq[self.half_K, :, :] = self.best_traj_2
         
         self.perturbed_action = torch.clone(act_seq)
-        if self.env_type == 'panda_env':
-            self.perturbed_action[:, :, 8] = self.perturbed_action[:, :, 7]
+        if self.env_type == "panda_env":
+            if self.gripper_command == "open":
+                self.perturbed_action[:, :, 8] = self.perturbed_action[:, :, 7] = 1.5
+            elif self.gripper_command == "close":
+                self.perturbed_action[:, :, 8] = self.perturbed_action[:, :, 7] = -1.5
 
         self.cost_total, self.states, self.actions, self.ee_states = self._compute_rollout_costs(self.perturbed_action)
 

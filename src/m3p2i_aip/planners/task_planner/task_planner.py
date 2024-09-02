@@ -79,6 +79,7 @@ class PLANNER_AIF_PANDA_REAL(PLANNER_SIMPLE):
         self.obs = 0
         self.prev_ee_state = torch.zeros(7, device=self.device)
         self.pick_always = False
+        self.place_always = False
 
     def get_obs(self, cube_state, cube_goal, ee_state):
         cube_height_diff = torch.linalg.norm(cube_state[2] - cube_goal[2])
@@ -99,12 +100,14 @@ class PLANNER_AIF_PANDA_REAL(PLANNER_SIMPLE):
         #     self.pick_always = True
 
         pre_pick_reach = torch.linalg.norm(ee_state[:3] - self.pre_pick_loc[:3])
-        if dist_cost + ori_cost < 0.04:  # 0.035
+        print("pre_pick_dist", pre_pick_reach)
+        if dist_cost + ori_cost < 0.03 or self.place_always:  # 0.035
         # if dist_cost < 0.025 and ori_cost < 0.02: # 0.025 0.01
             print('HHHHH dis', dist_cost)
             print('hhhh ori', ori_cost)
             self.obs = 2
             self.ai_agent_task[0].set_preferences(np.array([[1], [0], [0], [0]]))
+            self.place_always = True
             # self.curr_action = "place"
         elif pre_pick_reach < 0.015 or self.pick_always: # 0.035 0.06
             self.obs = 1
@@ -133,7 +136,6 @@ class PLANNER_AIF_PANDA_REAL(PLANNER_SIMPLE):
         # print("cube_goal", cube_goal)
         # print("obs", self.obs)
         outcome, self.curr_action = adaptive_action_selection.adapt_act_sel(self.ai_agent_task, [self.obs])
-        # print('Status:', outcome)
         # print('Current action:', self.curr_action)
 
         self.task = self.curr_action

@@ -7,6 +7,12 @@ class M3P2I(mppi.MPPI):
         super().__init__(cfg, dynamics, running_cost)
         self.suction_active = cfg.suction_active
 
+    def update_gripper_command(self, task):
+        if task in ["reach", "place"]:
+            self.gripper_command = "open"
+        elif task == "pick":
+            self.gripper_command = "close"
+
     def get_pull_preference(self):
         if self.multi_modal:
             weight_push = torch.sum(self.weights[:self.half_K]).item()

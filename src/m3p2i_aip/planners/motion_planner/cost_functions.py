@@ -111,7 +111,7 @@ class Objective(object):
         # Compute the tilt value between ee and cube
         tilt_cost = self.get_pick_tilt_cost(sim)
 
-        return 10 * reach_cost + 5 * gripper_cost + tilt_cost
+        return 10 * reach_cost + tilt_cost
     
     def get_panda_pick_cost(self, sim, pre_place_state):
         ee_l_state = sim.get_actor_link_by_name("panda", "panda_leftfinger")
@@ -130,17 +130,17 @@ class Objective(object):
         ori_cost = 10 * ori_cube2goal
 
         # return 5 * gripper_cost
-        return 10 * goal_cost + 5 * gripper_cost + ori_cost # 5
+        return 10 * goal_cost + ori_cost # 5
     
     def get_place_cost(self, sim):
-        ee_l_state = sim.get_actor_link_by_name("panda", "panda_leftfinger")
-        ee_r_state = sim.get_actor_link_by_name("panda", "panda_rightfinger")
+        # ee_l_state = sim.get_actor_link_by_name("panda", "panda_leftfinger")
+        # ee_r_state = sim.get_actor_link_by_name("panda", "panda_rightfinger")
 
-        # Keep the gripper open
-        gripper_dist = torch.linalg.norm(ee_l_state[:, :3] - ee_r_state[:, :3], axis=1)
-        gripper_cost = 2 * (1 - gripper_dist)
+        # # Keep the gripper open
+        # gripper_dist = torch.linalg.norm(ee_l_state[:, :3] - ee_r_state[:, :3], axis=1)
+        # gripper_cost = 2 * (1 - gripper_dist)
 
-        return gripper_cost
+        return 0
 
     def get_pick_tilt_cost(self, sim):
         # This measures the cost of the tilt angle between the end effector and the cube

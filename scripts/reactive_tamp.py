@@ -77,6 +77,7 @@ class REACTIVE_TAMP:
     def tamp_interface(self):
         self.task_planner.update_plan(self.sim)
         print("task", self.task_planner.task, "goal", self.task_planner.curr_goal)
+        self.motion_planner.update_gripper_command(self.task_planner.task)
         self.objective.update_objective(self.task_planner.task, self.task_planner.curr_goal)
         self.suction_active = self.motion_planner.get_pull_preference()
         self.task_success = self.task_planner.check_task_success(self.sim)
