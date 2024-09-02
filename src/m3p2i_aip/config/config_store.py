@@ -19,6 +19,7 @@ class ExampleConfig:
     kp_suction: int
     suction_active: bool
     multi_modal: bool
+    cube_on_shelf: bool
 
 cs = ConfigStore.instance()
 cs.store(name="config_point", node=ExampleConfig)

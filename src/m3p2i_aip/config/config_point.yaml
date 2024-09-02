@@ -12,6 +12,7 @@ goal: [-3.75, -3.75]
 kp_suction: 400
 suction_active: True
 multi_modal: False
+cube_on_shelf: False
 
 # hydra:
 #   searchpath:

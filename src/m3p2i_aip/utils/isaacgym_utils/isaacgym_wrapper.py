@@ -46,6 +46,7 @@ class IsaacGymWrapper:
         num_envs: int = 1,
         viewer: bool = False,
         device: str = "cuda:0",
+        cube_on_shelf: bool = False,
         # interactive_goal = True
     ):
         self._gym = gymapi.acquire_gym()
@@ -60,6 +61,7 @@ class IsaacGymWrapper:
             self.cfg.viewer = viewer
         # self.interactive_goal = interactive_goal
         self.num_envs = num_envs
+        self.cube_on_shelf = cube_on_shelf
         # self.restarted = 1
         self.start_sim()
 
@@ -270,7 +272,10 @@ class IsaacGymWrapper:
             asset = actor_utils.load_asset(self._gym, self._sim, actor)
 
         pose = gymapi.Transform()
-        pose.p = gymapi.Vec3(*actor.init_pos)
+        if actor.name == "cubeA":
+            pose.p = gymapi.Vec3(*actor.init_pos_on_shelf) if self.cube_on_shelf else gymapi.Vec3(*actor.init_pos_on_table)
+        else:
+            pose.p = gymapi.Vec3(*actor.init_pos)
         pose.r = gymapi.Quat(*actor.init_ori)
         handle = self._gym.create_actor(
             env=env,

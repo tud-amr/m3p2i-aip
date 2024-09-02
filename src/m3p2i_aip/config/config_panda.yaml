@@ -11,6 +11,7 @@ task: reactive_pick
 kp_suction: 0
 suction_active: False
 multi_modal: False
+cube_on_shelf: False
 
 # hydra:
 #   searchpath:

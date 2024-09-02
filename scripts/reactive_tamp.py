@@ -15,6 +15,7 @@ Run in the command line:
     python3 reactive_tamp.py task=pull goal="[0, 0]"
     python3 reactive_tamp.py task=push_pull multi_modal=True goal="[-3.75, -3.75]"
     python3 reactive_tamp.py -cn config_panda
+    python3 reactive_tamp.py -cn config_panda multi_modal=True cube_on_shelf=True
 '''
 
 class REACTIVE_TAMP:
@@ -26,6 +27,7 @@ class REACTIVE_TAMP:
             num_envs=cfg.mppi.num_samples,
             viewer=False,
             device=cfg.mppi.device,
+            cube_on_shelf=cfg.cube_on_shelf,
         )
         self.cfg = cfg
         self.objective = Objective(cfg)

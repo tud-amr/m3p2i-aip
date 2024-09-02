@@ -19,6 +19,8 @@ class ActorWrapper:
     name: str
     dof_mode: str = "velocity"
     init_pos: List[float] = field(default_factory=lambda: [0, 0, 0])
+    init_pos_on_table: List[float] = field(default_factory=lambda: [0, 0, 0])
+    init_pos_on_shelf: List[float] = field(default_factory=lambda: [0, 0, 0])
     init_ori: List[float] = field(default_factory=lambda: [0, 0, 0, 1])
     size: List[float] = field(default_factory=lambda: [0.1, 0.1, 0.1])
     mass: float = 1.0  # kg

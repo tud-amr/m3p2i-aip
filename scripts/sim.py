@@ -12,6 +12,7 @@ Run in the command line:
     python3 sim.py task=pull
     python3 sim.py task=push_pull
     python3 sim.py -cn config_panda
+    python3 sim.py -cn config_panda multi_modal=True cube_on_shelf=True
 '''
 
 @hydra.main(version_base=None, config_path="../src/m3p2i_aip/config", config_name="config_point")
@@ -23,6 +24,7 @@ def run_sim(cfg: ExampleConfig):
         num_envs=1,
         viewer=True,
         device=cfg.mppi.device,
+        cube_on_shelf=cfg.cube_on_shelf,
     )
 
     planner = zerorpc.Client()
