@@ -47,68 +47,86 @@ Run this terminal first:
 ````bash
 cd <project_folder>/m3p2i-aip/scripts
 conda activate m3p2i-aip
-python3 reactive_tamp.py --robot $(robot_type) --task $(task_type)
+python3 reactive_tamp.py
 ````
 
 Then run the second terminal:
 ````bash
 cd <project_folder>/m3p2i-aip/scripts
 conda activate m3p2i-aip
-python3 sim.py --robot $(robot_type) --task $(task_type)
+python3 sim.py
 ````
 
 Specifically, you can test the following:
 
-### Push only using MPPI
-````bash
-python3 reactive_tamp.py --robot point --task push
+### Navigation among obstacles
+````bash 
+python3 reactive_tamp.py task=navigation goal="[-3, 3]"
 ````
 
 ````bash
-python3 sim.py --robot point --task push
+python3 sim.py
 ````
 >[!NOTE]
-Pushing will always fail if the **initial position** is in the corner.
+Feel free to change the goal position.
+
+### Push only using MPPI
+````bash
+python3 reactive_tamp.py task=push goal="[-1, -1]"
+````
+
+````bash
+python3 sim.py
+````
+>[!NOTE]
+Feel free to change the goal position. Pushing will always fail if the **initial position** is in the corner.
 
 ### Pull only using MPPI
 ````bash
-python3 reactive_tamp.py --robot point --task pull
+python3 reactive_tamp.py task=pull goal="[0, 0]"
 ````
 
 ````bash
-python3 sim.py --robot point --task pull
+python3 sim.py task=pull
 ````
 >[!NOTE]
-Pulling will always fail if the **goal** is in the corner.
+Feel free to change the goal position. Pulling will always fail if the **goal** is in the corner.
 
 ### Multi-modal push pull using M3P2I
 ````bash
-python3 reactive_tamp.py --robot point --task hybrid --multimodal True
+python3 reactive_tamp.py task=push_pull multi_modal=True goal="[-3.75, -3.75]"
 ````
 
 ````bash
-python3 sim.py --robot point --task hybrid --multimodal True
+python3 sim.py task=push_pull
 ````
+>[!NOTE]
+Feel free to change the goal position. The corner positions are [-3.75, -3.75], [3.75, 3.75], [3.75, -3.75], [-3.75, 3.75].
 
 ### Reactive pick using MPPI
-You can play with the cube using ASDW keys.
+Pick the cube from the table:
 ````bash 
-python3 reactive_tamp.py --robot panda --task reactive_pick
+python3 reactive_tamp.py -cn config_panda
 ````
 
 ````bash 
-python3 sim.py --robot panda --task reactive_pick
+python3 sim.py -cn config_panda
 ````
+>[!NOTE]
+You can play with the cubes using ASDW keys and keyup, keydown, keyleft and keyright.
 
 ### Multi-modal pick using M3P2I
-You can play with the cube using ASDW keys.
+Pick the cube from the shelf:
 ````bash 
-python3 reactive_tamp.py --robot panda --task reactive_pick --multimodal True
+python3 reactive_tamp.py -cn config_panda multi_modal=True cube_on_shelf=True
 ````
 
 ````bash 
-python3 sim.py --robot panda --task reactive_pick --multimodal True
+python3 sim.py -cn config_panda multi_modal=True cube_on_shelf=True
 ````
+
+>[!NOTE]
+You can play with the cubes using ASDW keys and keyup, keydown, keyleft and keyright.
 
 ## Cite
 
