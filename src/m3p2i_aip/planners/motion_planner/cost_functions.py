@@ -32,7 +32,7 @@ class Objective(object):
         elif self.task == "pick":
             task_cost = self.get_panda_pick_cost(sim, self.goal)
         elif self.task == "place":
-            task_cost = self.get_panda_place_cost(sim)
+            return self.get_panda_place_cost(sim)
         return task_cost + self.get_motion_cost(sim)
 
     def get_navigation_cost(self, sim: wrapper):
@@ -127,10 +127,9 @@ class Objective(object):
         goal_cost = torch.linalg.norm(pre_place_state[:3] - cube_state[:,:3], axis = 1)
         cube_quaternion = cube_state[:, 3:7]
         goal_quatenion = pre_place_state[3:7].repeat(self.num_samples).view(self.num_samples, 4)
-        ori_cube2goal = skill_utils.get_general_ori_cube2goal(cube_quaternion, goal_quatenion) 
-        ori_cost = 10 * ori_cube2goal
+        ori_cost = skill_utils.get_general_ori_cube2goal(cube_quaternion, goal_quatenion) 
 
-        return 10 * goal_cost + ori_cost # 5
+        return 10 * goal_cost + 15 * ori_cost
     
     def get_panda_place_cost(self, sim):
         # task planner will send discrete gripper commands instead of sampling
@@ -168,7 +167,7 @@ class Objective(object):
             obs_force = sim.get_actor_contact_forces_by_name("dyn-obs", "box") # [num_envs, 3]
         elif self.cfg.env_type == 'panda_env':
             obs_force = sim.get_actor_contact_forces_by_name("table", "box")
-            obs_force += sim.get_actor_contact_forces_by_name("shelf_stand", "box")
+            obs_force += 4 * sim.get_actor_contact_forces_by_name("shelf_stand", "box")
             obs_force += sim.get_actor_contact_forces_by_name("cubeB", "box")
         coll_cost = torch.sum(torch.abs(obs_force[:, :2]), dim=1) # [num_envs]
         # Binary check for collisions.
