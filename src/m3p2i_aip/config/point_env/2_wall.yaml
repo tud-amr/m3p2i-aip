@@ -1,0 +1,7 @@
+type: "box"
+name: "wall-2"
+size: [.1, 8, 0.2]
+init_pos: [-4.0, 0.0, 0.0]
+fixed: True
+# handle: None
+color: [.1, .1, .1]

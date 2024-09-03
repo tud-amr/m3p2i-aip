@@ -1,0 +1,5 @@
+type: "box"
+name: "cubeB"
+size: [.05, .05, .05]
+init_pos: [0.2, 0.2, 1.06]
+color: [.0, .4, .1]

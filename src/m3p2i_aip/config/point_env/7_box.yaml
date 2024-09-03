@@ -1,0 +1,7 @@
+type: "box"
+name: "box"
+size: [.4, .4, .1]
+init_pos: [.0, 2., .0]
+fixed: False
+color: [0.2, 0.1, 0.2]
+friction: 0.5

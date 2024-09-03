@@ -1,0 +1,6 @@
+type: "box"
+name: "obs"
+size: [.3, .4, .5]
+init_pos: [2.0, 2.0, 0.0]
+fixed: True
+color: [.8, .2, .2]

@@ -1,41 +1,62 @@
 from scipy import signal
-import torch, logging, functools, numpy as np, scipy.interpolate as si
+import torch, numpy as np
+from dataclasses import dataclass, field
+from typing import List, Optional, Callable
 from torch.distributions.multivariate_normal import MultivariateNormal
-from m3p2i_aip.utils.skill_utils import _ensure_non_zero, is_tensor_like, bspline
+from m3p2i_aip.utils.skill_utils import _ensure_non_zero, bspline
 from m3p2i_aip.utils.mppi_utils import generate_gaussian_halton_samples, scale_ctrl, cost_to_go
-logger = logging.getLogger(__name__)
 
-def handle_batch_input(func):
-    """For func that expect 2D input, handle input that have more than 2 dimensions by flattening them temporarily"""
+@dataclass
+class MPPIConfig(object):
+    """
+        :param num_samples: K, number of trajectories to sample
+        :param horizon: T, length of each trajectory
+        :param nx: state dimension
+        :param mppi_mode: 'halton-spline' or 'simple' corresponds to the type of mppi.
+        :param sampling_method: 'halton' or 'random', sampling strategy while using mode 'halton-spline'. In 'simple', random sampling is forced to 'random' 
+        :param noise_sigma: variance per action (nu x nu, assume v_t ~ N(u_t, noise_sigma))
+        :param noise_mu: (nu) control noise mean (used to bias control samples); defaults to zero mean        
+        :param device: pytorch device
+        :param lambda_: inverse temperature, positive scalar where smaller values will allow more exploration
+        :param update_lambda: flag for updating inv temperature
+        :param update_cov: flag for updating covariance
+        :param u_min: (nu) minimum values for each dimension of control to pass into dynamics
+        :param u_max: (nu) maximum values for each dimension of control to pass into dynamics
+        :param u_init: (nu) what to initialize new end of trajectory control to be; defeaults to zero
+        :param U_init: (T x nu) initial control sequence; defaults to noise
+        :param rollout_var_discount: Discount cost over control horizon
+        :param sample_null_action: Whether to explicitly sample a null action (bad for starting in a local minima)
+        :param use_priors: Whether or not to use other prior controllers
+        :param noise_abs_cost: Whether to use the absolute value of the action noise to avoid bias when all states have the same cost   
+    """
 
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        # assume inputs that are tensor-like have compatible shapes and is represented by the first argument
-        batch_dims = []
-        for arg in args:
-            if is_tensor_like(arg) and len(arg.shape) > 2:
-                batch_dims = arg.shape[:-1]  # last dimension is type dependent; all previous ones are batches
-                break
-        # no batches; just return normally
-        if not batch_dims:
-            return func(*args, **kwargs)
-
-        # reduce all batch dimensions down to the first one
-        args = [v.view(-1, v.shape[-1]) if (is_tensor_like(v) and len(v.shape) > 2) else v for v in args]
-        ret = func(*args, **kwargs)
-        # restore original batch dimensions; keep variable dimension (nx)
-        if type(ret) is tuple:
-            ret = [v if (not is_tensor_like(v) or len(v.shape) == 0) else (
-                v.view(*batch_dims, v.shape[-1]) if len(v.shape) == 2 else v.view(*batch_dims)) for v in ret]
-        else:
-            if is_tensor_like(ret):
-                if len(ret.shape) == 2:
-                    ret = ret.view(*batch_dims, ret.shape[-1])
-                else:
-                    ret = ret.view(*batch_dims)
-        return ret
-
-    return wrapper
+    num_samples: int = 200
+    horizon: int = 12
+    nx: int = 4
+    mppi_mode: str = 'halton-spline'
+    sampling_method: str = "halton"
+    noise_sigma: Optional[List[List[float]]] = None
+    noise_mu: Optional[List[float]] = None
+    device: str = "cuda:0"
+    lambda_: float = 1.0
+    update_lambda: bool = False
+    update_cov: bool = False
+    u_min: Optional[List[float]] = None
+    u_max: Optional[List[float]] = None
+    u_init: float = 0.0
+    U_init: Optional[List[List[float]]] = None
+    u_scale: float = 1
+    u_per_command: int = 1
+    rollout_var_discount: float = 0.95
+    sample_null_action: bool = False
+    sample_previous_plan: bool = True
+    sample_other_priors: bool = False
+    noise_abs_cost: bool = False
+    filter_u: bool = False
+    use_priors: bool = False
+    seed_val: int = 0
+    eta_u_bound: int = 10
+    eta_l_bound: int = 5
 
 class MPPI():
     """
@@ -50,77 +71,80 @@ class MPPI():
 
     This mppi can run in two modes: 'simple' and a 'halton-spline':
         - simple:           random sampling at each MPPI iteration from normal distribution with simple mean update. To use this set 
-                            mppi_mode = 'simple_mean'
+                            mppi_mode = 'simple', sampling_method = 'random'
         - halton-spline:    samples only at the start a halton-spline which is then shifted according to the current moments of the control distribution. 
                             Moments are updated using gradient. To use this set
-                            mppi_mode = 'halton-spline', sample_mode = 'halton'
+                            mppi_mode = 'halton-spline', sampling_method = 'halton'
                             Alternatively, one can also sample random trajectories at each iteration using gradient mean update by setting
-                            mppi_mode = 'halton-spline', sample_mode = 'random'
+                            mppi_mode = 'halton-spline', sampling_method = 'random'
     """
 
-    def __init__(self, params, dynamics=None, running_cost=None):
+    def __init__(self, cfg: MPPIConfig, dynamics: Callable, running_cost: Callable):
         """
         :param dynamics: function(state, action) -> next_state (K x nx) taking in batch state (K x nx) and action (K x nu)
         :param running_cost: function(state, action) -> cost (K) taking in batch state and action (same as dynamics)
-        :param nx: state dimension
-        :param noise_sigma: (nu x nu) control noise covariance (assume v_t ~ N(u_t, noise_sigma))
-        :param num_samples: K, number of trajectories to sample
-        :param horizon: T, length of each trajectory
-        :param device: pytorch device
         :param terminal_state_cost: function(state) -> cost (K x 1) taking in batch state
-        :param lambda_: temperature, positive scalar where larger values will allow more exploration
-        :param noise_mu: (nu) control noise mean (used to bias control samples); defaults to zero mean
-        :param u_min: (nu) minimum values for each dimension of control to pass into dynamics
-        :param u_max: (nu) maximum values for each dimension of control to pass into dynamics
-        :param u_init: (nu) what to initialize new end of trajectory control to be; defeaults to zero
-        :param U_init: (T x nu) initial control sequence; defaults to noise
-        :param step_dependent_dynamics: whether the passed in dynamics needs horizon step passed in (as 3rd arg)
-        :param rollout_samples: M, number of state trajectories to rollout for each control trajectory
-            (should be 1 for deterministic dynamics and more for models that output a distribution)
-        :param rollout_var_cost: Cost attached to the variance of costs across trajectory rollouts
-        :param rollout_var_discount: Discount of variance cost over control horizon
-        :param sample_null_action: Whether to explicitly sample a null action (bad for starting in a local minima)
-        :param use_priors: Wheher or not to use other prior controllers
-        :param noise_abs_cost: Whether to use the absolute value of the action noise to avoid bias when all states have the same cost
         """
+        self.env_type = cfg.env_type
+        self.multi_modal = cfg.multi_modal
+        cfg = cfg.mppi
+        self.mppi_mode = cfg.mppi_mode
+        self.sampling_method = cfg.sampling_method
+
         # Utility vars
-        self.num_envs = params.num_envs
-        self.K = params.num_envs 
+        self.K = cfg.num_samples
         self.half_K = int(self.K/2)
-        self.T = params.horizon  
-        self.filter_u = params.filter_u
-        self.lambda_ = 1.
-        noise_sigma = params.noise_sigma
+        self.T = cfg.horizon  
+        self.filter_u = cfg.filter_u
+        self.lambda_ = cfg.lambda_
         self.delta = None
-        self.sample_null_action = params.sample_null_action
-        self.u_per_command = params.u_per_command
-        self.robot = params.robot
-        self.tensor_args = params.tensor_args
-        self.device = self.tensor_args['device']
-        self.dtype = self.tensor_args['dtype']
+        self.sample_null_action = cfg.sample_null_action
+        self.u_per_command = cfg.u_per_command
+        self.device = cfg.device
+        self.tensor_args={'device':cfg.device, 'dtype':torch.float32}
+
+        # Bound actions
+        if cfg.u_max and not cfg.u_min:
+            cfg.u_min = -cfg.u_max
+        if cfg.u_min and not cfg.u_max:
+            cfg.u_max = -cfg.u_min
+        self.u_min = cfg.u_min
+        self.u_max = cfg.u_max
+        self.u_scale = cfg.u_scale
+
+        # Noise and input initialization
+        self.noise_abs_cost = cfg.noise_abs_cost
+        if not cfg.noise_sigma:
+            cfg.noise_sigma = np.identity(int(cfg.nx/2)).tolist()
+        assert all([len(cfg.noise_sigma[0]) == len(row) for row in cfg.noise_sigma])
+        if not cfg.noise_mu:
+            cfg.noise_mu = [0.0] * len(cfg.noise_sigma)
+        if not cfg.U_init:
+            cfg.U_init = [[0.0] * len(cfg.noise_mu)] * cfg.horizon
+
+        # Convert lists in cfg to tensors and put them on device
+        self.noise_sigma = torch.tensor(cfg.noise_sigma, device=cfg.device)
+        self.noise_mu = torch.tensor(cfg.noise_mu, device=cfg.device)
+        self.noise_sigma_inv = torch.inverse(self.noise_sigma)
+        self.noise_dist = MultivariateNormal(
+            self.noise_mu, covariance_matrix=self.noise_sigma
+        )
+        self.u_init = torch.tensor(cfg.u_init, device=cfg.device)
+        # self.U = torch.tensor(cfg.U_init, device=cfg.device)  # !!!!
+        self.U = self.noise_dist.sample((self.T,))
+        self.u_max = torch.tensor(cfg.u_max, device=cfg.device)
+        self.u_min = torch.tensor(cfg.u_min, device=cfg.device)
 
         # Dimensions of state nx and control nu
-        self.nx = params.nx
-        self.nu = 1 if len(noise_sigma.shape) == 0 else noise_sigma.shape[0]
-
-        # Noise initialization
-        noise_mu = torch.zeros(self.nu, **self.tensor_args)
+        self.nx = cfg.nx
+        self.nu = 1 if len(self.noise_sigma.shape) == 0 else self.noise_sigma.shape[0]
 
         # Handle 1D edge case
         if self.nu == 1:
-            noise_mu = noise_mu.view(-1)
-            noise_sigma = noise_sigma.view(-1, 1)
-
-        self.noise_mu = noise_mu.to(**self.tensor_args)
-        self.noise_sigma = noise_sigma.to(**self.tensor_args)
-        self.noise_sigma_inv = torch.inverse(self.noise_sigma)
-        self.noise_abs_cost = False
-
-        # Random noise dist
-        self.noise_dist = MultivariateNormal(self.noise_mu, covariance_matrix=self.noise_sigma)
+            self.noise_mu = self.noise_mu.view(-1)
+            self.noise_sigma = self.noise_sigma.view(-1, 1)
 
         # Input initialization
-        u_init = torch.zeros_like(noise_mu)
         self.mean_action = torch.zeros((self.T, self.nu), **self.tensor_args)
         self.best_traj = self.mean_action.clone()
         self.best_traj_1 = self.mean_action.clone()
@@ -128,38 +152,16 @@ class MPPI():
         self.mean_action_1 = torch.zeros((self.T, self.nu), **self.tensor_args)
         self.mean_action_2 = torch.zeros((self.T, self.nu), **self.tensor_args)
 
-        # Bound actions
-        self.u_min = params.u_min
-        self.u_max = params.u_max
-        self.u_scale = 1
-
-        if self.u_max is not None and self.u_min is None: # Make sure if any of them is specified, both are specified
-            if not torch.is_tensor(self.u_max):
-                self.u_max = torch.tensor(self.u_max)
-            self.u_min = -self.u_max
-        if self.u_min is not None and self.u_max is None:
-            if not torch.is_tensor(self.u_min):
-                self.u_min = torch.tensor(self.u_min)
-            self.u_max = -self.u_min
-        if self.u_min is not None:
-            self.u_min = self.u_min.to(**self.tensor_args)
-            self.u_max = self.u_max.to(**self.tensor_args)
-        
-        # Control sequence (T x nu)
-        self.u_init = u_init.to(**self.tensor_args)
-        self.U = self.noise_dist.sample((self.T,))
-
         # Costs and dynamics initialization
-        self.step_dependency = params.step_dependent_dynamics
         self.F = dynamics
         self.running_cost = running_cost
-        self.terminal_state_cost = params.terminal_state_cost
+        self.terminal_state_cost = None
 
         # Sampled results from last command
         self.state = None
         self.cost_total = None
         self.cost_total_non_zero = None
-        self.weights = None
+        self.weights = torch.zeros(self.K, **self.tensor_args)
         self.states = None
         self.actions = None
 
@@ -170,13 +172,13 @@ class MPPI():
         self.ndims = self.n_knots * self.nu
         self.degree = 2                # From sample_lib storm
         self.Z_seq = torch.zeros(1, self.T, self.nu, **self.tensor_args)
-        self.cov_action = torch.diagonal(noise_sigma, 0)
+        self.cov_action = torch.diagonal(self.noise_sigma, 0)
         self.scale_tril = torch.sqrt(self.cov_action)
         self.squash_fn = 'clamp'
         self.step_size_mean = 0.98      # From storm
 
         # Discount
-        self.gamma = 0.95 
+        self.gamma = cfg.rollout_var_discount 
         self.gamma_seq = torch.cumprod(torch.tensor([1.0] + [self.gamma] * (self.T - 1)),dim=0).reshape(1, self.T)
         self.gamma_seq = self.gamma_seq.to(**self.tensor_args)
         self.beta = 1 # param storm
@@ -196,22 +198,15 @@ class MPPI():
         self.lambda_mult = 0.1  # Update rate
 
         # covariance update
-        self.update_cov = False   # !! weird if set to True
+        self.update_cov = cfg.update_cov   # !! weird if set to True
         self.step_size_cov = 0.7
         self.kappa = 0.005
-    
-    def set_mode(self, mppi_mode, sample_method, multi_modal):
-        self.mppi_mode = mppi_mode
-        self.sample_method = sample_method
-        self.multi_modal = multi_modal and mppi_mode == 'halton-spline'
 
-    @handle_batch_input
-    def _dynamics(self, state, u, t):
-        return self.F(state, u, t) if self.step_dependency else self.F(state, u)
+    def _dynamics(self, state, u, t=None):
+        return self.F(state, u, t=None)
 
-    @handle_batch_input
-    def _running_cost(self, state, u, t):
-        return self.running_cost(state, u, t)
+    def _running_cost(self, state):
+        return self.running_cost(state)
 
     def command(self, state):
         """
@@ -307,7 +302,7 @@ class MPPI():
                 self.perturbed_action[self.K - 1][t] = u[self.K -1, :]
 
             state, u = self._dynamics(state, u, t)
-            c = self._running_cost(state, u, t) # every time stes you get nsamples cost, we need that as output for the discount factor
+            c = self._running_cost(state) # every time stes you get nsamples cost, we need that as output for the discount factor
             # Update action if there were changes in M3P2I due for instance to suction constraints
             self.perturbed_action[:,t] = u
             cost_samples += c
@@ -316,7 +311,7 @@ class MPPI():
             # Save total states/actions
             states.append(state)
             actions.append(u)
-            ee_state = (self.ee_l_state[:, :3] + self.ee_r_state[:, :3])/2 if self.ee_l_state != 'None' else 'None'
+            ee_state = 'None' #(self.ee_l_state[:, :3] + self.ee_r_state[:, :3])/2 if self.ee_l_state != 'None' else 'None'
             ee_states.append(ee_state) if ee_state != 'None' else []
             
         # Actions is K x T x nu
@@ -350,11 +345,11 @@ class MPPI():
         
         # Naively bound control
         self.perturbed_action = self._bound_action(self.perturbed_action)
-        if self.robot == 'panda':
-            self.perturbed_action[:, :, 8] = self.perturbed_action[:, :, 7]
-        elif self.robot == 'albert':
-            self.perturbed_action[:, :, :11] = 0
-            # self.perturbed_action[:, :, 12] = 0
+        if self.env_type == "panda_env":
+            if self.gripper_command == "open":
+                self.perturbed_action[:, :, 8] = self.perturbed_action[:, :, 7] = 1.5
+            elif self.gripper_command == "close":
+                self.perturbed_action[:, :, 8] = self.perturbed_action[:, :, 7] = -1.5
 
         self.cost_total, self.states, self.actions, self.ee_states = self._compute_rollout_costs(self.perturbed_action)
         self.actions /= self.u_scale
@@ -390,13 +385,10 @@ class MPPI():
             Samples Halton splines once and then shifts mean according to control distribution. If random sampling is selected 
             then samples random noise at each step. Mean of control distribution is updated using gradient
         """
-        if self.sample_method == 'random':
+        if self.sampling_method == 'random':
             self.delta = self.get_samples(self.K, base_seed=0)
-        elif self.delta == None and self.sample_method == 'halton':
+        elif self.delta == None and self.sampling_method == 'halton':
             self.delta = self.get_samples(self.K, base_seed=0)
-        if self.robot == 'albert':
-            self.delta[:, :, 9:11] = 0
-            # self.delta[:, :, 12] = 0
 
         # Add zero-noise seq so mean is always a part of samples
         self.delta[-1,:,:] = self.Z_seq
@@ -420,10 +412,11 @@ class MPPI():
             act_seq[self.half_K, :, :] = self.best_traj_2
         
         self.perturbed_action = torch.clone(act_seq)
-        if self.robot == 'panda':
-            self.perturbed_action[:, :, 8] = self.perturbed_action[:, :, 7]
-        elif self.robot == 'albert':
-            self.perturbed_action[:, :, 9:11] = 0
+        if self.env_type == "panda_env":
+            if self.gripper_command == "open":
+                self.perturbed_action[:, :, 8] = self.perturbed_action[:, :, 7] = 1.5
+            elif self.gripper_command == "close":
+                self.perturbed_action[:, :, 8] = self.perturbed_action[:, :, 7] = -1.5
 
         self.cost_total, self.states, self.actions, self.ee_states = self._compute_rollout_costs(self.perturbed_action)
 
@@ -453,7 +446,7 @@ class MPPI():
         # print('eta', eta)
 
         # Update beta to make eta converge within the bounds 
-        if self.env_type == 'cube': # grady's thesis
+        if self.env_type == 'panda_env': # grady's thesis
             eta_u_bound = 20
             eta_l_bound = 10
             beta_lm = 0.9
@@ -471,14 +464,14 @@ class MPPI():
             Depending on the method, the samples can be Halton or Random. Halton samples a 
             number of knots, later interpolated with a spline
         """
-        if(self.sample_method=='halton'):   # !!
+        if(self.sampling_method=='halton'):   # !!
             self.knot_points = generate_gaussian_halton_samples(
                 sample_shape,               # Number of samples
                 self.ndims,                 # n_knots * nu (knots per number of actions)
                 use_ghalton=True,
                 seed_val=self.seed_val,     # seed val is 0 
                 device=self.device,
-                float_dtype=self.dtype)
+                float_dtype=torch.float32)
             
             # Sample splines from knot points:
             # iteratre over action dimension:
@@ -488,7 +481,7 @@ class MPPI():
                 for j in range(self.nu):
                     self.samples[i,:,j] = bspline(knot_samples[i,j,:], n=self.T, degree=self.degree)
 
-        elif(self.sample_method == 'random'):
+        elif(self.sampling_method == 'random'):
             self.samples = self.noise_dist.sample((self.K, self.T))
         
         return self.samples

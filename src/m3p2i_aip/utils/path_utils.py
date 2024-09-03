@@ -10,9 +10,9 @@ def get_assets_path():
     path = os.path.join(package_path,'assets')
     return path
 
-def get_params_path():
+def get_config_path():
     package_path = get_package_path()
-    path = os.path.join(package_path,'params')
+    path = os.path.join(package_path,'config/')
     return path
 
 def get_plot_path():

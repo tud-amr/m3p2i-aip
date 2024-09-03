@@ -1,4 +1,4 @@
-import torch, numpy as np, scipy.interpolate as si
+import torch, numpy as np, scipy.interpolate as si, time
 
 def _ensure_non_zero(cost, beta, factor):
     return torch.exp(-factor * (cost - beta))
@@ -21,25 +21,58 @@ def bspline(c_arr, t_arr=None, n=100, degree=3):
     samples = torch.as_tensor(samples, device=sample_device, dtype=sample_dtype)
     return samples
 
+# Track time
+def time_tracking(t, cfg):
+    actual_dt = time.time() - t
+    rt = cfg.isaacgym.dt / actual_dt
+    if rt > 1.0:
+        time.sleep(cfg.isaacgym.dt - actual_dt)
+        actual_dt = time.time() - t
+        rt = cfg.isaacgym.dt / actual_dt
+    print("FPS: {:.3f}".format(1/actual_dt), "RT: {:.3f}".format(rt))
+    return time.time()
+
+# The function to call in sim.py
+def check_and_apply_suction(cfg, sim, action):
+    suction_force = torch.zeros(10, device=cfg.mppi.device) # the size does not matter
+    if check_suction_condition(cfg, sim, action):
+        suction_force = calculate_suction(cfg, sim)
+        sim.apply_rigid_body_force_tensors(suction_force)
+    if suction_force.any() == 0:
+        print("no suction...")
+    else:
+        print("suction!!!")
+
+# Check whether suction is possible
+def check_suction_condition(cfg, sim, action):
+    if cfg.task not in ['pull', 'push_pull'] or not cfg.suction_active:
+        return False
+    dir_robot_block = (sim.robot_pos - sim.get_actor_position_by_name("box")[:, :2]).squeeze(0)
+    action_align_pull = torch.sum(action * dir_robot_block).item()
+    dis_robot_block = torch.linalg.norm(dir_robot_block)
+
+    # Can only pull if the robot is close to block and the action aligns with pulling direction
+    # print("dist", dis_robot_block, "align", action_align_pull)
+    return dis_robot_block < 0.6 and action_align_pull > 0
+
 # Calculate the suction force
-def calculate_suction(block_pos, robot_pos, num_envs, kp_suction, block_index, bodies_per_env):
+def calculate_suction(cfg, sim):
     # Calculate the direction and magnitude between the block and robot 
-    dir_vector = block_pos - robot_pos # [num_envs, 2]
+    dir_vector = sim.get_actor_position_by_name("box")[:, :2] - sim.robot_pos # [num_envs, 2]
     magnitude = 1/torch.linalg.norm(dir_vector, dim=1) # [num_envs]
-    magnitude = magnitude.reshape([num_envs, 1])
+    magnitude = magnitude.reshape([sim.num_envs, 1])
     # print('robo', robot_pos)
     # print('mag', magnitude)
 
     # Form the suction force
-    unit_force = dir_vector*magnitude  # [num_envs, 2] Same as the unit direction of pulling force
-    forces = torch.zeros((num_envs, bodies_per_env, 3), dtype=torch.float32, device='cuda:0', requires_grad=False)
+    unit_force = dir_vector * magnitude  # [num_envs, 2] Same as the unit direction of pulling force
+    forces = torch.zeros((sim.num_envs, sim.bodies_per_env, 3), dtype=torch.float32, device='cuda:0', requires_grad=False)
     
-    # Start suction only when close
-    # The different thresholds for real and sim envs are due to the inconsistency of 
-    # transferring suction force between sim to real. Among the rollouts, the optimal
-    # solution is selected based on the cost instead of the criteria which one is closest to the block. 
-    # So the optimal solution does not mean it is closest to the block. This leads to the inconsistency of suction force.
-    if num_envs == 1:
+    # Start suction only when close. The different thresholds for real and sim envs are due to the inconsistency 
+    # of transferring suction force between sim to real. Among the rollouts, the optimal solution is selected 
+    # based on the cost instead of the criteria which one is closest to the block. So the optimal solution 
+    # does not mean it is closest to the block. This leads to the inconsistency of suction force.
+    if sim.num_envs == 1:
         # For the case of real env, the threshold is lower. 
         # This means the robot and block donot need to be so close to generate the suction
         mask = magnitude[:, :] > 1.5
@@ -47,17 +80,18 @@ def calculate_suction(block_pos, robot_pos, num_envs, kp_suction, block_index, b
         # For the case of simulated rollout env, the threshold is higher.
         # This means the robot and block need to be close enough to generate the suction
         mask = magnitude[:, :] > 1.8
-    mask = mask.reshape(num_envs)
+    mask = mask.reshape(sim.num_envs)
     # Force on the block
-    forces[mask, block_index, 0] = -kp_suction*unit_force[mask, 0]
-    forces[mask, block_index, 1] = -kp_suction*unit_force[mask, 1]
+    block_index = sim._get_actor_index_by_name("box").item()
+    forces[mask, block_index, 0] = -cfg.kp_suction * unit_force[mask, 0]
+    forces[mask, block_index, 1] = -cfg.kp_suction * unit_force[mask, 1]
     # Opposite force on the robot body
-    forces[mask, -1, 0] = kp_suction*unit_force[mask, 0]
-    forces[mask, -1, 1] = kp_suction*unit_force[mask, 1]
+    forces[mask, -1, 0] = cfg.kp_suction * unit_force[mask, 0]
+    forces[mask, -1, 1] = cfg.kp_suction * unit_force[mask, 1]
     # Add clamping to control input
     forces = torch.clamp(forces, min=-500, max=500)
 
-    return forces, -unit_force, mask
+    return forces
 
 # Apply forward kinematics
 def apply_fk(robot, u):
@@ -171,17 +205,19 @@ def get_ori_cube2goal(cube_quaternion, goal_quatenion):
 # To measure the difference of ee and cube quaternions
 def get_ori_ee2cube(ee_quaternion, cube_quaternion):
     ee_rot_matrix = quaternion_rotation_matrix(ee_quaternion)
+    ee_xaxis = ee_rot_matrix[:, :, 0]
     ee_yaxis = ee_rot_matrix[:, :, 1]
     ee_zaxis = ee_rot_matrix[:, :, 2]
     cube_rot_matrix = quaternion_rotation_matrix(cube_quaternion)
     cube_xaxis = cube_rot_matrix[:, :, 0]
     cube_yaxis = cube_rot_matrix[:, :, 1]
     cube_zaxis = cube_rot_matrix[:, :, 2]
+    cos_alpha = torch.sum(torch.mul(ee_xaxis, cube_xaxis), dim=1)
     cos_theta = torch.sum(torch.mul(ee_zaxis, cube_zaxis), dim=1)
     cos_omega = torch.sum(torch.mul(ee_yaxis, cube_yaxis), dim=1)
     # cos_theta, cos_omega should be close to -1
 
-    return (1+cos_theta) + (1+cos_omega)
+    return (1+cos_alpha) + (1+cos_theta) + (1+cos_omega)
 
 # A general way to measure the difference of cube and goal quaternions
 # so that it fits the case when the cube is flipped and upside down

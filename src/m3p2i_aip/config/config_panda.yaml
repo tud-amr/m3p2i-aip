@@ -1,0 +1,10 @@
+defaults:
+  - mppi: panda
+  - isaacgym: panda
+
+env_type: panda_env
+task: reactive_pick
+
+multi_modal: False
+pre_height_diff: 0.05 # the cube size is 0.05
+cube_on_shelf: False

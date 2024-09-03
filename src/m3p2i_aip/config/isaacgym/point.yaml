@@ -1,0 +1,7 @@
+defaults:
+  - base_isaacgym
+
+dt: 0.05
+spacing: 10
+camera_pos: [1.5, 6, 8]
+camera_target: [1.5, 0, 0]

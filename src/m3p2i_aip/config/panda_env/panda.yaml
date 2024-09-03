@@ -1,0 +1,10 @@
+type: robot
+name: panda
+fixed: True
+urdf_file: "franka_description/robots/franka_panda.urdf"
+# visualize_link: "panda_ee"
+flip_visual: True
+gravity: false
+init_pos: [-0.45, 0., 1.125]
+# init_joint_pose: [0, 0, -0.94, 0, 0., 0, -2.8, 0, 0., 0, 1.8675, 0, 0., 0, 0.02, 0.0, 0.02, 0.0]
+init_joint_pose: [0, 0, 0, 0, 0, 0, -2, 0, 0, 0, 1.8675, 0, 0, 0, 0.02, 0, 0.02, 0]

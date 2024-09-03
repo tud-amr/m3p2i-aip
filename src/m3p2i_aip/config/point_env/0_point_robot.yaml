@@ -1,0 +1,6 @@
+type: robot
+name: point_robot
+urdf_file: "pointRobot.urdf"
+fixed: True
+init_pos: [.0, .0, .05]
+friction: 0.05

@@ -1,0 +1,6 @@
+type: "box"
+name: "cubeA"
+size: [.05, .05, .05]
+init_pos_on_table: [0.2, -0.2, 1.06] # on the table 
+init_pos_on_shelf: [0.425, 0, 1.35] # on the shelf 0.45
+color: [.6, .1, .0]
