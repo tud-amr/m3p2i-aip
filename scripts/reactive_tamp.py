@@ -32,17 +32,14 @@ class REACTIVE_TAMP:
         self.cfg = cfg
         self.objective = Objective(cfg)
 
-        # Choose the task planner
-        if self.sim.env_type == "point_env":
-            self.task_planner = task_planner.PLANNER_SIMPLE(cfg)
-        else:
-            self.task_planner = task_planner.PLANNER_AIF_PANDA_REAL(cfg)
+        self.task_planner = task_planner.set_task_planner(cfg)
         self.task_success = False
-
-        # Choose the motion planner
-        self.motion_planner = m3p2i.M3P2I(cfg,
-                                          dynamics = self.dynamics, 
-                                          running_cost=self.running_cost)
+        
+        self.motion_planner = m3p2i.M3P2I(
+            cfg,
+            dynamics=self.dynamics, 
+            running_cost=self.running_cost
+        )
 
     def run_tamp(self, dof_state, root_state):
         # Set rollout state from sim state

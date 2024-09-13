@@ -4,6 +4,12 @@ from m3p2i_aip.utils import skill_utils
 from m3p2i_aip.planners.task_planner import ai_agent, adaptive_action_selection
 from m3p2i_aip.planners.task_planner import isaac_int_req_templates, isaac_state_action_templates
 
+def set_task_planner(cfg):
+    if cfg.env_type == "point_env":
+        return PLANNER_SIMPLE(cfg)
+    else:
+        return PLANNER_AIF_PANDA(cfg)
+
 class PLANNER_SIMPLE:
     def __init__(self, cfg) -> None:
         self.device = cfg.mppi.device
@@ -32,7 +38,7 @@ class PLANNER_SIMPLE:
             task_success = pos_dist <= self.dist_threshold # 0.15 and ori_dist <= 0.1
         return task_success
 
-class PLANNER_AIF_PANDA_REAL(PLANNER_SIMPLE):
+class PLANNER_AIF_PANDA(PLANNER_SIMPLE):
     def __init__(self, cfg) -> None:
         self.device = cfg.mppi.device
         self.task = "idle"
@@ -50,17 +56,12 @@ class PLANNER_AIF_PANDA_REAL(PLANNER_SIMPLE):
         self.pre_pick_place_threshold = cfg.pre_height_diff + 0.005
 
     def get_obs(self, cube_state, cube_goal, ee_state):
-        cube_height_diff = torch.linalg.norm(cube_state[2] - cube_goal[2])
         reach_cost = torch.linalg.norm(ee_state[:3] - cube_state[:3])
         dist_cost = torch.linalg.norm(self.pre_place_loc[:2] - cube_state[:2])
         ori_cost = skill_utils.get_general_ori_cube2goal(cube_goal[3:].view(-1,4), cube_state[3:].view(-1,4))
         print('reach_cost', reach_cost)
         print('dis', dist_cost)
         print('ori', ori_cost)
-        # if cube_height_diff < 0.0001:
-        #     self.pick_always = False
-        # else:
-        #     self.pick_always = True
 
         if dist_cost + ori_cost < 0.03 or self.place_always:
             self.obs = 2
