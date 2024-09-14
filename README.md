@@ -5,27 +5,24 @@
 
 Repository for reactive task and motion planning making use of active inference for symbolic planning, and a new multi-modal MPPI for motion planning. Rollouts are evaluated in IsaacGym, a parallelizable physics simulator.
 
-<center>
 <table>
   <tr>
-    <td><center><b>MPPI Push with Collision Avoidance</b></center></th>
-    <td><center><b>Multi-Modal Push and Pull</b></center></th>
-
+    <th><b>MPPI Push with Collision Avoidance</b></th>
+    <th><b>Multi-Modal Push and Pull</b></th>
   </tr> 
   <tr>
-    <td> <img src="./src/m3p2i_aip/assets/images/mppi_push_dyn.gif"  alt="1" width = 365px ></td>
-    <td> <img src="./src/m3p2i_aip/assets/images/m3p2i_1corner.gif"  alt="1" width = 365px ></td>
+    <td><img src="./src/m3p2i_aip/assets/images/mppi_push_dyn.gif"  alt="1" width = 375px ></td>
+    <td><img src="./src/m3p2i_aip/assets/images/m3p2i_1corner.gif"  alt="1" width = 375px ></td>
   </tr> 
   <tr>
-    <td><center><b>MPPI Reactive Pick</b></center></th>
-    <td><center><b>Multi-Modal Pick with Collision Avoidance</b></center></th>
+    <th><b>MPPI Reactive Pick</b></center></th>
+    <th><b>Multi-Modal Pick with Collision Avoidance</b></center></th>
   </tr> 
   <tr>
-    <td> <img src="./src/m3p2i_aip/assets/images/mppi_reactive_pick.gif"  alt="1" width = 365px ></td>
-    <td> <img src="./src/m3p2i_aip/assets/images/m3p2i_pick_with_obs.gif"  alt="1" width = 365px ></td>
+    <td><img src="./src/m3p2i_aip/assets/images/mppi_reactive_pick.gif"  alt="1" width = 375px ></td>
+    <td><img src="./src/m3p2i_aip/assets/images/m3p2i_pick_with_obs.gif"  alt="1" width = 375px ></td>
   </tr> 
 </table>
-</center>
 
 ## Installation
 First, clone the repo in your folder and create the conda environment. 
