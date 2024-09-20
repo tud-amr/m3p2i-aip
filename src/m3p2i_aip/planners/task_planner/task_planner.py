@@ -2,7 +2,7 @@ import torch
 import numpy as np
 from m3p2i_aip.utils import skill_utils
 from m3p2i_aip.planners.task_planner import ai_agent, adaptive_action_selection
-from m3p2i_aip.planners.task_planner import isaac_int_req_templates, isaac_state_action_templates
+from m3p2i_aip.planners.task_planner import isaac_state_action_templates
 
 def set_task_planner(cfg):
     if cfg.env_type == "point_env":

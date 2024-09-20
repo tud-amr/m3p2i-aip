@@ -20,7 +20,6 @@ Run in the command line:
 
 class REACTIVE_TAMP:
     def __init__(self, cfg) -> None:
-
         self.sim = wrapper.IsaacGymWrapper(
             cfg.isaacgym,
             cfg.env_type,

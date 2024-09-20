@@ -54,13 +54,10 @@ class Objective(object):
         self.calculate_dist(sim, block_goal)
 
         # Force the robot behind block and goal, align_cost is actually cos(theta)+1
-        # align_cost = align_weight[robot] * (cos_theta + 1) * 5
         align_cost = torch.zeros(self.num_samples, device=self.device)
         align_cost[self.cos_theta>0] = self.cos_theta[self.cos_theta>0]
-        # print('push align', align_cost[:10])
-        # ori_cost = skill_utils.get_general_ori_cube2goal(block_quat, goal_quaternion)
 
-        return 3 * self.dist_cost + 1 * align_cost #+ 10 * ori_cost# [num_envs] 31
+        return 3 * self.dist_cost + 1 * align_cost
 
     def get_pull_cost(self, sim: wrapper, block_goal: torch.tensor):
         self.calculate_dist(sim, block_goal)
@@ -83,16 +80,13 @@ class Objective(object):
         # Force the robot to be in the middle between block and goal, align_cost is actually 1-cos(theta)
         align_cost = torch.zeros(self.num_samples, device=self.device)
         align_cost[self.cos_theta<0] = -self.cos_theta[self.cos_theta<0]  # (1 - cos_theta)
-        # print('pull align', align_cost[-10:])
 
         # Add the cost when the robot is close to the block and moves towards the block
         vel_cost = torch.zeros(self.num_samples, device=self.device)
         robot_block_close = robot_to_block_dist <= 0.5
         vel_cost[flag_towards_block*robot_block_close] = 0.6
 
-        # ori_cost = skill_utils.get_general_ori_cube2goal(block_quat, goal_quaternion)
-
-        return 3 * self.dist_cost + 3 * vel_cost + 7 * align_cost #+ 10 * ori_cost # [num_envs] 315 
+        return 3 * self.dist_cost + 3 * vel_cost + 7 * align_cost
     
     def get_panda_reach_cost(self, sim, pre_pick_goal):
         ee_l_state = sim.get_actor_link_by_name("panda", "panda_leftfinger")
@@ -110,7 +104,6 @@ class Objective(object):
             pre_pick_goal_1[2] += self.pre_height_diff
             pre_pick_goal_2[0] -= self.pre_height_diff * self.tilt_cos_theta
             pre_pick_goal_2[2] += self.pre_height_diff * (1 - self.tilt_cos_theta ** 2) ** 0.5
-            # print("1", pre_pick_goal_1, "2", pre_pick_goal_2)
             pre_pick_goal[:self.half_samples, :] = pre_pick_goal_1
             pre_pick_goal[self.half_samples:, :] = pre_pick_goal_2
             reach_cost = torch.linalg.norm(ee_state[:,:3] - pre_pick_goal, axis = 1) 

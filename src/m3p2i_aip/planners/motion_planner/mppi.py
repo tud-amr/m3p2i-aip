@@ -197,7 +197,7 @@ class MPPI():
         self.eta_min = 0.01     # 1%
         self.lambda_mult = 0.1  # Update rate
 
-        # covariance update
+        # Covariance update
         self.update_cov = cfg.update_cov   # !! weird if set to True
         self.step_size_cov = 0.7
         self.kappa = 0.005
@@ -233,7 +233,7 @@ class MPPI():
             action = self.U[:self.u_per_command]
 
         elif self.mppi_mode == 'halton-spline':
-            # shift command 1 time step [T, nu]
+            # Shift command 1 time step [T, nu]
             self.mean_action = self._shift_action(self.mean_action)
             if self.multi_modal:
                 self.mean_action_1 = self._shift_action(self.mean_action_1)
@@ -283,7 +283,7 @@ class MPPI():
         cost_horizon = torch.zeros([K, T], **self.tensor_args)
         cost_samples = cost_total
 
-        # allow propagation of a sample of states (ex. to carry a distribution), or to start with a single state
+        # Allow propagation of a sample of states (ex. to carry a distribution), or to start with a single state
         if self.state.shape == (K, self.nx):
             state = self.state
         else:
@@ -314,13 +314,11 @@ class MPPI():
             ee_state = 'None' #(self.ee_l_state[:, :3] + self.ee_r_state[:, :3])/2 if self.ee_l_state != 'None' else 'None'
             ee_states.append(ee_state) if ee_state != 'None' else []
             
-        # Actions is K x T x nu
-        # States is K x T x nx
-        actions = torch.stack(actions, dim=-2)
-        states = torch.stack(states, dim=-2)
+        actions = torch.stack(actions, dim=-2) # [K, T, nu]
+        states = torch.stack(states, dim=-2) # [K, T, nx]
         ee_states = torch.stack(ee_states, dim=-2) if ee_states != [] else 'None'
 
-        # action perturbation cost
+        # Action perturbation cost
         if self.terminal_state_cost:
             c = self.terminal_state_cost(states, actions)
             cost_samples += c
@@ -405,7 +403,6 @@ class MPPI():
 
         # Scales action within bounds. act_seq is the same as perturbed actions
         act_seq = scale_ctrl(act_seq, self.u_min, self.u_max, squash_fn=self.squash_fn)
-        # print(act_seq.size())
 
         if self.multi_modal:
             act_seq[0, :, :] = self.best_traj_1
@@ -473,8 +470,7 @@ class MPPI():
                 device=self.device,
                 float_dtype=torch.float32)
             
-            # Sample splines from knot points:
-            # iteratre over action dimension:
+            # Sample splines from knot points, iterate over action dimension:
             knot_samples = self.knot_points.view(sample_shape, self.nu, self.n_knots) # n knots is T/knot_scale (30/4 = 7)
             self.samples = torch.zeros((sample_shape, self.T, self.nu), **self.tensor_args)
             for i in range(sample_shape):
@@ -502,23 +498,21 @@ class MPPI():
         weighted_seq = self.weights.view(-1, 1, 1) * actions # [K, T, nu]
         new_mean = torch.sum(weighted_seq, dim=0)
 
-        # Gradient update for the mean
+        # Update for the mean
         self.mean_action = (1.0 - self.step_size_mean) * self.mean_action +\
             self.step_size_mean * new_mean 
-        # print(self.mean_action.size()) # [T, nu]
        
         delta = actions - self.mean_action.unsqueeze(0)
 
-        #Update Covariance
+        # Update Covariance
         if self.update_cov:
-            #Diagonal covariance of size AxA
+            # Diagonal covariance of size AxA
             weighted_delta = self.weights * (delta ** 2).T
             # cov_update = torch.diag(torch.mean(torch.sum(weighted_delta.T, dim=0), dim=0))
             cov_update = torch.mean(torch.sum(weighted_delta.T, dim=0), dim=0)
     
             self.cov_action = (1.0 - self.step_size_cov) * self.cov_action + self.step_size_cov * cov_update
             self.cov_action += self.kappa #* self.init_cov_action
-            # self.cov_action[self.cov_action < 0.0005] = 0.0005
             self.scale_tril = torch.sqrt(self.cov_action)
 
         return delta

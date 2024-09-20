@@ -54,18 +54,14 @@ class M3P2I(mppi.MPPI):
         total_costs_1 = traj_costs[:self.half_K] - torch.min(traj_costs[:self.half_K])
         total_costs_2 = traj_costs[self.half_K:] - torch.min(traj_costs[self.half_K:])
         total_costs = traj_costs - torch.min(traj_costs)
-        # print('1', total_costs_1)
-        # print('2', total_costs_2)
+
         eta_1, exp_1 = self.update_infinite_beta(total_costs_1, self.beta_1, 10, 3)
         eta_2, exp_2 = self.update_infinite_beta(total_costs_2, self.beta_2, 10, 3)
         eta, exp_ = self.update_infinite_beta(total_costs, self.beta, 10, 3)
-        # exp_ = torch.exp((-1.0/self.beta) * total_costs)
-        # eta = torch.sum(exp_)
 
         self.weights_1 = 1 / eta_1 * exp_1 
         self.weights_2 = 1 / eta_2 * exp_2
         self.weights = 1 / eta * exp_ 
-        # print('weights', self.weights.size())
     
     def _update_multi_modal_distribution(self, costs, actions):
         """

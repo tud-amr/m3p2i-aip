@@ -17,7 +17,6 @@ Run in the command line:
 
 @hydra.main(version_base=None, config_path="../src/m3p2i_aip/config", config_name="config_point")
 def run_sim(cfg: ExampleConfig):
-
     sim = wrapper.IsaacGymWrapper(
         cfg.isaacgym,
         cfg.env_type,
@@ -43,7 +42,6 @@ def run_sim(cfg: ExampleConfig):
             planner.run_tamp(
                 torch_to_bytes(sim._dof_state), torch_to_bytes(sim._root_state))
         )
-        # print("task", cfg.task, "action", action)
         sim.set_dof_velocity_target_tensor(action)
 
         cfg.suction_active = bytes_to_torch(

@@ -3,6 +3,7 @@ import torch, numpy as np
 from typing import List
 from dataclasses import dataclass, field
 import  m3p2i_aip.utils.isaacgym_utils.actor_utils as actor_utils
+
 @dataclass
 class IsaacGymConfig():
     dt: float = 0.05 # 0.01
@@ -33,7 +34,6 @@ def parse_isaacgym_config(cfg: IsaacGymConfig, device: str = "cuda:0") -> gymapi
     # sim_params.physx.friction_offset_threshold = 0.01
     # sim_params.physx.friction_correlation_distance = 0.001
 
-    # return the configured params
     return sim_params
 
 class IsaacGymWrapper:
@@ -175,7 +175,6 @@ class IsaacGymWrapper:
             ),
             device=self.device,
         )
-        # print(rigid_body_idx)
         return self.get_rigid_body_by_rigid_body_index(rigid_body_idx)
 
     def get_actor_contact_forces_by_name(self, actor_name: str, link_name: str):
@@ -221,7 +220,7 @@ class IsaacGymWrapper:
         )
 
     def set_initial_joint_pose(self):
-        # set initial joint poses
+        # Set initial joint poses
         robots = [a for a in self.env_cfg if a.type == "robot"]
         for robot in robots:
             dof_state = []

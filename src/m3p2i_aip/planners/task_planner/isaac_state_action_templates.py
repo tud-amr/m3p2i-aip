@@ -170,12 +170,6 @@ class MDPIsCubeAt:
         self.B[:, :, 2] = np.array([[1, 1, 1],  # place
                                     [0, 0, 0],
                                     [0, 0, 0]])
-        # self.B[:, :, 1] = np.array([[0, 0, 0],  # pick
-        #                             [1, 1, 1],
-        #                             [0, 0, 0]])
-        # self.B[:, :, 2] = np.array([[0, 0, 0],  # place
-        #                             [0, 0, 0],
-        #                             [1, 1, 1]])
         # # Preconditions of the actions above
         # ----------------------------------------------------------
         self.preconditions = [['cube_at_goal'], ['cube_at_table'], ['cube_at_hand']]
